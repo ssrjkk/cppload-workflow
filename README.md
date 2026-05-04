@@ -12,7 +12,7 @@
 | Фича | Статус | Описание |
 |------|--------|----------|
 | **Async HTTP/1.1 Client** | ✅ MVP | Boost.Beast + ASIO, lock-free метрики |
-| **Метрики (Prometheus)** | 🚧 In Progress | Экспорт в формате Prometheus |
+| **Prometheus Exporter** | ✅ DONE | HTTP /metrics endpoint, histograms, gauges |
 | **OpenTelemetry Tracing** | ✅ MVP | Distributed tracing (заглушка, готов API) |
 | **Python SDK** | ✅ MVP | pybind11 bindings, LoadTest orchestration |
 | **Auth (OAuth2/mTLS)** | 🚧 In Progress | AuthProvider интерфейс готов |
@@ -50,7 +50,10 @@
 ### Сборка C++ ядра
 
 ```bash
-# Конфигурация (требуется Boost 1.83+, OpenSSL 3.0+)
+# Установка зависимостей через Conan
+conan install . --output-folder=build --build=missing
+
+# Конфигурация (требуется Boost 1.83+, OpenSSL 3.0+, prometheus-cpp)
 cmake -B build -G Ninja \
   -DCMAKE_BUILD_TYPE=Release \
   -DCPLOAD_BUILD_PYTHON=ON \
@@ -59,8 +62,26 @@ cmake -B build -G Ninja \
 # Сборка
 cmake --build build
 
-# Запуск тестов
+# Запуск тестов (включая Prometheus exporter)
 cd build && ctest --output-on-failure
+```
+
+### Запуск с Prometheus метриками
+
+```cpp
+#include "cppload/metrics/prometheus_exporter.hpp"
+#include "cppload/metrics/collector.hpp"
+
+cppload::metrics::MetricsCollector collector;
+cppload::metrics::PrometheusExporter exporter("0.0.0.0:9090");
+
+exporter.start();  // Запуск HTTP сервера на порту 9090
+
+// В цикле теста
+collector.record_request(200, std::chrono::microseconds(100), 100, 500);
+exporter.update_metrics(collector);  // Обновление метрик
+
+// Prometheus доступен на http://localhost:9090/metrics
 ```
 
 ### Установка Python SDK

@@ -2,11 +2,13 @@
 set(CORE_SOURCES
     net/http_client.cpp
     metrics/collector.cpp
+    metrics/prometheus_exporter.cpp
 )
 
 set(CORE_HEADERS
     ${CMAKE_SOURCE_DIR}/include/cppload/net/http_client.hpp
     ${CMAKE_SOURCE_DIR}/include/cppload/metrics/collector.hpp
+    ${CMAKE_SOURCE_DIR}/include/cppload/metrics/prometheus_exporter.hpp
 )
 
 add_library(cppload_core ${CORE_SOURCES} ${CORE_HEADERS})
@@ -26,6 +28,8 @@ target_link_libraries(cppload_core
         OpenSSL::SSL
         OpenSSL::Crypto
         Threads::Threads
+        prometheus-cpp::core
+        prometheus-cpp::pull
 )
 
 target_compile_features(cppload_core PUBLIC cxx_std_20)

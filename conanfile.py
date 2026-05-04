@@ -11,9 +11,10 @@ class CPPLoadProConan(ConanFile):
         self.requires("boost/1.83.0")
         self.requires("openssl/3.2.0")
         self.requires("nlohmann_json/3.11.2")
-        self.requires("prometheus-cpp/1.1.0")
+        self.requires("prometheus-cpp/1.2.4")
         self.requires("grpc/1.54.0")
         self.requires("protobuf/3.21.12")
+        self.requires("civetweb/1.16")  # Required by prometheus-cpp pull
 
     def layout(self):
         cmake_layout(self)
