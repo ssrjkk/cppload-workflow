@@ -1,0 +1,136 @@
+#include "cppload/net/http_client.hpp"
+#include <boost/beast/http.hpp>
+#include <boost/asio/ip/tcp.hpp>
+#include <boost/asio/connect.hpp>
+#include <chrono>
+
+namespace beast = boost::beast;
+namespace http = beast::http;
+namespace asio = boost::asio;
+namespace net = cppload::net;
+
+class net::HttpClient::Impl {
+public:
+    explicit Impl(asio::io_context& ioc) 
+        : resolver_(ioc), stream_(ioc), timeout_(5000), keep_alive_(true) {}
+    
+    void async_request(const HttpRequest& req, 
+                      std::function<void(const HttpResponse&)> callback) {
+        auto start_time = std::chrono::steady_clock::now();
+        
+        auto response = std::make_shared<HttpResponse>();
+        auto req_msg = std::make_shared<http::request<http::string_body>>();
+        
+        req_msg->method_string(http::string_to_verb(req.method));
+        req_msg->target(req.target);
+        req_msg->version(11);
+        req_msg->set(http::field::host, req.host);
+        req_msg->set(http::field::user_agent, "cppload-pro/1.0");
+        
+        if (!req.body.empty()) {
+            req_msg->body() = req.body;
+            req_msg->prepare_payload();
+        }
+        
+        for (const auto& [key, value] : req.headers) {
+            req_msg->set(key, value);
+        }
+        
+        resolver_.async_resolve(req.host, req.port,
+            [this, req_msg, response, callback, start_time](
+                beast::error_code ec, asio::ip::tcp::resolver::results_type results) {
+                
+                if (ec) {
+                    HttpResponse err_resp;
+                    err_resp.status_code = 0;
+                    callback(err_resp);
+                    return;
+                }
+                
+                stream_.async_connect(results,
+                    [this, req_msg, response, callback, start_time](
+                        beast::error_code ec, const asio::ip::tcp::endpoint&) {
+                        
+                        if (ec) {
+                            HttpResponse err_resp;
+                            err_resp.status_code = 0;
+                            callback(err_resp);
+                            return;
+                        }
+                        
+                        http::async_write(stream_, *req_msg,
+                            [this, req_msg, response, callback, start_time](
+                                beast::error_code ec, std::size_t) {
+                                
+                                if (ec) {
+                                    HttpResponse err_resp;
+                                    err_resp.status_code = 0;
+                                    callback(err_resp);
+                                    return;
+                                }
+                                
+                                auto buffer = std::make_shared<beast::flat_buffer>();
+                                auto res = std::make_shared<http::response<http::string_body>>();
+                                
+                                http::async_read(stream_, *buffer, *res,
+                                    [this, res, response, callback, start_time](
+                                        beast::error_code ec, std::size_t) {
+                                        
+                                        auto end_time = std::chrono::steady_clock::now();
+                                        
+                                        if (ec) {
+                                            response->status_code = 0;
+                                        } else {
+                                            response->status_code = res->result_int();
+                                            response->body = res->body();
+                                            response->latency = 
+                                                std::chrono::duration_cast<std::chrono::microseconds>(
+                                                    end_time - start_time);
+                                            
+                                            for (const auto& field : *res) {
+                                                response->headers[std::string(field.name_string())] = 
+                                                    std::string(field.value());
+                                            }
+                                        }
+                                        
+                                        if (!keep_alive_) {
+                                            stream_.socket().shutdown(asio::ip::tcp::socket::shutdown_both);
+                                        }
+                                        
+                                        callback(*response);
+                                    });
+                            });
+                    });
+            });
+    }
+    
+    void set_timeout(std::chrono::milliseconds timeout) { timeout_ = timeout; }
+    void set_keep_alive(bool keep_alive) { keep_alive_ = keep_alive; }
+    
+private:
+    asio::ip::tcp::resolver resolver_;
+    beast::tcp_stream stream_;
+    std::chrono::milliseconds timeout_;
+    bool keep_alive_;
+};
+
+net::HttpClient::HttpClient(asio::io_context& ioc) 
+    : impl_(std::make_unique<Impl>(ioc)) {}
+
+net::HttpClient::~HttpClient() = default;
+
+net::HttpClient::HttpClient(HttpClient&&) noexcept = default;
+net::HttpClient& net::HttpClient::operator=(HttpClient&&) noexcept = default;
+
+void net::HttpClient::async_request(const HttpRequest& req, 
+                                   std::function<void(const HttpResponse&)> callback) {
+    impl_->async_request(req, callback);
+}
+
+void net::HttpClient::set_timeout(std::chrono::milliseconds timeout) {
+    impl_->set_timeout(timeout);
+}
+
+void net::HttpClient::set_keep_alive(bool keep_alive) {
+    impl_->set_keep_alive(keep_alive);
+}

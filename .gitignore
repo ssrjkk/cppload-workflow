@@ -1,0 +1,35 @@
+# Build artifacts
+build/
+*.exe
+*.dll
+*.so
+*.dylib
+*.a
+*.lib
+
+# Python
+__pycache__/
+*.pyc
+*.egg-info/
+dist/
+.pytest_cache/
+venv/
+.venv/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+CMakeLists.txt.user
+
+# Dependencies
+conan_storage/
+.conan/
+
+# Logs
+*.log
+
+# OS
+Thumbs.db
+.DS_Store

@@ -1,0 +1,58 @@
+version: "1.0"
+test_id: "checkout-stress-2026"
+
+target:
+  base_url: ${TARGET_URL:-http://gateway:8080}
+  protocol: http2
+  tls:
+    verify: true
+
+authentication:
+  type: oauth2
+  token_endpoint: "https://auth.internal/oauth/token"
+  client_credentials:
+    client_id: ${CLIENT_ID}
+    client_secret: ${CLIENT_SECRET}
+
+load_profile:
+  - stage: rampup
+    duration: 5m
+    target_rps: 1000
+  - stage: steady
+    duration: 30m
+    target_rps: 5000
+  - stage: spike
+    duration: 2m
+    target_rps: 15000
+
+scenarios:
+  - name: "user_checkout_flow"
+    weight: 70
+    steps:
+      - http:
+          method: GET
+          path: "/api/v1/products"
+      - http:
+          method: POST
+          path: "/api/v1/cart"
+          body:
+            item_id: "${faker:uuid}"
+          assertions:
+            - status_code == 201
+            - latency_p95 < 200ms
+
+observability:
+  metrics:
+    prometheus:
+      enabled: true
+      port: 9090
+  tracing:
+    otlp_endpoint: "http://jaeger:4317"
+    sample_rate: 0.1
+  logging:
+    level: info
+    format: json
+
+sla:
+  error_rate: "< 0.1%"
+  p99_latency: "< 500ms"

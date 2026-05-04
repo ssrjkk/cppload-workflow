@@ -1,0 +1,29 @@
+[build-system]
+requires = ["setuptools>=61.0", "pybind11>=2.11.0", "cmake>=3.20"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "cppload-pro"
+version = "1.0.0"
+description = "Enterprise Load Testing Platform - Python SDK"
+readme = "README.md"
+requires-python = ">=3.9"
+license = {text = "Apache-2.0"}
+authors = [
+    {name = "cppload-pro contributors"},
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: C++",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=7.0", "black", "mypy", "allure-pytest"]
+
+[tool.setuptools.packages.find]
+where = ["python"]
+
+[tool.setuptools.package-dir]
+"cppload" = "python/cppload"

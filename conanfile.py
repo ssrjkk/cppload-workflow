@@ -1,0 +1,28 @@
+from conan import ConanFile
+from conan.tools.cmake import CMakeToolchain, CMake, cmake_layout
+
+class CPPLoadProConan(ConanFile):
+    name = "cppload-pro"
+    version = "1.0.0"
+    settings = "os", "compiler", "build_type", "arch"
+    generators = "CMakeDeps"
+
+    def requirements(self):
+        self.requires("boost/1.83.0")
+        self.requires("openssl/3.2.0")
+        self.requires("nlohmann_json/3.11.2")
+        self.requires("prometheus-cpp/1.1.0")
+        self.requires("grpc/1.54.0")
+        self.requires("protobuf/3.21.12")
+
+    def layout(self):
+        cmake_layout(self)
+
+    def generate(self):
+        tc = CMakeToolchain(self)
+        tc.generate()
+
+    def build(self):
+        cmake = CMake(self)
+        cmake.configure()
+        cmake.build()
