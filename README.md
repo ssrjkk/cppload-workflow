@@ -11,12 +11,15 @@
 
 | Фича | Статус | Описание |
 |------|--------|----------|
-| **Async HTTP/1.1 Client** | ✅ MVP | Boost.Beast + ASIO, lock-free метрики |
-| **Prometheus Exporter** | ✅ DONE | HTTP /metrics endpoint, histograms, gauges |
+| **Async HTTP/1.1 Client** | ✅ DONE | Boost.Beast + ASIO, lock-free метрики |
+| **Connection Pool** | ✅ DONE | Переиспользование TCP/TLS соединений |
+| **YAML Scenario Engine** | ✅ DONE | Парсинг конфигов, SLA валидация |
+| **Prometheus Exporter** | ✅ DONE | HTTP /metrics, histograms, gauges |
+| **Docker Multi-stage** | ✅ DONE | <50MB runtime image (вместо 1GB+) |
+| **Helm Charts** | ✅ DONE | K8s деплой за 2 минуты |
 | **OpenTelemetry Tracing** | ✅ MVP | Distributed tracing (заглушка, готов API) |
 | **Python SDK** | ✅ MVP | pybind11 bindings, LoadTest orchestration |
 | **Auth (OAuth2/mTLS)** | 🚧 In Progress | AuthProvider интерфейс готов |
-| **Kubernetes Deployment** | 📋 Planned | Helm charts |
 | **HashiCorp Vault** | 📋 Planned | Secrets management |
 
 ## 🏗️ Архитектура
@@ -62,26 +65,91 @@ cmake -B build -G Ninja \
 # Сборка
 cmake --build build
 
-# Запуск тестов (включая Prometheus exporter)
+# Запуск тестов (включая Prometheus exporter и scenario engine)
 cd build && ctest --output-on-failure
 ```
 
-### Запуск с Prometheus метриками
+### Docker сборка (Multi-stage, <50MB)
+
+```bash
+# Сборка образа
+docker build -t cppload-pro:latest -f deploy/docker/Dockerfile .
+
+# Размер образа
+docker images | grep cppload-pro
+# cppload-pro  latest  xxxxx  xxMB (instead of 1GB+)
+
+# Запуск
+docker run -p 9090:9090 cppload-pro:latest --target http://target:8080 --rps 5000
+```
+
+### Kubernetes деплой (Helm, 2 минуты)
+
+```bash
+# Добавить репозиторий (если нужно)
+helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+
+# Деплой cppload-pro
+helm install cppload ./deploy/kubernetes/helm \
+  --set worker.loadTest.targetUrl=http://my-target:8080 \
+  --set worker.loadTest.rps=10000 \
+  --set metrics.serviceMonitor.enabled=true
+
+# Проверка
+kubectl get pods -l app.kubernetes.io/name=cppload-pro
+kubectl port-forward svc/cppload-pro 9090:9090
+
+# Prometheus метрики доступны на http://localhost:9090/metrics
+```
+
+### YAML Scenario Engine
+
+```yaml
+# scenarios/my-test.yaml
+version: "1.0"
+test_id: "stress-test-2026"
+
+target:
+  base_url: http://target:8080
+
+load_profile:
+  - stage: rampup
+    duration: 2m
+    target_rps: 1000
+  - stage: steady
+    duration: 30m
+    target_rps: 10000
+
+scenarios:
+  - name: "checkout_flow"
+    weight: 70
+    steps:
+      - http:
+          method: GET
+          path: "/api/products"
+      - http:
+          method: POST
+          path: "/api/cart"
+          assertions:
+            - status_code == 201
+            - latency_p95 < 200ms
+
+sla:
+  error_rate: "< 0.1%"
+  p99_latency: "< 500ms"
+```
+
+### Connection Pool (Performance Boost)
 
 ```cpp
-#include "cppload/metrics/prometheus_exporter.hpp"
-#include "cppload/metrics/collector.hpp"
+#include "cppload/net/connection_pool.hpp"
 
-cppload::metrics::MetricsCollector collector;
-cppload::metrics::PrometheusExporter exporter("0.0.0.0:9090");
+cppload::net::ConnectionPool pool(ioc, {.max_connections = 100});
 
-exporter.start();  // Запуск HTTP сервера на порту 9090
-
-// В цикле теста
-collector.record_request(200, std::chrono::microseconds(100), 100, 500);
-exporter.update_metrics(collector);  // Обновление метрик
-
-// Prometheus доступен на http://localhost:9090/metrics
+// Использование переиспользуемых соединений
+auto client = pool.acquire("target.com", "80");
+// ... выполнение запроса ...
+pool.release(std::move(client), "target.com", "80");  // Возврат в пул
 ```
 
 ### Установка Python SDK
@@ -195,11 +263,15 @@ cppload-pro/
 
 - [x] **Core MVP** — Async HTTP client, базовые метрики
 - [x] **Python bindings** — pybind11 интеграция
-- [ ] **Prometheus exporter** — /metrics endpoint
+- [x] **Prometheus exporter** — /metrics endpoint (civetweb)
+- [x] **YAML Scenario Engine** — конфигурация тестов, SLA валидация
+- [x] **Connection Pool** — переиспользование соединений
+- [x] **Docker Multi-stage** — <50MB runtime image
+- [x] **Helm Charts** — K8s деплой за 2 минуты
 - [ ] **Auth providers** — OAuth2, API Key, mTLS
 - [ ] **Distributed mode** — gRPC контроллер + воркеры
-- [ ] **Kubernetes** — Helm charts для деплоя
 - [ ] **Vault integration** — безопасное управление секретами
+- [ ] **Real OpenTelemetry OTLP** — заменить заглушку
 
 ## 🤝 Contributing
 

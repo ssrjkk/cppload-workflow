@@ -1,0 +1,23 @@
+apiVersion: v2
+name: cppload-pro
+version: 1.0.0
+appVersion: "1.0.0"
+description: Enterprise Load Testing Platform with C++20 core
+type: application
+
+maintainers:
+  - name: cppload-pro contributors
+    email: your-email@example.com
+
+keywords:
+  - load-testing
+  - performance
+  - cpp
+  - prometheus
+  - opentelemetry
+
+sources:
+  - https://github.com/ssrjkk/cppload-workflow
+
+# Dependencies (if using external services)
+dependencies: []

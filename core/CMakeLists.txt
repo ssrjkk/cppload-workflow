@@ -1,14 +1,18 @@
 # Core library sources
 set(CORE_SOURCES
     net/http_client.cpp
+    net/connection_pool.cpp
     metrics/collector.cpp
     metrics/prometheus_exporter.cpp
+    scenario/engine.cpp
 )
 
 set(CORE_HEADERS
     ${CMAKE_SOURCE_DIR}/include/cppload/net/http_client.hpp
+    ${CMAKE_SOURCE_DIR}/include/cppload/net/connection_pool.hpp
     ${CMAKE_SOURCE_DIR}/include/cppload/metrics/collector.hpp
     ${CMAKE_SOURCE_DIR}/include/cppload/metrics/prometheus_exporter.hpp
+    ${CMAKE_SOURCE_DIR}/include/cppload/scenario/engine.hpp
 )
 
 add_library(cppload_core ${CORE_SOURCES} ${CORE_HEADERS})
