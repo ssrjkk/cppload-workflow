@@ -289,6 +289,13 @@ cppload-pro/
 
 См. [CONTRIBUTING.md](CONTRIBUTING.md). ADR (Architecture Decision Records) находятся в `docs/`.
 
+## Author
+
+**ssrjkk**
+- Telegram: [@ssrjkk](https://t.me/ssrjkk)
+- Email: ray013lefe@gmail.com
+- GitHub: [https://github.com/ssrjkk](https://github.com/ssrjkk)
+
 ## License
 
 Apache 2.0 — см. [LICENSE](LICENSE).
