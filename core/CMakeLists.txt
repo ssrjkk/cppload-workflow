@@ -5,6 +5,12 @@ set(CORE_SOURCES
     metrics/collector.cpp
     metrics/prometheus_exporter.cpp
     scenario/engine.cpp
+    scenario/yaml_parser.cpp
+    otel/exporter.cpp
+    otel/otlp_exporter.cpp
+    security/auth_provider.cpp
+    security/tls_context.cpp
+    vault/vault_client.cpp
 )
 
 set(CORE_HEADERS
@@ -13,6 +19,10 @@ set(CORE_HEADERS
     ${CMAKE_SOURCE_DIR}/include/cppload/metrics/collector.hpp
     ${CMAKE_SOURCE_DIR}/include/cppload/metrics/prometheus_exporter.hpp
     ${CMAKE_SOURCE_DIR}/include/cppload/scenario/engine.hpp
+    ${CMAKE_SOURCE_DIR}/include/cppload/otel/exporter.hpp
+    ${CMAKE_SOURCE_DIR}/include/cppload/security/auth_provider.hpp
+    ${CMAKE_SOURCE_DIR}/include/cppload/security/tls_context.hpp
+    ${CMAKE_SOURCE_DIR}/include/cppload/vault/vault_client.hpp
 )
 
 add_library(cppload_core ${CORE_SOURCES} ${CORE_HEADERS})

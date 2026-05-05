@@ -1,0 +1,66 @@
+syntax = "proto3";
+
+package cppload;
+
+option csharp_namespace = "Cppload.Pro";
+option java_package = "com.cppload.pro";
+option java_outer_classname = "LoadControllerProto";
+
+service LoadController {
+  rpc RegisterWorker(RegisterWorkerRequest) returns (RegisterWorkerResponse);
+  rpc AssignTask(AssignTaskRequest) returns (AssignTaskResponse);
+  rpc ReportMetrics(stream MetricsReport) returns (Ack);
+  rpc UnregisterWorker(UnregisterWorkerRequest) returns (Ack);
+}
+
+message RegisterWorkerRequest {
+  string worker_id = 1;
+  string worker_address = 2;
+  int32 max_rps = 3;
+}
+
+message RegisterWorkerResponse {
+  bool accepted = 1;
+  string controller_id = 2;
+  int32 assigned_worker_id = 3;
+}
+
+message AssignTaskRequest {
+  int32 worker_id = 1;
+}
+
+message TaskSpec {
+  string scenario_name = 1;
+  string target_url = 2;
+  int32 target_rps = 3;
+  int32 duration_seconds = 4;
+  map<string, string> headers = 5;
+}
+
+message AssignTaskResponse {
+  bool has_task = 1;
+  TaskSpec task = 2;
+}
+
+message MetricsReport {
+  int32 worker_id = 1;
+  uint64 timestamp_ms = 2;
+  uint64 total_requests = 3;
+  uint64 successful_requests = 4;
+  uint64 failed_requests = 5;
+  double mean_latency_us = 6;
+  double p95_latency_us = 7;
+  double p99_latency_us = 8;
+  double current_rps = 9;
+  double error_rate = 10;
+}
+
+message Ack {
+  bool success = 1;
+  string message = 2;
+}
+
+message UnregisterWorkerRequest {
+  int32 worker_id = 1;
+  string reason = 2;
+}

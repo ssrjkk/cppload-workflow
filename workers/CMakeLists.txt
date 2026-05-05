@@ -1,2 +1,2 @@
 add_subdirectory(http_worker)
-# add_subdirectory(grpc_worker)
+add_subdirectory(grpc_worker)
