@@ -9,9 +9,9 @@
 **Decision:** Use C++20 with Boost.Beast for async I/O.
 
 **Consequences:**
-- ✅ 50k+ RPS per node achievable
-- ✅ Zero-copy where possible
-- ❌ Steeper learning curve than Go/Java
+- [YES] 50k+ RPS per node achievable
+- [YES] Zero-copy where possible
+- [NO] Steeper learning curve than Go/Java
 
 ## ADR-002: Python Control Plane
 
@@ -22,9 +22,9 @@
 **Decision:** Use Python with pybind11 for C++ bindings.
 
 **Consequences:**
-- ✅ Rapid scenario development
-- ✅ Rich ecosystem (Allure, Prometheus)
-- ❌ GIL limitations (mitigated by C++ workers)
+- [YES] Rapid scenario development
+- [YES] Rich ecosystem (Allure, Prometheus)
+- [NO] GIL limitations (mitigated by C++ workers)
 
 ## ADR-003: OpenTelemetry for Observability
 
@@ -35,6 +35,6 @@
 **Decision:** Integrate OpenTelemetry C++ SDK.
 
 **Consequences:**
-- ✅ Vendor-neutral standard
-- ✅ Compatible with Jaeger/Zipkin
-- ❌ Additional dependency
+- [YES] Vendor-neutral standard
+- [YES] Compatible with Jaeger/Zipkin
+- [NO] Additional dependency

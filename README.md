@@ -1,29 +1,24 @@
 # cppload-pro
 
-[![CI](https://github.com/your-org/cppload-pro/actions/workflows/ci.yml/badge.svg)](https://github.com/your-org/cppload-pro/actions/workflows/ci.yml)
-[![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
-[![C++20](https://img.shields.io/badge/C++-20-00599C.svg)](https://en.cppreference.com/w/cpp/20)
-[![Python](https://img.shields.io/badge/python-3.9+-green.svg)](https://www.python.org/)
-
 **Enterprise Load Testing Platform** — высокопроизводительная система нагрузочного тестирования с ядром на C++20 и оркестрацией на Python.
 
-## 🎯 Возможности
+## Возможности
 
 | Фича | Статус | Описание |
 |------|--------|----------|
-| **Async HTTP/1.1 Client** | ✅ DONE | Boost.Beast + ASIO, lock-free метрики |
-| **Connection Pool** | ✅ DONE | Переиспользование TCP/TLS соединений |
-| **YAML Scenario Engine** | ✅ DONE | Парсинг конфигов, SLA валидация |
-| **Prometheus Exporter** | ✅ DONE | HTTP /metrics, histograms, gauges |
-| **Docker Multi-stage** | ✅ DONE | <50MB runtime image (вместо 1GB+) |
-| **Helm Charts** | ✅ DONE | K8s деплой за 2 минуты |
-| **Auth Providers** | ✅ DONE | OAuth2, API Key, mTLS (TlsContext) |
-| **HashiCorp Vault** | ✅ DONE | VaultClient интеграция |
-| **gRPC Distributed Mode** | ✅ DONE | Controller-Worker архитектура |
-| **OpenTelemetry (OTLP)** | ✅ DONE | Реальный экспорт трейсов |
-| **Python SDK** | ✅ DONE | pybind11 bindings, LoadTest orchestration |
+| **Async HTTP/1.1 Client** | DONE | Boost.Beast + ASIO, lock-free метрики |
+| **Connection Pool** | DONE | Переиспользование TCP/TLS соединений |
+| **YAML Scenario Engine** | DONE | Парсинг конфигов, SLA валидация |
+| **Prometheus Exporter** | DONE | HTTP /metrics, histograms, gauges |
+| **Docker Multi-stage** | DONE | <50MB runtime image (вместо 1GB+) |
+| **Helm Charts** | DONE | K8s деплой за 2 минуты |
+| **Auth Providers** | DONE | OAuth2, API Key, mTLS (TlsContext) |
+| **HashiCorp Vault** | DONE | VaultClient интеграция |
+| **gRPC Distributed Mode** | DONE | Controller-Worker архитектура |
+| **OpenTelemetry (OTLP)** | DONE | Реальный экспорт трейсов |
+| **Python SDK** | DONE | pybind11 bindings, LoadTest orchestration |
 
-## 🏗️ Архитектура
+## Архитектура
 
 ```
 ┌─────────────────────────────────────────────────┐
@@ -49,7 +44,7 @@
     [Target: HTTP]  [Target: gRPC]
 ```
 
-## 🚀 Быстрый старт
+## Быстрый старт
 
 ### Сборка C++ ядра
 
@@ -78,7 +73,6 @@ docker build -t cppload-pro:latest -f deploy/docker/Dockerfile .
 
 # Размер образа
 docker images | grep cppload-pro
-# cppload-pro  latest  xxxxx  xxMB (instead of 1GB+)
 
 # Запуск
 docker run -p 9090:9090 cppload-pro:latest --target http://target:8080 --rps 5000
@@ -182,7 +176,7 @@ docker-compose -f deploy/demo-env/docker-compose.yml up -d
 python -c "from cppload import LoadTest; t = LoadTest('scenarios/ecommerce/load-test.yaml'); t.run()"
 ```
 
-## 📊 Пример конфигурации (YAML)
+## Пример конфигурации (YAML)
 
 ```yaml
 version: "1.0"
@@ -219,7 +213,7 @@ sla:
   p99_latency: "< 500ms"
 ```
 
-## 📂 Структура проекта
+## Структура проекта
 
 ```
 cppload-pro/
@@ -239,7 +233,7 @@ cppload-pro/
 └── docs/                    # ADR, спецификации
 ```
 
-## 🔧 Технологический стек
+## Технологический стек
 
 **C++ Core:**
 - C++20 (coroutines, concepts)
@@ -260,7 +254,7 @@ cppload-pro/
 - Prometheus + Grafana (мониторинг)
 - Jaeger (трейсинг)
 
-## 📈 Roadmap (100% Complete)
+## Roadmap (100% Complete)
 
 - [x] **Core MVP** — Async HTTP client, базовые метрики
 - [x] **Python bindings** — pybind11 интеграция
@@ -269,23 +263,13 @@ cppload-pro/
 - [x] **Connection Pool** — переиспользование соединений
 - [x] **Docker Multi-stage** — <50MB runtime image
 - [x] **Helm Charts** — K8s деплой за 2 минуты
-- [x] **Auth providers** — OAuth2, API Key, mTLS (TlsContext)
+- [x] **Auth providers** — OAuth2, API Key, mTLS
 - [x] **Distributed mode** — gRPC контроллер + воркеры
 - [x] **Vault integration** — безопасное управление секретами
 - [x] **Real OpenTelemetry OTLP** — экспорт трейсов
 - [x] **Demo environment** — Docker Compose + setup scripts
 
-## 🤝 Contributing
-
-См. [CONTRIBUTING.md](CONTRIBUTING.md). ADR (Architecture Decision Records) находятся в `docs/`.
-
-## 📄 License
-
-Apache 2.0 — см. [LICENSE](LICENSE).
-
----
-
-## 🎯 Для резюме
+## Для резюме
 
 **Проект: cppload-pro — Enterprise Load Testing Platform**
 
@@ -300,3 +284,15 @@ Apache 2.0 — см. [LICENSE](LICENSE).
 - Спроектировал Connection Pool для переиспользования TCP/TLS соединений
 
 Стек: C++20, Boost.ASIO, gRPC, Prometheus, OpenTelemetry, Kubernetes, Helm, HashiCorp Vault, Python, pybind11
+
+## Contributing
+
+См. [CONTRIBUTING.md](CONTRIBUTING.md). ADR (Architecture Decision Records) находятся в `docs/`.
+
+## License
+
+Apache 2.0 — см. [LICENSE](LICENSE).
+
+---
+
+> **Для резюме:** Проектирование и разработка распределенной системы нагрузочного тестирования с ядром на C++20 (50k+ RPS на ноду), интеграцией OpenTelemetry и деплоем в Kubernetes.
