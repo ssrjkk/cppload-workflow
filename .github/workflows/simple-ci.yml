@@ -4,22 +4,32 @@ on:
   push:
     branches: [main]
   pull_request:
+    branches: [main]
 
 jobs:
-  test:
+  build:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
+
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install deps
+      - name: Install system dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y cmake ninja-build g++ libboost-all-dev libssl-dev
+
+      - name: Install Conan
+        run: pip install conan
+
+      - name: Install C++ dependencies via Conan
+        run: conan install . --output-folder=build-conan --build=missing -s build_type=Release
 
       - name: Configure
         run: |
           cmake -B build -G Ninja \
             -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_TOOLCHAIN_FILE=build-conan/conan_toolchain.cmake \
             -DCPLOAD_BUILD_TESTS=OFF \
             -DCPLOAD_BUILD_PYTHON=OFF \
             -DCPLOAD_BUILD_WORKERS=OFF
@@ -31,13 +41,8 @@ jobs:
         run: |
           python3 -c "
 import os
-print('Project structure:')
 for root, dirs, files in os.walk('.'):
-    level = root.replace('.', '').count(os.sep)
-    indent = ' ' * 2 * level
-    if level < 3:
-        print(f'{indent}{os.path.basename(root)}/')
-        subindent = ' ' * 2 * (level + 1)
-        for file in files[:3]:
-            print(f'{subindent}{file}')
+    name = os.path.basename(root)
+    if root.count(os.sep) - root.replace('.','').count(os.sep) < 2:
+        print(f'{name}/')
 "
