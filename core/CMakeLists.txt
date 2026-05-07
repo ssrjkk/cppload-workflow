@@ -42,9 +42,16 @@ target_link_libraries(cppload_core
         OpenSSL::SSL
         OpenSSL::Crypto
         Threads::Threads
-        prometheus-cpp::core
-        prometheus-cpp::pull
 )
+
+if(prometheus-cpp_FOUND)
+    target_link_libraries(cppload_core
+        PUBLIC 
+            prometheus-cpp::core
+            prometheus-cpp::pull
+    )
+    target_compile_definitions(cppload_core PUBLIC CPLOAD_HAVE_PROMETHEUS)
+endif()
 
 target_compile_features(cppload_core PUBLIC cxx_std_20)
 
