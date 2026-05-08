@@ -3,7 +3,7 @@ from conan.tools.cmake import CMakeToolchain, CMake, cmake_layout
 
 class CPPLoadProConan(ConanFile):
     name = "cppload-pro"
-    version = "1.0.0"
+    version = open("VERSION").read().strip()
     settings = "os", "compiler", "build_type", "arch"
     generators = "CMakeDeps"
 
@@ -12,9 +12,9 @@ class CPPLoadProConan(ConanFile):
         self.requires("openssl/3.2.0")
         self.requires("nlohmann_json/3.11.2")
         self.requires("prometheus-cpp/1.2.4")
-        self.requires("grpc/1.54.0")
-        self.requires("protobuf/3.21.12")
-        self.requires("civetweb/1.16")  # Required by prometheus-cpp pull
+        self.requires("grpc/1.63.0")
+        self.requires("protobuf/4.25.3")
+        self.requires("civetweb/1.16")
 
     def layout(self):
         cmake_layout(self)

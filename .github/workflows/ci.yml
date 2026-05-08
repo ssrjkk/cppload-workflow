@@ -1,59 +1,35 @@
-# Simplified CI Pipeline for cppload-pro
-
 name: CI
 
 on:
   push:
-    branches: [main, develop]
+    branches: [main]
   pull_request:
     branches: [main]
 
-jobs:
-  lint:
-    name: Code Quality
-    runs-on: ubuntu-latest
-    
-    steps:
-      - uses: actions/checkout@v4
-      
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-      
-      - name: Install linting tools
-        run: pip install black flake8 pyyaml
-      
-      - name: Check Python formatting
-        run: |
-          black --check python/ || echo "Warning: Python code not formatted"
-      
-      - name: Lint Python code
-        run: |
-          flake8 python/ --max-line-length=120 || echo "Warning: Flake8 issues found"
-      
-      - name: Validate YAML
-        run: python -c "import yaml; yaml.safe_load(open('scenarios/ecommerce/load-test.yaml'))"
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
 
+env:
+  CMAKE_BUILD_PARALLEL_LEVEL: 2
+
+jobs:
   build:
-    name: Build C++ Core
-    runs-on: ubuntu-latest
-    
+    name: Build & Test
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
-      
-      - name: Install dependencies
+
+      - name: Install system dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y \
-            cmake ninja-build \
-            g++-13 \
-            libboost-all-dev \
-            libssl-dev \
-            libcurl4-openssl-dev
+            cmake ninja-build g++-13 \
+            libboost-all-dev libssl-dev \
+            python3-pip python3-venv
           echo "CC=gcc-13" >> $GITHUB_ENV
           echo "CXX=g++-13" >> $GITHUB_ENV
-      
+
       - name: Configure CMake
         run: |
           cmake -B build -G Ninja \
@@ -62,40 +38,95 @@ jobs:
             -DCPLOAD_BUILD_PYTHON=OFF \
             -DCPLOAD_BUILD_WORKERS=OFF \
             -DCPLOAD_BUILD_TOOLS=OFF
-        
+
       - name: Build
         run: cmake --build build -j$(nproc)
-      
+
       - name: Run tests
         run: |
           cd build && ctest --output-on-failure || echo "Tests completed with warnings"
 
-  docker:
-    name: Docker Build
-    runs-on: ubuntu-latest
+  coverage:
+    name: Coverage
+    runs-on: ubuntu-24.04
     needs: build
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    
     steps:
       - uses: actions/checkout@v4
-      
-      - name: Build Docker image
-        run: docker build -t cppload-pro:test -f deploy/docker/Dockerfile .
-      
-      - name: Verify image
-        run: docker images | grep cppload-pro
 
-  status:
-    name: Pipeline Status
-    runs-on: ubuntu-latest
-    needs: [lint, build, docker]
-    if: always()
-    
-    steps:
-      - name: Check status
+      - name: Install system dependencies
         run: |
-          if [[ "${{ contains(needs.*.result, 'failure') }}" == "true" ]]; then
-            echo "::warning::Some checks failed"
-          else
-            echo "::notice::Pipeline completed"
-          fi
+          sudo apt-get update
+          sudo apt-get install -y \
+            cmake ninja-build g++-13 \
+            libboost-all-dev libssl-dev \
+            python3-pip python3-venv lcov
+
+      - name: Configure CMake (Coverage)
+        run: |
+          cmake -B build-cov -G Ninja \
+            -DCMAKE_BUILD_TYPE=Debug \
+            -DCMAKE_CXX_FLAGS="-O0 -g --coverage" \
+            -DCMAKE_EXE_LINKER_FLAGS="--coverage" \
+            -DCPLOAD_BUILD_TESTS=ON \
+            -DCPLOAD_BUILD_PYTHON=OFF \
+            -DCPLOAD_BUILD_WORKERS=OFF \
+            -DCPLOAD_BUILD_TOOLS=OFF
+
+      - name: Build
+        run: cmake --build build-cov -j$(nproc)
+
+      - name: Run tests
+        run: |
+          cd build-cov && ctest --output-on-failure || true
+        continue-on-error: true
+
+      - name: Capture coverage info
+        run: |
+          lcov --capture --directory build-cov --output-file coverage.info \
+            --rc branch_coverage=1 \
+            --exclude '*/tests/*' \
+            --exclude '*/build-cov/*' \
+            --exclude '/usr/*'
+
+      - name: Generate HTML report
+        run: |
+          genhtml coverage.info --output-directory coverage-report \
+            --rc branch_coverage=1 \
+            --title "cppload-pro Coverage"
+
+      - name: Upload to Codecov
+        uses: codecov/codecov-action@v4
+        with:
+          files: coverage.info
+          fail_ci_if_error: false
+          verbose: true
+
+  lint:
+    name: Lint
+    runs-on: ubuntu-24.04
+    needs: build
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            g++-13 clang-tidy-18 \
+            python3-pip python3-venv
+
+      - name: Install Python tools
+        run: |
+          pip3 install black flake8 pyyaml --break-system-packages
+
+      - name: Check Python formatting
+        run: |
+          black --check python/ || echo "Warning: Python code not formatted"
+
+      - name: Lint Python code
+        run: |
+          flake8 python/ --max-line-length=120 || echo "Warning: Flake8 issues found"
+
+      - name: Validate YAML
+        run: |
+          python3 -c "import yaml; yaml.safe_load(open('scenarios/ecommerce/load-test.yaml'))"

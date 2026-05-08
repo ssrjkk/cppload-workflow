@@ -1,0 +1,28 @@
+Checks: >
+  modernize-*,
+  cppcoreguidelines-*,
+  -cppcoreguidelines-avoid-magic-numbers,
+  bugprone-*,
+  cert-*,
+  performance-*,
+  -modernize-use-trailing-return-type,
+  -bugprone-easily-swappable-parameters,
+  -cppcoreguidelines-pro-type-union-access,
+  -cppcoreguidelines-owning-memory,
+
+WarningsAsErrors: >
+  modernize-*,
+  performance-*,
+  bugprone-*,
+
+HeaderFilterRegex: '^(?!.*(build/|conan/|_deps/|cmake-build)).*\.hpp$'
+
+CheckOptions:
+  - key:   modernize-loop-convert.MinConfidence
+    value: reasonable
+  - key:   modernize-pass-by-value.ValuesOnly
+    value: true
+  - key:   performance-unnecessary-value-param.AllowedTypes
+    value: 'std::string;std::vector;std::function'
+  - key:   bugprone-argument-comment.StrictMode
+    value:  true

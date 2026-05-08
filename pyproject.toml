@@ -4,10 +4,10 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "cppload-pro"
-version = "1.0.0"
+dynamic = ["version"]
 description = "Enterprise Load Testing Platform - Python SDK"
 readme = "README.md"
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 license = {text = "Apache-2.0"}
 authors = [
     {name = "cppload-pro contributors"},
@@ -20,10 +20,27 @@ classifiers = [
 ]
 
 [project.optional-dependencies]
-dev = ["pytest>=7.0", "black", "mypy", "allure-pytest"]
+dev = [
+    "pytest==8.2.0",
+    "black==24.4.2",
+    "mypy==1.10.0",
+    "allure-pytest==2.13.5",
+]
+
+[tool.setuptools.dynamic]
+version = {file = "VERSION"}
 
 [tool.setuptools.packages.find]
 where = ["python"]
 
 [tool.setuptools.package-dir]
 "cppload" = "python/cppload"
+
+[tool.mypy]
+strict = true
+python_version = "3.10"
+ignore_missing_imports = true
+
+[tool.black]
+line-length = 100
+target-version = ["py310"]

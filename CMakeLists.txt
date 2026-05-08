@@ -1,5 +1,7 @@
-cmake_minimum_required(VERSION 3.20)
-project(cppload-pro VERSION 1.0.0 LANGUAGES CXX)
+cmake_minimum_required(VERSION 3.21)
+file(READ VERSION PROJECT_VERSION_STRING)
+string(STRIP "${PROJECT_VERSION_STRING}" PROJECT_VERSION_STRING)
+project(cppload-pro VERSION ${PROJECT_VERSION_STRING} LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -10,10 +12,10 @@ include(CMakeDependentOption)
 
 # Build options
 option(BUILD_SHARED_LIBS "Build shared libraries" OFF)
-cmake_dependent_option(CPLOAD_BUILD_TESTS "Build tests" ON "CMAKE_PROJECT_NAME:STREQUAL:PROJECT_NAME" OFF)
-cmake_dependent_option(CPLOAD_BUILD_PYTHON "Build Python bindings" ON "CMAKE_PROJECT_NAME:STREQUAL:PROJECT_NAME" OFF)
-cmake_dependent_option(CPLOAD_BUILD_WORKERS "Build worker executables" ON "CMAKE_PROJECT_NAME:STREQUAL:PROJECT_NAME" OFF)
-cmake_dependent_option(CPLOAD_BUILD_TOOLS "Build CLI tools" ON "CMAKE_PROJECT_NAME:STREQUAL:PROJECT_NAME" OFF)
+cmake_dependent_option(CPLOAD_BUILD_TESTS "Build tests" ON PROJECT_IS_TOP_LEVEL OFF)
+cmake_dependent_option(CPLOAD_BUILD_PYTHON "Build Python bindings" ON PROJECT_IS_TOP_LEVEL OFF)
+cmake_dependent_option(CPLOAD_BUILD_WORKERS "Build worker executables" ON PROJECT_IS_TOP_LEVEL OFF)
+cmake_dependent_option(CPLOAD_BUILD_TOOLS "Build CLI tools" ON PROJECT_IS_TOP_LEVEL OFF)
 
 # Dependencies via Conan or find_package
 find_package(Boost 1.83 REQUIRED COMPONENTS system)
@@ -23,9 +25,6 @@ find_package(Threads REQUIRED)
 # Optional dependencies
 find_package(nlohmann_json QUIET)
 find_package(prometheus-cpp QUIET)
-
-# Include directories
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include)
 
 # Core library
 add_subdirectory(core)

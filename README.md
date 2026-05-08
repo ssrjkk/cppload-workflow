@@ -1,5 +1,9 @@
 # cppload-pro
 
+[![CI](https://github.com/ssrjkk/cppload-workflow/actions/workflows/ci.yml/badge.svg)](https://github.com/ssrjkk/cppload-workflow/actions/workflows/ci.yml)
+[![Coverage](https://codecov.io/gh/ssrjkk/cppload-workflow/branch/main/graph/badge.svg)](https://codecov.io/gh/ssrjkk/cppload-workflow)
+[![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
+
 **Enterprise Load Testing Platform** — высокопроизводительная система нагрузочного тестирования с ядром на C++20 и оркестрацией на Python.
 
 ## Возможности
@@ -44,17 +48,31 @@
     [Target: HTTP]  [Target: gRPC]
 ```
 
+## Development Setup
+
+```bash
+# Установка pre-commit hooks
+pre-commit install
+
+# Генерация lock-файла для детерминированных сборок
+conan lock create . --build=missing --lockfile-out=conan.lock
+```
+
 ## Быстрый старт
 
 ### Сборка C++ ядра
 
 ```bash
-# Установка зависимостей через Conan
-conan install . --output-folder=build --build=missing
+# Генерация lock-файла (один раз)
+conan lock create . --build=missing --lockfile-out=conan.lock
+
+# Установка зависимостей через Conan (с lock-файлом)
+conan install . --output-folder=build --build=missing --lockfile=conan.lock
 
 # Конфигурация (требуется Boost 1.83+, OpenSSL 3.0+, prometheus-cpp)
 cmake -B build -G Ninja \
   -DCMAKE_BUILD_TYPE=Release \
+  -DCMAKE_TOOLCHAIN_FILE=build/conan_toolchain.cmake \
   -DCPLOAD_BUILD_PYTHON=ON \
   -DCPLOAD_BUILD_TESTS=ON
 
@@ -254,7 +272,18 @@ cppload-pro/
 - Prometheus + Grafana (мониторинг)
 - Jaeger (трейсинг)
 
-## Roadmap (100% Complete)
+## Benchmarks
+
+Бенчмарки находятся в `tests/benchmarks/`. Запуск:
+
+```bash
+cmake --build build --target benchmark
+cd build && ./tests/benchmarks/benchmark_http_client
+```
+
+**Целевые показатели:** 50k+ RPS на инстанс (зависит от целевого сервиса и сетевой задержки).
+
+## MVP: Feature Complete (v1.0.0)
 
 - [x] **Core MVP** — Async HTTP client, базовые метрики
 - [x] **Python bindings** — pybind11 интеграция
@@ -288,6 +317,12 @@ cppload-pro/
 ## Contributing
 
 См. [CONTRIBUTING.md](CONTRIBUTING.md). ADR (Architecture Decision Records) находятся в `docs/`.
+
+### Генерация lock-файла
+
+```bash
+conan lock create . --build=missing --lockfile-out=conan.lock
+```
 
 ## Author
 

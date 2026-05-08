@@ -2,7 +2,7 @@
   "version": 3,
   "cmakeMinimumRequired": {
     "major": 3,
-    "minor": 20,
+    "minor": 21,
     "patch": 0
   },
   "configurePresets": [
@@ -23,9 +23,22 @@
       "name": "debug",
       "inherits": "default",
       "displayName": "Debug Config",
+      "binaryDir": "${sourceDir}/build-debug",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Debug",
         "CPLOAD_BUILD_TESTS": "ON"
+      }
+    },
+    {
+      "name": "coverage",
+      "inherits": "debug",
+      "displayName": "Coverage Config",
+      "description": "Debug build with code coverage flags",
+      "binaryDir": "${sourceDir}/build-coverage",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Coverage",
+        "CMAKE_CXX_FLAGS": "-O0 -g --coverage",
+        "CMAKE_EXE_LINKER_FLAGS": "--coverage"
       }
     }
   ],
@@ -33,6 +46,14 @@
     {
       "name": "default",
       "configurePreset": "default"
+    },
+    {
+      "name": "debug",
+      "configurePreset": "debug"
+    },
+    {
+      "name": "coverage",
+      "configurePreset": "coverage"
     }
   ]
 }
