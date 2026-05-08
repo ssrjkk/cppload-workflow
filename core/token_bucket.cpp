@@ -1,0 +1,63 @@
+#include "cppload/core/token_bucket.hpp"
+#include <thread>
+
+namespace cppload {
+
+TokenBucket::TokenBucket(double rate, double burst)
+    : rate_(rate)
+    , burst_(burst > 0 ? burst : rate)
+    , tokens_(burst_)
+    , last_refill_(std::chrono::steady_clock::now())
+{
+}
+
+void TokenBucket::set_rate(double rate) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    refill();
+    rate_ = rate;
+}
+
+void TokenBucket::set_burst(double burst) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    refill();
+    burst_ = burst;
+    if (tokens_ > burst_) tokens_ = burst_;
+}
+
+void TokenBucket::consume() {
+    std::unique_lock<std::mutex> lock(mutex_);
+    refill();
+    while (tokens_ < 1.0) {
+        double deficit = 1.0 - tokens_;
+        double wait_sec = deficit / rate_;
+        auto wait_us = std::chrono::microseconds(
+            static_cast<int>(wait_sec * 1'000'000));
+        if (wait_us.count() > 0) {
+            lock.unlock();
+            std::this_thread::sleep_for(wait_us);
+            lock.lock();
+            refill();
+        }
+    }
+    tokens_ -= 1.0;
+}
+
+bool TokenBucket::try_consume() {
+    std::lock_guard<std::mutex> lock(mutex_);
+    refill();
+    if (tokens_ < 1.0) return false;
+    tokens_ -= 1.0;
+    return true;
+}
+
+void TokenBucket::refill() {
+    auto now = std::chrono::steady_clock::now();
+    auto elapsed = std::chrono::duration<double>(now - last_refill_).count();
+    if (elapsed > 0) {
+        tokens_ += elapsed * rate_;
+        if (tokens_ > burst_) tokens_ = burst_;
+        last_refill_ = now;
+    }
+}
+
+} // namespace cppload

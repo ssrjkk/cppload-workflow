@@ -21,9 +21,10 @@ cmake_dependent_option(CPLOAD_BUILD_TOOLS "Build CLI tools" ON PROJECT_IS_TOP_LE
 find_package(Boost 1.83 REQUIRED COMPONENTS system)
 find_package(OpenSSL 3.0 REQUIRED)
 find_package(Threads REQUIRED)
+find_package(yaml-cpp REQUIRED)
 
 # Optional dependencies
-find_package(nlohmann_json QUIET)
+find_package(nlohmann_json REQUIRED)
 find_package(prometheus-cpp QUIET)
 
 # Core library

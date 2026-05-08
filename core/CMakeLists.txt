@@ -9,6 +9,7 @@ set(CORE_SOURCES
     security/auth_provider.cpp
     security/tls_context.cpp
     vault/vault_client.cpp
+    token_bucket.cpp
 )
 
 set(CORE_HEADERS
@@ -40,6 +41,9 @@ target_link_libraries(cppload_core
         OpenSSL::SSL
         OpenSSL::Crypto
         Threads::Threads
+    PRIVATE
+        yaml-cpp::yaml-cpp
+        nlohmann_json::nlohmann_json
 )
 
 if(prometheus-cpp_FOUND)

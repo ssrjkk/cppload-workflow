@@ -1,8 +1,5 @@
 #include "cppload/scenario/engine.hpp"
-#include <fstream>
-#include <sstream>
-#include <algorithm>
-#include <numeric>
+#include "cppload/core/token_bucket.hpp"
 #include <thread>
 
 namespace cppload::scenario {
@@ -10,7 +7,15 @@ namespace cppload::scenario {
 class ScenarioEngine::Impl {
 public:
     explicit Impl(const std::string& config_path)
-        : config_path_(config_path) {}
+        : config_path_(config_path)
+        , bucket_(100.0) {}
+    
+    void set_target_rps(uint32_t rps) {
+        target_rps_ = rps > 0 ? rps : 100;
+        bucket_.set_rate(static_cast<double>(target_rps_));
+    }
+    
+    uint32_t target_rps() const { return target_rps_; }
     
     bool load_config();
     
@@ -55,7 +60,7 @@ public:
                     }
                 });
                 
-                std::this_thread::sleep_for(std::chrono::milliseconds(10));
+                bucket_.consume();
             }
         }
         
@@ -76,66 +81,6 @@ public:
     std::string last_error() const { return last_error_; }
     
 private:
-    std::string extract_value(const std::string& content, const std::string& key) {
-        auto pos = content.find(key + ":");
-        if (pos == std::string::npos) return "";
-        
-        auto line_start = content.find(":", pos) + 1;
-        auto line_end = content.find("\n", line_start);
-        if (line_end == std::string::npos) line_end = content.length();
-        
-        std::string value = content.substr(line_start, line_end - line_start);
-        
-        // Remove quotes and whitespace
-        value.erase(0, value.find_first_not_of(" \t\""));
-        value.erase(value.find_last_not_of(" \t\"\n") + 1);
-        
-        // Handle environment variables ${VAR:-default}
-        if (value.find("${") == 0) {
-            auto end = value.find("}");
-            if (end != std::string::npos) {
-                std::string var_expr = value.substr(2, end - 2);
-                auto colon = var_expr.find(":-");
-                if (colon != std::string::npos) {
-                    std::string var_name = var_expr.substr(0, colon);
-                    std::string default_val = var_expr.substr(colon + 2);
-                    
-                    const char* env_val = getenv(var_name.c_str());
-                    return env_val ? env_val : default_val;
-                }
-            }
-        }
-        
-        return value;
-    }
-    
-    std::string extract_section(const std::string& content, const std::string& section) {
-        auto pos = content.find(section + ":");
-        if (pos == std::string::npos) return "";
-        
-        auto section_start = pos + section.length() + 1;
-        auto next_section = content.find("\n", section_start);
-        
-        // Find next top-level key
-        for (size_t i = section_start; i < content.length(); ) {
-            auto newline = content.find("\n", i);
-            if (newline == std::string::npos) break;
-            
-            auto line = content.substr(newline + 1);
-            if (line.length() > 0 && (line[0] != ' ' && line[0] != '\t')) {
-                next_section = newline;
-                break;
-            }
-            i = newline + 1;
-        }
-        
-        if (next_section == std::string::npos) {
-            return content.substr(section_start);
-        }
-        
-        return content.substr(section_start, next_section - section_start);
-    }
-    
     void parse_url(const std::string& url, std::string& host, std::string& port) {
         // Simple URL parser
         auto proto_end = url.find("://");
@@ -158,6 +103,8 @@ private:
     std::string config_path_;
     ScenarioConfig config_;
     std::string last_error_;
+    TokenBucket bucket_;
+    uint32_t target_rps_{100};
 };
 
 ScenarioEngine::ScenarioEngine(const std::string& config_path)
@@ -169,6 +116,8 @@ bool ScenarioEngine::load_config() { return impl_->load_config(); }
 bool ScenarioEngine::validate() const { return impl_->validate(); }
 const ScenarioConfig& ScenarioEngine::config() const { return impl_->config(); }
 void ScenarioEngine::run(StepCallback callback) { impl_->run(callback); }
+void ScenarioEngine::set_target_rps(uint32_t rps) { impl_->set_target_rps(rps); }
+uint32_t ScenarioEngine::target_rps() const { return impl_->target_rps(); }
 bool ScenarioEngine::check_sla(const metrics::MetricsCollector& m) const { return impl_->check_sla(m); }
 std::string ScenarioEngine::last_error() const { return impl_->last_error(); }
 

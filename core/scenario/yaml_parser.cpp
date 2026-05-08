@@ -1,63 +1,88 @@
 #include "cppload/scenario/engine.hpp"
+#include <yaml-cpp/yaml.h>
 #include <fstream>
 #include <sstream>
 #include <string>
-#include <vector>
-#include <algorithm>
+#include <chrono>
 #include <cctype>
+#include <cstdlib>
 
 namespace cppload::scenario {
 
-// Simple YAML parser (replace with yaml-cpp in production)
-static std::string trim(const std::string& s) {
-    auto start = std::find_if_not(s.begin(), s.end(), [](unsigned char c){ return std::isspace(c); });
-    auto end = std::find_if_not(s.rbegin(), s.rend(), [](unsigned char c){ return std::isspace(c); }).base();
-    return (start < end) ? std::string(start, end) : std::string();
+namespace {
+
+std::chrono::seconds parse_duration(const std::string& str) {
+    if (str.empty()) return std::chrono::seconds{0};
+    char unit = str.back();
+    std::string num_str = str.substr(0, str.length() - 1);
+    long long value = std::stoll(num_str);
+    switch (unit) {
+        case 's': return std::chrono::seconds{value};
+        case 'm': return std::chrono::minutes{value};
+        case 'h': return std::chrono::hours{value};
+        default: return std::chrono::seconds{0};
+    }
 }
 
-static std::string extract_value(const std::string& content, const std::string& key) {
-    auto pos = content.find(key + ":");
-    if (pos == std::string::npos) return "";
-    
-    auto line_start = pos + key.length() + 1;
-    auto line_end = content.find("\n", line_start);
-    if (line_end == std::string::npos) line_end = content.length();
-    
-    std::string value = content.substr(line_start, line_end - line_start);
-    
-    // Remove quotes and whitespace
-    value = trim(value);
-    if (!value.empty() && value[0] == '"') {
-        auto end_quote = value.rfind('"');
-        if (end_quote != 0) {
-            value = value.substr(1, end_quote - 1);
-        }
+double parse_error_rate(const std::string& str) {
+    auto start = str.find_first_of("0123456789");
+    auto end = str.find("%");
+    if (start != std::string::npos && end != std::string::npos) {
+        return std::stod(str.substr(start, end - start));
     }
-    
-    // Handle environment variables ${VAR:-default}
-    if (value.find("${") == 0) {
-        auto end = value.find("}");
-        if (end != std::string::npos) {
-            std::string var_expr = value.substr(2, end - 2);
-            auto colon = var_expr.find(":-");
-            if (colon != std::string::npos) {
-                std::string var_name = var_expr.substr(0, colon);
-                std::string default_val = var_expr.substr(colon + 2);
-                
-                const char* env_val = std::getenv(var_name.c_str());
-                return env_val ? env_val : default_val;
+    return 0.1;
+}
+
+std::chrono::milliseconds parse_latency(const std::string& str) {
+    auto start = str.find_first_of("0123456789");
+    if (start == std::string::npos) return std::chrono::milliseconds{500};
+    size_t num_end = start;
+    while (num_end < str.length() && std::isdigit(static_cast<unsigned char>(str[num_end]))) ++num_end;
+    long long value = std::stoll(str.substr(start, num_end - start));
+    if (str.find("ms") != std::string::npos) return std::chrono::milliseconds{value};
+    if (str.find("s") != std::string::npos) return std::chrono::seconds{value};
+    return std::chrono::milliseconds{value};
+}
+
+void substitute_env(YAML::Node node) {
+    if (!node.IsDefined()) return;
+    if (node.IsScalar()) {
+        std::string val = node.Scalar();
+        std::string result;
+        size_t pos = 0;
+        while (pos < val.length()) {
+            auto dollar = val.find("${", pos);
+            if (dollar == std::string::npos) {
+                result += val.substr(pos);
+                break;
             }
+            result += val.substr(pos, dollar - pos);
+            auto end = val.find("}", dollar);
+            if (end == std::string::npos) {
+                result += val.substr(dollar);
+                break;
+            }
+            std::string expr = val.substr(dollar + 2, end - dollar - 2);
+            auto colon = expr.find(":-");
+            std::string var_name = expr.substr(0, colon);
+            std::string default_val = (colon != std::string::npos) ? expr.substr(colon + 2) : "";
+            const char* env_val = std::getenv(var_name.c_str());
+            result += env_val ? env_val : default_val;
+            pos = end + 1;
+        }
+        node = result;
+    } else if (node.IsMap()) {
+        for (auto it = node.begin(); it != node.end(); ++it) {
+            substitute_env(it->second);
+        }
+    } else if (node.IsSequence()) {
+        for (auto it = node.begin(); it != node.end(); ++it) {
+            substitute_env(*it);
         }
     }
-    
-    return value;
 }
 
-static LoadProfile parse_load_profile(const std::string& content) {
-    LoadProfile profile;
-    // Simplified parsing - in production use yaml-cpp
-    return profile;
-}
+} // anonymous namespace
 
 bool ScenarioEngine::Impl::load_config() {
     std::ifstream file(config_path_);
@@ -65,39 +90,90 @@ bool ScenarioEngine::Impl::load_config() {
         last_error_ = "Cannot open config file: " + config_path_;
         return false;
     }
-    
-    std::string content((std::istreambuf_iterator<char>(file)),
-                       std::istreambuf_iterator<char>());
-    
-    config_.version = extract_value(content, "version");
-    config_.test_id = extract_value(content, "test_id");
-    config_.target.base_url = extract_value(content, "base_url");
-    config_.target.protocol = extract_value(content, "protocol");
-    
-    if (config_.target.protocol.empty()) {
-        config_.target.protocol = "http1.1";
+
+    YAML::Node root;
+    try {
+        root = YAML::Load(file);
+    } catch (const YAML::Exception& e) {
+        last_error_ = std::string("YAML parse error: ") + e.what();
+        return false;
     }
-    
-    // Parse SLA
-    auto sla_section = content.substr(content.find("sla:"));
-    auto sla_end = sla_section.find("\n\n");
-    if (sla_end != std::string::npos) {
-        sla_section = sla_section.substr(0, sla_end);
+
+    substitute_env(root);
+
+    if (root["version"]) config_.version = root["version"].as<std::string>();
+    if (root["test_id"]) config_.test_id = root["test_id"].as<std::string>();
+
+    if (root["target"]) {
+        auto target = root["target"];
+        if (target["base_url"]) config_.target.base_url = target["base_url"].as<std::string>();
+        if (target["protocol"]) config_.target.protocol = target["protocol"].as<std::string>();
+        if (target["tls"] && target["tls"]["verify"]) {
+            config_.target.tls.verify = target["tls"]["verify"].as<bool>();
+        }
     }
-    
-    auto error_rate_str = extract_value(sla_section, "error_rate");
-    if (!error_rate_str.empty()) {
-        // Parse "< 0.1%" format
-        try {
-            auto start = error_rate_str.find_first_of("0123456789");
-            auto end = error_rate_str.find("%");
-            if (start != std::string::npos && end != std::string::npos) {
-                std::string num = error_rate_str.substr(start, end - start);
-                config_.sla.max_error_rate = std::stod(num);
+
+    if (root["load_profile"] && root["load_profile"].IsSequence()) {
+        for (const auto& st : root["load_profile"]) {
+            LoadProfile::Stage stage;
+            if (st["stage"]) stage.name = st["stage"].as<std::string>();
+            if (st["duration"]) stage.duration = parse_duration(st["duration"].as<std::string>());
+            if (st["target_rps"]) stage.target_rps = st["target_rps"].as<uint32_t>();
+            config_.load_profile.stages.push_back(std::move(stage));
+        }
+    }
+
+    if (root["scenarios"] && root["scenarios"].IsSequence()) {
+        for (const auto& sc : root["scenarios"]) {
+            Scenario scenario;
+            if (sc["name"]) scenario.name = sc["name"].as<std::string>();
+            if (sc["weight"]) scenario.weight = sc["weight"].as<uint32_t>();
+
+            if (sc["steps"] && sc["steps"].IsSequence()) {
+                for (const auto& step_node : sc["steps"]) {
+                    if (!step_node["http"]) continue;
+                    auto http = step_node["http"];
+                    HttpStep step;
+                    if (http["method"]) step.method = http["method"].as<std::string>();
+                    if (http["path"]) step.path = http["path"].as<std::string>();
+                    if (http["body"]) {
+                        auto body_node = http["body"];
+                        if (body_node.IsScalar()) {
+                            step.body = body_node.as<std::string>();
+                        } else {
+                            std::stringstream ss;
+                            ss << body_node;
+                            step.body = ss.str();
+                        }
+                    }
+                    if (http["headers"] && http["headers"].IsMap()) {
+                        for (const auto& h : http["headers"]) {
+                            step.headers[h.first.as<std::string>()] = h.second.as<std::string>();
+                        }
+                    }
+                    if (http["assertions"] && http["assertions"].IsSequence()) {
+                        for (const auto& a : http["assertions"]) {
+                            step.assertions.push_back(a.as<std::string>());
+                        }
+                    }
+                    scenario.steps.push_back(std::move(step));
+                }
             }
-        } catch(...) {}
+
+            config_.scenarios.push_back(std::move(scenario));
+        }
     }
-    
+
+    if (root["sla"]) {
+        auto sla = root["sla"];
+        if (sla["error_rate"]) {
+            config_.sla.max_error_rate = parse_error_rate(sla["error_rate"].as<std::string>());
+        }
+        if (sla["p99_latency"]) {
+            config_.sla.max_p99_latency = parse_latency(sla["p99_latency"].as<std::string>());
+        }
+    }
+
     return true;
 }
 

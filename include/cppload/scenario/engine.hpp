@@ -79,7 +79,10 @@ public:
     )>;
     
     void run(StepCallback callback = nullptr);
-    
+
+    void set_target_rps(uint32_t rps);
+    uint32_t target_rps() const;
+
     bool check_sla(const metrics::MetricsCollector& metrics) const;
     
     std::string last_error() const;

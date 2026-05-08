@@ -1,74 +1,155 @@
 #include "cppload/security/auth_provider.hpp"
+#include <boost/beast/core.hpp>
+#include <boost/beast/http.hpp>
+#include <boost/asio/ip/tcp.hpp>
+#include <boost/asio/connect.hpp>
+#include <nlohmann/json.hpp>
 #include <chrono>
 #include <string>
+#include <sstream>
 #include <stdexcept>
+
+namespace beast = boost::beast;
+namespace http = beast::http;
+namespace asio = boost::asio;
+using json = nlohmann::json;
 
 namespace cppload::security {
 
+namespace {
+
+beast::error_code do_sync_post(
+    const std::string& host,
+    const std::string& port,
+    const std::string& target,
+    const std::string& body,
+    const std::string& content_type,
+    http::response<http::string_body>& res,
+    std::chrono::seconds timeout = std::chrono::seconds(10))
+{
+    beast::error_code ec;
+    asio::io_context ioc;
+    asio::ip::tcp::resolver resolver(ioc);
+    beast::tcp_stream stream(ioc);
+
+    auto const results = resolver.resolve(host, port, ec);
+    if (ec) return ec;
+
+    stream.expires_after(timeout);
+    stream.connect(results, ec);
+    if (ec) return ec;
+
+    http::request<http::string_body> req{http::verb::post, target, 11};
+    req.set(http::field::host, host);
+    req.set(http::field::user_agent, "cppload-pro/1.0");
+    req.set(http::field::content_type, content_type);
+    req.set(http::field::accept, "application/json");
+    req.body() = body;
+    req.prepare_payload();
+
+    stream.expires_after(timeout);
+    http::write(stream, req, ec);
+    if (ec) return ec;
+
+    beast::flat_buffer buffer;
+    stream.expires_after(timeout);
+    http::read(stream, buffer, res, ec);
+    if (ec && ec != http::error::end_of_stream) return ec;
+
+    beast::error_code shutdown_ec;
+    stream.socket().shutdown(asio::ip::tcp::socket::shutdown_both, shutdown_ec);
+    return {};
+}
+
+void parse_url(const std::string& url, std::string& host, std::string& port, std::string& path) {
+    auto proto_end = url.find("://");
+    auto start = (proto_end != std::string::npos) ? proto_end + 3 : 0;
+    auto path_start = url.find("/", start);
+    path = (path_start != std::string::npos) ? url.substr(path_start) : "/";
+    auto host_port = (path_start != std::string::npos)
+        ? url.substr(start, path_start - start)
+        : url.substr(start);
+
+    auto colon = host_port.find(":");
+    if (colon != std::string::npos) {
+        host = host_port.substr(0, colon);
+        port = host_port.substr(colon + 1);
+    } else {
+        host = host_port;
+        port = (url.find("https:") == 0) ? "443" : "80";
+    }
+}
+
+} // anonymous namespace
+
 class AuthProvider::Impl {
 public:
-    explicit Impl(const AuthConfig& config) : config_(config), token_expiry_(0) {}
-    
+    explicit Impl(const AuthConfig& config) : config_(config), token_expiry_(0) {
+        if (config_.type == AuthType::OAUTH2 && !config_.token_endpoint.empty()) {
+            fetch_token();
+        }
+    }
+
     void apply_headers(std::unordered_map<std::string, std::string>& headers) {
-        switch (config_.type) {
-            case AuthType::API_KEY:
-                headers["X-API-Key"] = config_.api_key;
-                break;
-            case AuthType::BEARER_TOKEN:
-                headers["Authorization"] = "Bearer " + config_.token;
-                break;
-            case AuthType::OAUTH2:
-                if (is_expired()) {
-                    refresh_token();
-                }
-                headers["Authorization"] = "Bearer " + current_token_;
-                break;
-            case AuthType::MTLS:
-                // mTLS handled at SSL level, no headers needed
-                break;
-            case AuthType::NONE:
-            default:
-                break;
+        if (config_.type == AuthType::API_KEY) {
+            headers["X-API-Key"] = config_.api_key;
+        } else if (config_.type == AuthType::BEARER_TOKEN) {
+            headers["Authorization"] = "Bearer " + config_.token;
+        } else if (config_.type == AuthType::OAUTH2) {
+            if (is_expired()) refresh_token();
+            headers["Authorization"] = "Bearer " + current_token_;
         }
     }
-    
+
     std::string get_auth_header() const {
-        switch (config_.type) {
-            case AuthType::API_KEY:
-                return "X-API-Key: " + config_.api_key;
-            case AuthType::BEARER_TOKEN:
-            case AuthType::OAUTH2:
-                return "Authorization: Bearer " + current_token_;
-            default:
-                return "";
+        if (config_.type == AuthType::API_KEY) {
+            return "X-API-Key: " + config_.api_key;
+        } else if (config_.type == AuthType::BEARER_TOKEN || config_.type == AuthType::OAUTH2) {
+            return "Authorization: Bearer " + current_token_;
         }
+        return "";
     }
-    
+
     bool refresh_token() {
-        if (config_.type != AuthType::OAUTH2) {
-            return true;
-        }
-        
-        // Simplified OAuth2 client credentials flow
-        // In production, use libcurl or boost::beast to make HTTP request
+        if (config_.type != AuthType::OAUTH2) return true;
         try {
-            // Simulate token refresh
-            current_token_ = "refreshed_token_" + std::to_string(std::chrono::system_clock::now().time_since_epoch().count());
-            token_expiry_ = std::chrono::system_clock::now() + std::chrono::hours(1);
+            fetch_token();
             return true;
         } catch (...) {
             return false;
         }
     }
-    
+
     bool is_expired() const {
-        if (config_.type != AuthType::OAUTH2) {
-            return false;
-        }
+        if (config_.type != AuthType::OAUTH2) return false;
         return std::chrono::system_clock::now() >= token_expiry_;
     }
-    
+
 private:
+    void fetch_token() {
+        std::string host, port, path;
+        parse_url(config_.token_endpoint, host, port, path);
+
+        std::string body = "grant_type=client_credentials"
+            "&client_id=" + config_.client_id +
+            "&client_secret=" + config_.client_secret;
+
+        http::response<http::string_body> res;
+        auto ec = do_sync_post(host, port, path, body,
+            "application/x-www-form-urlencoded", res);
+
+        if (ec || res.result_int() < 200 || res.result_int() >= 300) {
+            throw std::runtime_error("OAuth2 token request failed: " +
+                std::to_string(res.result_int()));
+        }
+
+        auto j = json::parse(res.body());
+        current_token_ = j.value("access_token", "");
+        auto expires_in = j.value("expires_in", 3600);
+        token_expiry_ = std::chrono::system_clock::now() +
+            std::chrono::seconds(std::max(expires_in - 60, 1));
+    }
+
     AuthConfig config_;
     std::string current_token_;
     std::chrono::system_clock::time_point token_expiry_;
