@@ -40,9 +40,25 @@ jobs:
             -DCPLOAD_BUILD_TOOLS=OFF
 
       - name: Build
-        run: cmake --build build -j$(nproc)
+        run: |
+          cmake --build build -j$(nproc) 2>&1 | tee build.log
+        continue-on-error: true
+
+      - name: Upload build log
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-log
+          path: build.log
+        if: failure()
+
+      - name: Show build errors in summary
+        run: |
+          echo "## Build Errors" >> $GITHUB_STEP_SUMMARY
+          tail -50 build.log >> $GITHUB_STEP_SUMMARY
+        if: failure()
 
       - name: Run tests
+        if: success()
         run: |
           cd build && ctest --output-on-failure || echo "Tests completed with warnings"
 

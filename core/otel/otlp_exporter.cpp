@@ -3,6 +3,8 @@
 #include <sstream>
 #include <chrono>
 #include <stdexcept>
+#include <random>
+#include <unordered_map>
 
 namespace cppload::otel {
 

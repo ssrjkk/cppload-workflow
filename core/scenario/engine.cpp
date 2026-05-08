@@ -3,6 +3,7 @@
 #include <sstream>
 #include <algorithm>
 #include <numeric>
+#include <thread>
 
 namespace cppload::scenario {
 
