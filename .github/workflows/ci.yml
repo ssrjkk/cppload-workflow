@@ -119,6 +119,7 @@ jobs:
           path: lcov.log
 
       - name: Generate HTML report
+        continue-on-error: true
         run: |
           genhtml coverage.info --output-directory coverage-report \
             --rc branch_coverage=1 \
