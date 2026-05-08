@@ -40,25 +40,7 @@ jobs:
             -DCPLOAD_BUILD_TOOLS=OFF
 
       - name: Build
-        continue-on-error: true
-        run: |
-          set -o pipefail
-          cmake --build build -j$(nproc) 2>&1 | tee build.log
-
-      - name: Upload build log
-        uses: actions/upload-artifact@v4
-        if: failure()
-        with:
-          name: build-log
-          path: build.log
-
-      - name: Show build errors in summary
-        if: failure()
-        run: |
-          echo "## Build Errors" >> $GITHUB_STEP_SUMMARY
-          echo '```' >> $GITHUB_STEP_SUMMARY
-          tail -80 build.log >> $GITHUB_STEP_SUMMARY
-          echo '```' >> $GITHUB_STEP_SUMMARY
+        run: cmake --build build -j$(nproc)
 
       - name: Run tests
         if: success()
@@ -98,19 +80,11 @@ jobs:
           cmake --build build-cov -j$(nproc) 2>&1 | tee build-cov.log
 
       - name: Upload coverage build log
-        uses: actions/upload-artifact@v4
         if: failure()
+        uses: actions/upload-artifact@v4
         with:
           name: build-cov-log
           path: build-cov.log
-
-      - name: Show coverage build errors in summary
-        if: failure()
-        run: |
-          echo "## Coverage Build Errors" >> $GITHUB_STEP_SUMMARY
-          echo '```' >> $GITHUB_STEP_SUMMARY
-          tail -80 build-cov.log >> $GITHUB_STEP_SUMMARY
-          echo '```' >> $GITHUB_STEP_SUMMARY
 
       - name: Run tests
         run: |
@@ -128,42 +102,17 @@ jobs:
             --exclude '/usr/*' 2>&1 | tee lcov.log
 
       - name: Upload lcov log
-        uses: actions/upload-artifact@v4
         if: failure()
+        uses: actions/upload-artifact@v4
         with:
           name: lcov-log
           path: lcov.log
 
-      - name: Show lcov errors in summary
-        if: failure()
-        run: |
-          echo "## LCOV Errors" >> $GITHUB_STEP_SUMMARY
-          echo '```' >> $GITHUB_STEP_SUMMARY
-          cat lcov.log >> $GITHUB_STEP_SUMMARY
-          echo '```' >> $GITHUB_STEP_SUMMARY
-
       - name: Generate HTML report
-        continue-on-error: true
         run: |
-          set -o pipefail
           genhtml coverage.info --output-directory coverage-report \
             --rc branch_coverage=1 \
-            --title "cppload-pro Coverage" 2>&1 | tee genhtml.log
-
-      - name: Upload genhtml log
-        uses: actions/upload-artifact@v4
-        if: failure()
-        with:
-          name: genhtml-log
-          path: genhtml.log
-
-      - name: Show genhtml errors in summary
-        if: failure()
-        run: |
-          echo "## GenHTML Errors" >> $GITHUB_STEP_SUMMARY
-          echo '```' >> $GITHUB_STEP_SUMMARY
-          cat genhtml.log >> $GITHUB_STEP_SUMMARY
-          echo '```' >> $GITHUB_STEP_SUMMARY
+            --title "cppload-pro Coverage"
 
       - name: Upload to Codecov
         uses: codecov/codecov-action@v4
