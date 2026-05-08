@@ -25,10 +25,12 @@ jobs:
         run: pip install black flake8 pyyaml
       
       - name: Check Python formatting
-        run: black --check python/ || echo "Warning: Python code not formatted"
+        run: |
+          black --check python/ || echo "Warning: Python code not formatted"
       
       - name: Lint Python code
-        run: flake8 python/ --max-line-length=120 || echo "Warning: Flake8 issues found"
+        run: |
+          flake8 python/ --max-line-length=120 || echo "Warning: Flake8 issues found"
       
       - name: Validate YAML
         run: python -c "import yaml; yaml.safe_load(open('scenarios/ecommerce/load-test.yaml'))"
@@ -62,7 +64,8 @@ jobs:
         run: cmake --build build --config Release -j$(nproc)
       
       - name: Run tests
-        run: cd build && ctest --output-on-failure || echo "Tests completed with warnings"
+        run: |
+          cd build && ctest --output-on-failure || echo "Tests completed with warnings"
 
   docker:
     name: Docker Build
