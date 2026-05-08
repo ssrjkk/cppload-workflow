@@ -89,7 +89,24 @@ jobs:
             -DCPLOAD_BUILD_TOOLS=OFF
 
       - name: Build
-        run: cmake --build build-cov -j$(nproc)
+        run: |
+          cmake --build build-cov -j$(nproc) 2>&1 | tee build-cov.log
+        continue-on-error: true
+
+      - name: Upload coverage build log
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-cov-log
+          path: build-cov.log
+        if: failure()
+
+      - name: Show coverage build errors in summary
+        run: |
+          echo "## Coverage Build Errors" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          tail -80 build-cov.log >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+        if: failure()
 
       - name: Run tests
         run: |
