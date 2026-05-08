@@ -36,10 +36,12 @@ jobs:
         run: pip install black flake8 mypy pyyaml
       
       - name: Check Python formatting
-        run: black --check python/ || echo "Warning: formatting issues"
+        run: |
+          black --check python/ || echo "Warning: formatting issues"
       
       - name: Lint Python
-        run: flake8 python/ --max-line-length=120 || echo "Warning: lint issues"
+        run: |
+          flake8 python/ --max-line-length=120 || echo "Warning: lint issues"
       
       - name: Validate YAML
         run: python -c "
@@ -127,7 +129,8 @@ for f in ['scenarios/ecommerce/load-test.yaml', 'deploy/kubernetes/helm/values.y
           cmake --build build
       
       - name: Run tests
-        run: cd build && ctest --output-on-failure --timeout 30 || echo "Tests completed"
+        run: |
+          cd build && ctest --output-on-failure --timeout 30 || echo "Tests completed"
 
   docker:
     name: Docker Build
