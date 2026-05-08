@@ -1,5 +1,6 @@
 #include "cppload/otel/exporter.hpp"
 #include <string>
+#include <sstream>
 #include <chrono>
 #include <stdexcept>
 

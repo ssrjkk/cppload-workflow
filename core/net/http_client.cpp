@@ -2,6 +2,7 @@
 #include <boost/beast/http.hpp>
 #include <boost/asio/ip/tcp.hpp>
 #include <boost/asio/connect.hpp>
+#include <memory>
 #include <chrono>
 
 namespace beast = boost::beast;

@@ -58,10 +58,13 @@ jobs:
         run: |
           cmake -B build -G Ninja \
             -DCMAKE_BUILD_TYPE=Release \
-            -DCPLOAD_BUILD_TESTS=ON
-      
+            -DCPLOAD_BUILD_TESTS=ON \
+            -DCPLOAD_BUILD_PYTHON=OFF \
+            -DCPLOAD_BUILD_WORKERS=OFF \
+            -DCPLOAD_BUILD_TOOLS=OFF
+        
       - name: Build
-        run: cmake --build build --config Release -j$(nproc)
+        run: cmake --build build -j$(nproc)
       
       - name: Run tests
         run: |
