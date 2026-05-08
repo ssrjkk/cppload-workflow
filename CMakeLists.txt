@@ -32,12 +32,14 @@ if(NOT nlohmann_json_FOUND)
     file(DOWNLOAD
         https://github.com/nlohmann/json/releases/download/v3.11.2/json.hpp
         "${NLOHMANN_JSON_DOWNLOAD_DIR}/nlohmann/json.hpp"
+        TLS_VERIFY ON
+        INACTIVITY_TIMEOUT 30
         STATUS NLOHMANN_DL_STATUS
     )
     list(GET NLOHMANN_DL_STATUS 0 NLOHMANN_DL_RC)
     if(NLOHMANN_DL_RC EQUAL 0)
-        add_library(nlohmann_json INTERFACE IMPORTED)
-        target_include_directories(nlohmann_json INTERFACE "${NLOHMANN_JSON_DOWNLOAD_DIR}")
+        add_library(nlohmann_json::nlohmann_json INTERFACE IMPORTED)
+        target_include_directories(nlohmann_json::nlohmann_json INTERFACE "${NLOHMANN_JSON_DOWNLOAD_DIR}")
         set(nlohmann_json_FOUND TRUE)
         message(STATUS "nlohmann_json downloaded to ${NLOHMANN_JSON_DOWNLOAD_DIR}")
     else()

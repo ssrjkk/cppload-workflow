@@ -7,6 +7,7 @@
 #include <chrono>
 #include <string>
 #include <sstream>
+#include <algorithm>
 #include <stdexcept>
 
 namespace beast = boost::beast;
