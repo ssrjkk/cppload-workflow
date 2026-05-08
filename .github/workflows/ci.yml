@@ -119,7 +119,23 @@ jobs:
             --rc branch_coverage=1 \
             --exclude '*/tests/*' \
             --exclude '*/build-cov/*' \
-            --exclude '/usr/*'
+            --exclude '/usr/*' 2>&1 | tee lcov.log
+        continue-on-error: true
+
+      - name: Upload lcov log
+        uses: actions/upload-artifact@v4
+        with:
+          name: lcov-log
+          path: lcov.log
+        if: failure()
+
+      - name: Show lcov errors in summary
+        run: |
+          echo "## LCOV Errors" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          cat lcov.log >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+        if: failure()
 
       - name: Generate HTML report
         run: |
