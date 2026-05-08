@@ -118,18 +118,52 @@ jobs:
         continue-on-error: true
 
       - name: Capture coverage info
+        continue-on-error: true
         run: |
+          set -o pipefail
           lcov --capture --directory build-cov --output-file coverage.info \
             --rc branch_coverage=1 \
             --exclude '*/tests/*' \
             --exclude '*/build-cov/*' \
-            --exclude '/usr/*'
+            --exclude '/usr/*' 2>&1 | tee lcov.log
+
+      - name: Upload lcov log
+        uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: lcov-log
+          path: lcov.log
+
+      - name: Show lcov errors in summary
+        if: failure()
+        run: |
+          echo "## LCOV Errors" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          cat lcov.log >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
 
       - name: Generate HTML report
+        continue-on-error: true
         run: |
+          set -o pipefail
           genhtml coverage.info --output-directory coverage-report \
             --rc branch_coverage=1 \
-            --title "cppload-pro Coverage"
+            --title "cppload-pro Coverage" 2>&1 | tee genhtml.log
+
+      - name: Upload genhtml log
+        uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: genhtml-log
+          path: genhtml.log
+
+      - name: Show genhtml errors in summary
+        if: failure()
+        run: |
+          echo "## GenHTML Errors" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          cat genhtml.log >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
 
       - name: Upload to Codecov
         uses: codecov/codecov-action@v4
