@@ -28,6 +28,7 @@ find_package(nlohmann_json QUIET)
 if(NOT nlohmann_json_FOUND)
     message(STATUS "nlohmann_json not found, downloading header")
     set(NLOHMANN_JSON_DOWNLOAD_DIR "${CMAKE_BINARY_DIR}/_deps/nlohmann_json")
+    file(MAKE_DIRECTORY "${NLOHMANN_JSON_DOWNLOAD_DIR}/nlohmann")
     file(DOWNLOAD
         https://github.com/nlohmann/json/releases/download/v3.11.2/json.hpp
         "${NLOHMANN_JSON_DOWNLOAD_DIR}/nlohmann/json.hpp"
