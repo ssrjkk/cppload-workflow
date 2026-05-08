@@ -47,18 +47,17 @@ spec:
               containerPort: {{ .Values.metrics.port }}
               protocol: TCP
           
-          {{- if .Values.metrics.enabled }}
           env:
+            {{- if .Values.metrics.enabled }}
             - name: PROMETHEUS_PORT
               value: {{ .Values.metrics.port | quote }}
-          {{- end }}
-          
-          {{- if .Values.tracing.enabled }}
+            {{- end }}
+            {{- if .Values.tracing.enabled }}
             - name: OTEL_EXPORTER_OTLP_ENDPOINT
               value: {{ .Values.tracing.otlpEndpoint | quote }}
             - name: OTEL_SAMPLE_RATE
               value: {{ .Values.tracing.sampleRate | quote }}
-          {{- end }}
+            {{- end }}
           
           resources:
             {{- toYaml .Values.worker.resources | nindent 12 }}

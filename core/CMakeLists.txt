@@ -3,10 +3,8 @@ set(CORE_SOURCES
     net/http_client.cpp
     net/connection_pool.cpp
     metrics/collector.cpp
-    metrics/prometheus_exporter.cpp
     scenario/engine.cpp
     scenario/yaml_parser.cpp
-    otel/exporter.cpp
     otel/otlp_exporter.cpp
     security/auth_provider.cpp
     security/tls_context.cpp
@@ -45,12 +43,15 @@ target_link_libraries(cppload_core
 )
 
 if(prometheus-cpp_FOUND)
+    target_sources(cppload_core PRIVATE metrics/prometheus_exporter.cpp)
     target_link_libraries(cppload_core
         PUBLIC 
             prometheus-cpp::core
             prometheus-cpp::pull
     )
     target_compile_definitions(cppload_core PUBLIC CPLOAD_HAVE_PROMETHEUS)
+else()
+    target_sources(cppload_core PRIVATE metrics/prometheus_exporter_stub.cpp)
 endif()
 
 target_compile_features(cppload_core PUBLIC cxx_std_20)

@@ -70,6 +70,12 @@ for f in ['scenarios/ecommerce/load-test.yaml', 'deploy/kubernetes/helm/values.y
       - name: Install Conan
         run: pip install conan==${{ env.CONAN_VERSION }}
       
+      - name: Cache Conan packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.conan2
+          key: conan-${{ runner.os }}-${{ hashFiles('conanfile.py') }}-${{ env.CONAN_VERSION }}
+      
       - name: Install C++ deps via Conan
         run: conan install . --output-folder=build-conan --build=missing -s build_type=Release
       
@@ -102,7 +108,15 @@ for f in ['scenarios/ecommerce/load-test.yaml', 'deploy/kubernetes/helm/values.y
       - name: Conan install
         run: |
           pip install conan==${{ env.CONAN_VERSION }}
-          conan install . --output-folder=build-conan --build=missing -s build_type=Debug
+      
+      - name: Cache Conan packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.conan2
+          key: conan-${{ runner.os }}-${{ hashFiles('conanfile.py') }}-${{ env.CONAN_VERSION }}
+      
+      - name: Install C++ deps via Conan
+        run: conan install . --output-folder=build-conan --build=missing -s build_type=Debug
       
       - name: Configure & build
         run: |

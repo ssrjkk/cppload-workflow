@@ -9,7 +9,7 @@ namespace http = beast::http;
 namespace asio = boost::asio;
 namespace net = cppload::net;
 
-class net::HttpClient::Impl {
+class net::HttpClient::Impl : public std::enable_shared_from_this<Impl> {
 public:
     explicit Impl(asio::io_context& ioc) 
         : resolver_(ioc), stream_(ioc), timeout_(5000), keep_alive_(true) {}
@@ -17,6 +17,7 @@ public:
     void async_request(const HttpRequest& req, 
                       std::function<void(const HttpResponse&)> callback) {
         auto start_time = std::chrono::steady_clock::now();
+        auto self = shared_from_this();
         
         auto response = std::make_shared<HttpResponse>();
         auto req_msg = std::make_shared<http::request<http::string_body>>();
@@ -36,8 +37,9 @@ public:
             req_msg->set(key, value);
         }
         
+        stream_.expires_after(timeout_);
         resolver_.async_resolve(req.host, req.port,
-            [this, req_msg, response, callback, start_time](
+            [this, self, req_msg, response, callback, start_time](
                 beast::error_code ec, asio::ip::tcp::resolver::results_type results) {
                 
                 if (ec) {
@@ -47,8 +49,9 @@ public:
                     return;
                 }
                 
+                stream_.expires_after(timeout_);
                 stream_.async_connect(results,
-                    [this, req_msg, response, callback, start_time](
+                    [this, self, req_msg, response, callback, start_time](
                         beast::error_code ec, const asio::ip::tcp::endpoint&) {
                         
                         if (ec) {
@@ -58,8 +61,9 @@ public:
                             return;
                         }
                         
+                        stream_.expires_after(timeout_);
                         http::async_write(stream_, *req_msg,
-                            [this, req_msg, response, callback, start_time](
+                            [this, self, req_msg, response, callback, start_time](
                                 beast::error_code ec, std::size_t) {
                                 
                                 if (ec) {
@@ -69,16 +73,17 @@ public:
                                     return;
                                 }
                                 
+                                stream_.expires_after(timeout_);
                                 auto buffer = std::make_shared<beast::flat_buffer>();
                                 auto res = std::make_shared<http::response<http::string_body>>();
                                 
                                 http::async_read(stream_, *buffer, *res,
-                                    [this, res, response, callback, start_time](
+                                    [this, self, res, response, callback, start_time](
                                         beast::error_code ec, std::size_t) {
                                         
                                         auto end_time = std::chrono::steady_clock::now();
                                         
-                                        if (ec) {
+                                        if (ec && ec != beast::http::error::end_of_stream) {
                                             response->status_code = 0;
                                         } else {
                                             response->status_code = res->result_int();
@@ -94,7 +99,8 @@ public:
                                         }
                                         
                                         if (!keep_alive_) {
-                                            stream_.socket().shutdown(asio::ip::tcp::socket::shutdown_both);
+                                            beast::error_code shutdown_ec;
+                                            stream_.socket().shutdown(asio::ip::tcp::socket::shutdown_both, shutdown_ec);
                                         }
                                         
                                         callback(*response);
@@ -115,7 +121,7 @@ private:
 };
 
 net::HttpClient::HttpClient(asio::io_context& ioc) 
-    : impl_(std::make_unique<Impl>(ioc)) {}
+    : impl_(std::make_shared<Impl>(ioc)) {}
 
 net::HttpClient::~HttpClient() = default;
 

@@ -11,36 +11,7 @@ public:
     explicit Impl(const std::string& config_path)
         : config_path_(config_path) {}
     
-    bool load_config() {
-        std::ifstream file(config_path_);
-        if (!file) {
-            last_error_ = "Cannot open config file: " + config_path_;
-            return false;
-        }
-        
-        // Simple YAML parser (in production use yaml-cpp)
-        std::string content((std::istreambuf_iterator<char>(file)),
-                           std::istreambuf_iterator<char>());
-        
-        // Parse basic fields (simplified for MVP)
-        config_.test_id = extract_value(content, "test_id");
-        config_.target.base_url = extract_value(content, "base_url");
-        config_.target.protocol = extract_value(content, "protocol");
-        
-        // Parse SLA
-        auto sla_section = extract_section(content, "sla");
-        auto error_rate_str = extract_value(sla_section, "error_rate");
-        if (!error_rate_str.empty()) {
-            // Parse "< 0.1%" format
-            auto num_str = error_rate_str.substr(2); // Skip "< "
-            num_str.pop_back(); // Remove "%"
-            try {
-                config_.sla.max_error_rate = std::stod(num_str);
-            } catch(...) {}
-        }
-        
-        return true;
-    }
+    bool load_config();
     
     bool validate() const {
         if (config_.test_id.empty()) {

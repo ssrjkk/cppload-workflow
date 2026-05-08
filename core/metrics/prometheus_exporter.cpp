@@ -1,4 +1,7 @@
 #include "cppload/metrics/prometheus_exporter.hpp"
+
+#ifdef CPLOAD_HAVE_PROMETHEUS
+
 #include <prometheus/counter.h>
 #include <prometheus/exposer.h>
 #include <prometheus/registry.h>
@@ -139,3 +142,5 @@ void PrometheusExporter::update_metrics(const MetricsCollector& collector) { imp
 std::string PrometheusExporter::endpoint() const { return impl_->endpoint(); }
 
 } // namespace cppload::metrics
+
+#endif // CPLOAD_HAVE_PROMETHEUS
