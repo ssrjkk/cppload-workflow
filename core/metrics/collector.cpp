@@ -1,6 +1,6 @@
 #include "cppload/metrics/collector.hpp"
 #include <algorithm>
-#include <vector>
+#include <cassert>
 #include <cmath>
 
 namespace cppload::metrics {
@@ -29,6 +29,9 @@ void MetricsCollector::record_request(uint16_t status_code,
     auto max_curr = max_latency_us_.load(std::memory_order_relaxed);
     while (lat_val > max_curr && 
            !max_latency_us_.compare_exchange_weak(max_curr, lat_val)) {}
+
+    std::lock_guard<std::mutex> lock(latencies_mutex_);
+    latencies_.push_back(lat_val);
 }
 
 RequestMetrics MetricsCollector::snapshot() const {
@@ -48,6 +51,20 @@ RequestMetrics MetricsCollector::snapshot() const {
         min_latency_us_.load(std::memory_order_relaxed));
     m.max_latency = std::chrono::microseconds(
         max_latency_us_.load(std::memory_order_relaxed));
+
+    // Compute percentiles from sorted latencies
+    std::vector<int64_t> sorted;
+    {
+        std::lock_guard<std::mutex> lock(latencies_mutex_);
+        sorted = latencies_;
+    }
+    if (!sorted.empty()) {
+        std::sort(sorted.begin(), sorted.end());
+        auto p95_idx = static_cast<size_t>(sorted.size() * 0.95);
+        auto p99_idx = static_cast<size_t>(sorted.size() * 0.99);
+        m.p95_latency_us = static_cast<uint64_t>(sorted[std::min(p95_idx, sorted.size() - 1)]);
+        m.p99_latency_us = static_cast<uint64_t>(sorted[std::min(p99_idx, sorted.size() - 1)]);
+    }
     
     return m;
 }
@@ -70,11 +87,11 @@ double MetricsCollector::error_rate() const {
 }
 
 uint64_t MetricsCollector::p95_latency_us() const {
-    return static_cast<uint64_t>(snapshot().mean_latency_us * 1.5);
+    return snapshot().p95_latency_us;
 }
 
 uint64_t MetricsCollector::p99_latency_us() const {
-    return static_cast<uint64_t>(snapshot().mean_latency_us * 2.0);
+    return snapshot().p99_latency_us;
 }
 
 void MetricsCollector::reset() {
@@ -88,6 +105,10 @@ void MetricsCollector::reset() {
     max_latency_us_.store(std::chrono::microseconds::min().count(), std::memory_order_relaxed);
     start_time_.store(std::chrono::steady_clock::now().time_since_epoch().count(), 
                       std::memory_order_relaxed);
+    {
+        std::lock_guard<std::mutex> lock(latencies_mutex_);
+        latencies_.clear();
+    }
 }
 
 } // namespace cppload::metrics

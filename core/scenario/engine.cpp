@@ -1,6 +1,5 @@
 #include "cppload/scenario/engine.hpp"
 #include "cppload/core/token_bucket.hpp"
-#include <thread>
 
 namespace cppload::scenario {
 
@@ -39,8 +38,6 @@ public:
         net::HttpClient client(ioc);
         metrics::MetricsCollector metrics;
         
-        auto worker = std::thread([&ioc]() { ioc.run(); });
-        
         for (const auto& scenario : config_.scenarios) {
             for (const auto& step : scenario.steps) {
                 net::HttpRequest req;
@@ -64,8 +61,8 @@ public:
             }
         }
         
-        ioc.stop();
-        worker.join();
+        // Blocks until all async operations complete
+        ioc.run();
     }
     
     bool check_sla(const metrics::MetricsCollector& m) const {

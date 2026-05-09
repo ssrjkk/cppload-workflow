@@ -25,8 +25,8 @@ struct SpanData {
     std::string trace_id;
     std::string span_id;
     std::string parent_span_id;
-    std::chrono::steady_clock::time_point start_time;
-    std::chrono::steady_clock::time_point end_time;
+    std::chrono::system_clock::time_point start_time;
+    std::chrono::system_clock::time_point end_time;
     std::unordered_map<std::string, std::string> attributes;
     bool ended{false};
 };
@@ -39,7 +39,7 @@ std::string random_hex(size_t len) {
     return oss.str();
 }
 
-int64_t to_nanos(std::chrono::steady_clock::time_point tp) {
+int64_t to_nanos(std::chrono::system_clock::time_point tp) {
     return std::chrono::duration_cast<std::chrono::nanoseconds>(
         tp.time_since_epoch()).count();
 }
@@ -103,7 +103,7 @@ public:
 
         span_name_ = name;
         span_active_ = true;
-        span_start_ = std::chrono::steady_clock::now();
+        span_start_ = std::chrono::system_clock::now();
         current_span_id_ = random_hex(16);
         parent_span_id_ = last_span_id_;
 
@@ -120,7 +120,7 @@ public:
         span.span_id = current_span_id_;
         span.parent_span_id = parent_span_id_;
         span.start_time = span_start_;
-        span.end_time = std::chrono::steady_clock::now();
+        span.end_time = std::chrono::system_clock::now();
         span.attributes = attributes_;
         span.ended = true;
 
@@ -167,13 +167,7 @@ private:
         }
     }
 
-    void export_spans() {
-        std::vector<SpanData> spans_to_export;
-        {
-            std::lock_guard<std::mutex> lock(spans_mutex_);
-            spans_to_export.swap(completed_spans_);
-        }
-
+    void do_export(const std::vector<SpanData>& spans_to_export) {
         if (spans_to_export.empty()) return;
 
         json resource_spans;
@@ -222,7 +216,12 @@ private:
     }
 
     void flush() {
-        export_spans();
+        std::vector<SpanData> remaining;
+        {
+            std::lock_guard<std::mutex> lock(spans_mutex_);
+            remaining.swap(completed_spans_);
+        }
+        do_export(remaining);
     }
 
     void maybe_export() {
@@ -236,10 +235,14 @@ private:
             }
         }
 
-        std::lock_guard<std::mutex> lock(spans_mutex_);
-        if (completed_spans_.size() >= 64) {
-            export_spans();
+        std::vector<SpanData> spans_to_export;
+        {
+            std::lock_guard<std::mutex> lock(spans_mutex_);
+            if (completed_spans_.size() >= 64) {
+                spans_to_export.swap(completed_spans_);
+            }
         }
+        do_export(spans_to_export);
     }
 
     TraceConfig config_;
@@ -250,7 +253,7 @@ private:
     std::string current_span_id_;
     std::string parent_span_id_;
     std::string last_span_id_;
-    std::chrono::steady_clock::time_point span_start_;
+    std::chrono::system_clock::time_point span_start_;
 
     std::vector<SpanData> completed_spans_;
     std::mutex spans_mutex_;

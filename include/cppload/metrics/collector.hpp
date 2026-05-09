@@ -3,8 +3,10 @@
 #include <atomic>
 #include <chrono>
 #include <cstdint>
+#include <mutex>
 #include <string>
 #include <unordered_map>
+#include <vector>
 
 namespace cppload::metrics {
 
@@ -18,6 +20,8 @@ struct RequestMetrics {
     std::chrono::microseconds min_latency{std::chrono::microseconds::max()};
     std::chrono::microseconds max_latency{std::chrono::microseconds::min()};
     double mean_latency_us{0.0};
+    uint64_t p95_latency_us{0};
+    uint64_t p99_latency_us{0};
 };
 
 class MetricsCollector {
@@ -54,6 +58,9 @@ private:
     
     std::atomic<std::chrono::steady_clock::time_point::rep> start_time_{
         std::chrono::steady_clock::now().time_since_epoch().count()};
+
+    mutable std::mutex latencies_mutex_;
+    std::vector<int64_t> latencies_;
 };
 
 } // namespace cppload::metrics

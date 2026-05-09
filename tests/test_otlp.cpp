@@ -17,6 +17,7 @@ TEST(OtlpExporterTest, StartEndSpan) {
         tracer.add_attribute("key1", "value1");
         tracer.end_span();
     });
+    EXPECT_FALSE(tracer.trace_id().empty());
 }
 
 TEST(OtlpExporterTest, NestedSpans) {
@@ -25,6 +26,7 @@ TEST(OtlpExporterTest, NestedSpans) {
     tracer.start_span("child");
     tracer.end_span(); // child
     tracer.end_span(); // parent
+    EXPECT_EQ(tracer.trace_id().length(), 32);
 }
 
 TEST(OtlpExporterTest, TraceIdNotEmpty) {
@@ -34,11 +36,14 @@ TEST(OtlpExporterTest, TraceIdNotEmpty) {
 }
 
 TEST(OtlpExporterTest, AutoEndOnDestroy) {
+    std::string tid;
     {
         cppload::otel::Tracer tracer;
         tracer.start_span("should_end");
-        // Destructor should auto-end span
+        tid = tracer.trace_id();
+        // Destructor should auto-end span without crash
     }
+    EXPECT_FALSE(tid.empty());
 }
 
 TEST(OtlpExporterTest, MultipleSpans) {
@@ -48,4 +53,5 @@ TEST(OtlpExporterTest, MultipleSpans) {
         tracer.add_attribute("idx", std::to_string(i));
         tracer.end_span();
     }
+    EXPECT_EQ(tracer.trace_id().length(), 32);
 }
