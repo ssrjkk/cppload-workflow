@@ -3,13 +3,31 @@
 #include <boost/asio/ip/tcp.hpp>
 #include <memory>
 #include <algorithm>
-#include <chrono>
 #include <cctype>
+#include <chrono>
+#include <iomanip>
+#include <sstream>
 
 namespace beast = boost::beast;
 namespace http = beast::http;
 namespace asio = boost::asio;
 namespace net = cppload::net;
+
+static std::string url_encode_path(const std::string& raw) {
+    std::ostringstream out;
+    out << std::hex << std::uppercase;
+    for (unsigned char c : raw) {
+        if (std::isalnum(c) || c == '-' || c == '_' || c == '.' || c == '~' ||
+            c == '/' || c == '@' || c == '!' || c == '$' || c == '&' ||
+            c == '\'' || c == '(' || c == ')' || c == '*' || c == '+' ||
+            c == ',' || c == ';' || c == '=' || c == ':' || c == '?' || c == '%') {
+            out << c;
+        } else {
+            out << '%' << std::setw(2) << std::setfill('0') << static_cast<int>(c);
+        }
+    }
+    return out.str();
+}
 
 class net::HttpClient::Impl : public std::enable_shared_from_this<Impl> {
 public:
@@ -36,13 +54,13 @@ public:
             callback(err_resp);
             return;
         }
-        req_msg->method_string(verb);
+        req_msg->method(verb);
 
-        // Sanitize target: strip CR/LF to prevent HTTP header injection
+        // Sanitize target: strip CR/LF and URL-encode to prevent injection/invalid chars
         std::string safe_target = req.target;
         safe_target.erase(std::remove_if(safe_target.begin(), safe_target.end(),
             [](char c) { return c == '\r' || c == '\n'; }), safe_target.end());
-        req_msg->target(safe_target);
+        req_msg->target(url_encode_path(safe_target));
         req_msg->version(11);
         req_msg->set(http::field::host, req.host);
         req_msg->set(http::field::user_agent, "cppload-pro/1.0");

@@ -13,6 +13,7 @@ set(CORE_SOURCES
 )
 
 set(CORE_HEADERS
+    ${CMAKE_SOURCE_DIR}/include/cppload/core/token_bucket.hpp
     ${CMAKE_SOURCE_DIR}/include/cppload/net/http_client.hpp
     ${CMAKE_SOURCE_DIR}/include/cppload/net/connection_pool.hpp
     ${CMAKE_SOURCE_DIR}/include/cppload/metrics/collector.hpp

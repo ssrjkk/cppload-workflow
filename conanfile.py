@@ -14,7 +14,6 @@ class CPPLoadProConan(ConanFile):
         self.requires("prometheus-cpp/1.2.4")
         self.requires("grpc/1.63.0")
         self.requires("protobuf/4.25.3")
-        self.requires("civetweb/1.16")
         self.requires("yaml-cpp/0.8.0")
 
     def layout(self):

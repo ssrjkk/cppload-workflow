@@ -1,6 +1,7 @@
 #include "cppload/scenario/engine.hpp"
 #include "cppload/core/token_bucket.hpp"
 #include <boost/asio/io_context.hpp>
+#include <atomic>
 
 namespace cppload::scenario {
 
@@ -11,7 +12,8 @@ public:
         , bucket_(100.0) {}
     
     void stop() {
-        ioc_.stop();
+        stopped_ = true;
+        if (active_ioc_) active_ioc_->stop();
     }
     
     void set_target_rps(uint32_t rps) {
@@ -38,14 +40,16 @@ public:
     const ScenarioConfig& config() const { return config_; }
     
     void run(StepCallback callback) {
-        // MVP: execute scenarios sequentially
-        net::HttpClient client(ioc_);
+        stopped_ = false;
+        boost::asio::io_context ioc;
+        active_ioc_ = &ioc;
+        net::HttpClient client(ioc);
         metrics::MetricsCollector metrics;
         
         for (const auto& scenario : config_.scenarios) {
-            if (ioc_.stopped()) break;
+            if (stopped_) break;
             for (const auto& step : scenario.steps) {
-                if (ioc_.stopped()) break;
+                if (stopped_) break;
                 net::HttpRequest req;
                 req.method = step.method;
                 req.target = step.path;
@@ -55,7 +59,7 @@ public:
                 // Extract host and port from base_url
                 parse_url(config_.target.base_url, req.host, req.port);
                 
-                client.async_request(req, [&](const auto& resp) {
+                client.async_request(req, [=, &metrics, &callback](const auto& resp) mutable {
                     metrics.record_request(resp.status_code, resp.latency,
                                          req.body.size(), resp.body.size());
                     if (callback) {
@@ -68,8 +72,8 @@ public:
         }
         
         // Blocks until all async operations complete (or stop() is called)
-        if (!ioc_.stopped()) ioc_.run();
-        ioc_.restart();
+        if (!stopped_) ioc.run();
+        active_ioc_ = nullptr;
     }
     
     bool check_sla(const metrics::MetricsCollector& m) const {
@@ -104,10 +108,11 @@ private:
         }
     }
     
-    boost::asio::io_context ioc_;
+    boost::asio::io_context* active_ioc_{nullptr};
+    std::atomic<bool> stopped_{false};
     std::string config_path_;
     ScenarioConfig config_;
-    std::string last_error_;
+    mutable std::string last_error_;
     TokenBucket bucket_;
     uint32_t target_rps_{100};
 };

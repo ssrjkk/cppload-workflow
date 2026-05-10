@@ -40,7 +40,6 @@ jobs:
             -DCPLOAD_BUILD_TOOLS=OFF
 
       - name: Build
-        continue-on-error: true
         run: |
           set -o pipefail
           cmake --build build -j$(nproc) 2>&1 | tee build.log
@@ -84,7 +83,6 @@ jobs:
             -DCPLOAD_BUILD_TOOLS=OFF
 
       - name: Build
-        continue-on-error: true
         run: |
           set -o pipefail
           cmake --build build-cov -j$(nproc) 2>&1 | tee build-cov.log
@@ -162,7 +160,6 @@ jobs:
             -DCPLOAD_BUILD_TOOLS=OFF
 
       - name: Build
-        continue-on-error: true
         run: |
           set -o pipefail
           cmake --build build-asan -j$(nproc) 2>&1 | tee build-asan.log

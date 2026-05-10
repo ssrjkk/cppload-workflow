@@ -32,6 +32,8 @@ void TokenBucket::consume() {
     while (tokens_ < 1.0) {
         double deficit = 1.0 - tokens_;
         double wait_sec = deficit / rate_;
+        // Clamp to 1 second max to avoid int64 overflow for extremely low rates
+        if (wait_sec > 1.0) wait_sec = 1.0;
         auto wait_us = std::chrono::microseconds(
             static_cast<int64_t>(wait_sec * 1'000'000));
         if (wait_us.count() > 0) {

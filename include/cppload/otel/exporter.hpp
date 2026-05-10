@@ -16,7 +16,7 @@ struct TraceConfig {
 class Tracer {
 public:
     explicit Tracer(const TraceConfig& config = {});
-    ~Tracer();
+    ~Tracer() noexcept;
     
     Tracer(const Tracer&) = delete;
     Tracer& operator=(const Tracer&) = delete;

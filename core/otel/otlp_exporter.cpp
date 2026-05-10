@@ -96,8 +96,12 @@ public:
         parse_endpoint();
     }
 
-    ~Impl() {
-        flush();
+    ~Impl() noexcept {
+        try {
+            flush();
+        } catch (...) {
+            // Suppress all exceptions during destruction
+        }
     }
 
     void start_span(const std::string& name) {
@@ -268,7 +272,7 @@ private:
 Tracer::Tracer(const TraceConfig& config)
     : impl_(std::make_unique<Impl>(config)) {}
 
-Tracer::~Tracer() = default;
+Tracer::~Tracer() noexcept = default;
 
 void Tracer::start_span(const std::string& name) {
     impl_->start_span(name);
