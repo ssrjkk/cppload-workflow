@@ -5,6 +5,7 @@
 #include <boost/asio/connect.hpp>
 #include <nlohmann/json.hpp>
 #include <chrono>
+#include <iomanip>
 #include <string>
 #include <sstream>
 #include <algorithm>
@@ -18,6 +19,23 @@ using json = nlohmann::json;
 namespace cppload::security {
 
 namespace {
+
+std::string url_encode(const std::string& value) {
+    std::ostringstream escaped;
+    escaped.fill('0');
+    escaped << std::hex;
+    for (char c : value) {
+        if (std::isalnum(static_cast<unsigned char>(c)) || c == '-' || c == '_'
+            || c == '.' || c == '~') {
+            escaped << c;
+        } else {
+            escaped << '%' << std::uppercase
+                    << std::setw(2) << static_cast<int>(static_cast<unsigned char>(c))
+                    << std::nouppercase;
+        }
+    }
+    return escaped.str();
+}
 
 beast::error_code do_sync_post(
     const std::string& host,
@@ -132,8 +150,8 @@ private:
         parse_url(config_.token_endpoint, host, port, path);
 
         std::string body = "grant_type=client_credentials"
-            "&client_id=" + config_.client_id +
-            "&client_secret=" + config_.client_secret;
+            "&client_id=" + url_encode(config_.client_id) +
+            "&client_secret=" + url_encode(config_.client_secret);
 
         http::response<http::string_body> res;
         auto ec = do_sync_post(host, port, path, body,

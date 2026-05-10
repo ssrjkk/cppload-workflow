@@ -29,6 +29,7 @@ public:
             }
             ctx_.use_certificate_chain_file(config.cert_chain_file);
             ctx_.use_private_key_file(config.private_key_file, boost::asio::ssl::context::pem);
+            mtls_enabled_ = true;
         }
         
         if (!config.tmp_dh_file.empty()) {

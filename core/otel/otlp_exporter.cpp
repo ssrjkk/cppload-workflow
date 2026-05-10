@@ -73,11 +73,13 @@ void do_post_json(
 
     stream.expires_after(timeout);
     http::write(stream, req, ec);
+    if (ec) return;
 
     beast::flat_buffer buffer;
     http::response<http::string_body> res;
     stream.expires_after(timeout);
     http::read(stream, buffer, res, ec);
+    if (ec && ec != http::error::end_of_stream) return;
 
     beast::error_code shutdown_ec;
     stream.socket().shutdown(asio::ip::tcp::socket::shutdown_both, shutdown_ec);

@@ -15,7 +15,12 @@ std::chrono::seconds parse_duration(const std::string& str) {
     if (str.empty()) return std::chrono::seconds{0};
     char unit = str.back();
     std::string num_str = str.substr(0, str.length() - 1);
-    long long value = std::stoll(num_str);
+    long long value = 0;
+    try {
+        value = std::stoll(num_str);
+    } catch (...) {
+        return std::chrono::seconds{0};
+    }
     switch (unit) {
         case 's': return std::chrono::seconds{value};
         case 'm': return std::chrono::minutes{value};
@@ -28,7 +33,11 @@ double parse_error_rate(const std::string& str) {
     auto start = str.find_first_of("0123456789");
     auto end = str.find("%");
     if (start != std::string::npos && end != std::string::npos) {
-        return std::stod(str.substr(start, end - start));
+        try {
+            return std::stod(str.substr(start, end - start));
+        } catch (...) {
+            return 0.1;
+        }
     }
     return 0.1;
 }
@@ -38,7 +47,12 @@ std::chrono::milliseconds parse_latency(const std::string& str) {
     if (start == std::string::npos) return std::chrono::milliseconds{500};
     size_t num_end = start;
     while (num_end < str.length() && std::isdigit(static_cast<unsigned char>(str[num_end]))) ++num_end;
-    long long value = std::stoll(str.substr(start, num_end - start));
+    long long value = 0;
+    try {
+        value = std::stoll(str.substr(start, num_end - start));
+    } catch (...) {
+        return std::chrono::milliseconds{500};
+    }
     if (str.find("ms") != std::string::npos) return std::chrono::milliseconds{value};
     if (str.find("s") != std::string::npos) return std::chrono::seconds{value};
     return std::chrono::milliseconds{value};

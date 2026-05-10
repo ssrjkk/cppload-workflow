@@ -1,7 +1,5 @@
 #include "cppload/metrics/collector.hpp"
 #include <algorithm>
-#include <cassert>
-#include <cmath>
 
 namespace cppload::metrics {
 

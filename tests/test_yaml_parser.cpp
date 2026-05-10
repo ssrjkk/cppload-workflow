@@ -32,9 +32,11 @@ protected:
 
     void TearDown() override {
         std::remove(test_file.c_str());
+        std::remove(bad_file.c_str());
     }
 
     std::string test_file = "test_config_tmp.yaml";
+    std::string bad_file = "bad_yaml_tmp.yaml";
 };
 
 TEST_F(YamlParserTest, LoadsConfig) {
@@ -89,12 +91,11 @@ TEST_F(YamlParserTest, MissingFile) {
 }
 
 TEST_F(YamlParserTest, InvalidYaml) {
-    std::ofstream f("bad_yaml.yaml");
+    std::ofstream f(bad_file);
     f << ": : invalid yaml :\n";
     f.close();
-    cppload::scenario::ScenarioEngine engine("bad_yaml.yaml");
+    cppload::scenario::ScenarioEngine engine(bad_file);
     EXPECT_FALSE(engine.load_config());
-    std::remove("bad_yaml.yaml");
 }
 
 TEST_F(YamlParserTest, SetTargetRps) {

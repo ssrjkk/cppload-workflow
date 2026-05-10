@@ -45,3 +45,35 @@ TEST(TokenBucketTest, SetBurst) {
     std::this_thread::sleep_for(std::chrono::milliseconds(50));
     EXPECT_TRUE(bucket.try_consume());
 }
+
+TEST(TokenBucketTest, ConcurrentConsume) {
+    cppload::TokenBucket bucket(5000.0); // high rate
+    std::atomic<int> consumed{0};
+    const int num_threads = 4;
+    const int per_thread = 100;
+    std::vector<std::thread> threads;
+    
+    for (int t = 0; t < num_threads; ++t) {
+        threads.emplace_back([&]() {
+            for (int i = 0; i < per_thread; ++i) {
+                if (bucket.try_consume()) {
+                    consumed.fetch_add(1);
+                }
+            }
+        });
+    }
+    
+    for (auto& t : threads) t.join();
+    
+    // Should have consumed tokens from the bucket
+    EXPECT_GT(consumed.load(), 0);
+    EXPECT_LE(consumed.load(), num_threads * per_thread);
+}
+
+TEST(TokenBucketTest, InvalidRate) {
+    EXPECT_THROW(cppload::TokenBucket(0.0), std::invalid_argument);
+    EXPECT_THROW(cppload::TokenBucket(-1.0), std::invalid_argument);
+    cppload::TokenBucket bucket(100.0);
+    EXPECT_THROW(bucket.set_rate(0.0), std::invalid_argument);
+    EXPECT_THROW(bucket.set_rate(-5.0), std::invalid_argument);
+}

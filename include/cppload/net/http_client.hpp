@@ -3,6 +3,7 @@
 #include <boost/asio/io_context.hpp>
 #include <boost/beast/core.hpp>
 #include <boost/beast/http.hpp>
+#include <chrono>
 #include <functional>
 #include <memory>
 #include <string>
@@ -11,7 +12,7 @@
 namespace cppload::net {
 
 struct HttpResponse {
-    unsigned int status_code;
+    unsigned int status_code{0};
     std::string body;
     std::unordered_map<std::string, std::string> headers;
     std::chrono::microseconds latency;

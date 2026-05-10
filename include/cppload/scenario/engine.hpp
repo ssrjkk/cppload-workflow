@@ -2,6 +2,7 @@
 
 #include "cppload/net/http_client.hpp"
 #include "cppload/metrics/collector.hpp"
+#include <functional>
 #include <string>
 #include <vector>
 #include <unordered_map>
@@ -62,7 +63,7 @@ struct ScenarioConfig {
 class ScenarioEngine {
 public:
     explicit ScenarioEngine(const std::string& config_path);
-    ~ScenarioEngine();
+    ~ScenarioEngine() noexcept;
     
     ScenarioEngine(const ScenarioEngine&) = delete;
     ScenarioEngine& operator=(const ScenarioEngine&) = delete;
@@ -79,6 +80,7 @@ public:
     )>;
     
     void run(StepCallback callback = nullptr);
+    void stop();
 
     void set_target_rps(uint32_t rps);
     uint32_t target_rps() const;

@@ -1,5 +1,6 @@
 #include "cppload/scenario/engine.hpp"
 #include "cppload/core/token_bucket.hpp"
+#include <boost/asio/io_context.hpp>
 
 namespace cppload::scenario {
 
@@ -8,6 +9,10 @@ public:
     explicit Impl(const std::string& config_path)
         : config_path_(config_path)
         , bucket_(100.0) {}
+    
+    void stop() {
+        ioc_.stop();
+    }
     
     void set_target_rps(uint32_t rps) {
         target_rps_ = rps > 0 ? rps : 100;
@@ -34,12 +39,13 @@ public:
     
     void run(StepCallback callback) {
         // MVP: execute scenarios sequentially
-        boost::asio::io_context ioc;
-        net::HttpClient client(ioc);
+        net::HttpClient client(ioc_);
         metrics::MetricsCollector metrics;
         
         for (const auto& scenario : config_.scenarios) {
+            if (ioc_.stopped()) break;
             for (const auto& step : scenario.steps) {
+                if (ioc_.stopped()) break;
                 net::HttpRequest req;
                 req.method = step.method;
                 req.target = step.path;
@@ -61,8 +67,9 @@ public:
             }
         }
         
-        // Blocks until all async operations complete
-        ioc.run();
+        // Blocks until all async operations complete (or stop() is called)
+        if (!ioc_.stopped()) ioc_.run();
+        ioc_.restart();
     }
     
     bool check_sla(const metrics::MetricsCollector& m) const {
@@ -97,6 +104,7 @@ private:
         }
     }
     
+    boost::asio::io_context ioc_;
     std::string config_path_;
     ScenarioConfig config_;
     std::string last_error_;
@@ -107,12 +115,13 @@ private:
 ScenarioEngine::ScenarioEngine(const std::string& config_path)
     : impl_(std::make_unique<Impl>(config_path)) {}
 
-ScenarioEngine::~ScenarioEngine() = default;
+ScenarioEngine::~ScenarioEngine() noexcept = default;
 
 bool ScenarioEngine::load_config() { return impl_->load_config(); }
 bool ScenarioEngine::validate() const { return impl_->validate(); }
 const ScenarioConfig& ScenarioEngine::config() const { return impl_->config(); }
 void ScenarioEngine::run(StepCallback callback) { impl_->run(callback); }
+void ScenarioEngine::stop() { impl_->stop(); }
 void ScenarioEngine::set_target_rps(uint32_t rps) { impl_->set_target_rps(rps); }
 uint32_t ScenarioEngine::target_rps() const { return impl_->target_rps(); }
 bool ScenarioEngine::check_sla(const metrics::MetricsCollector& m) const { return impl_->check_sla(m); }

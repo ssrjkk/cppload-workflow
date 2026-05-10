@@ -42,15 +42,10 @@ TEST(MetricsCollectorTest, Percentiles) {
         collector.record_request(200, std::chrono::microseconds(100 * (i + 1)), 100, 500);
     }
     
-    // p95 should be around 1900-2000 (95th percentile of 20 = 19th element ~ 1900)
-    auto p95 = collector.p95_latency_us();
-    EXPECT_GE(p95, 1800);
-    EXPECT_LE(p95, 2100);
-    
-    // p99 should be the max (2000)
-    auto p99 = collector.p99_latency_us();
-    EXPECT_GE(p99, 1900);
-    EXPECT_LE(p99, 2100);
+    // p95: index = 20 * 0.95 = 19 → sorted[19] = 2000
+    EXPECT_EQ(collector.p95_latency_us(), 2000);
+    // p99: index = 20 * 0.99 = 19 → sorted[19] = 2000
+    EXPECT_EQ(collector.p99_latency_us(), 2000);
 }
 
 TEST(MetricsCollectorTest, PercentilesSingleValue) {
@@ -64,4 +59,31 @@ TEST(MetricsCollectorTest, PercentilesZeroRequests) {
     cppload::metrics::MetricsCollector collector;
     EXPECT_EQ(collector.p95_latency_us(), 0);
     EXPECT_EQ(collector.p99_latency_us(), 0);
+}
+
+TEST(MetricsCollectorTest, SnapshotZeroNoRequests) {
+    cppload::metrics::MetricsCollector collector;
+    auto m = collector.snapshot();
+    EXPECT_EQ(m.total_requests, 0);
+    EXPECT_EQ(m.p95_latency_us, 0);
+    EXPECT_EQ(m.p99_latency_us, 0);
+}
+
+TEST(MetricsCollectorTest, RequestsPerSecond) {
+    cppload::metrics::MetricsCollector collector;
+    EXPECT_DOUBLE_EQ(collector.requests_per_second(), 0.0);
+    collector.record_request(200, std::chrono::microseconds(100), 100, 500);
+    // After one request, RPS should be > 0
+    EXPECT_GT(collector.requests_per_second(), 0.0);
+}
+
+TEST(MetricsCollectorTest, ResetClearsCounters) {
+    cppload::metrics::MetricsCollector collector;
+    collector.record_request(500, std::chrono::microseconds(200), 100, 200);
+    EXPECT_EQ(collector.snapshot().total_requests, 1);
+    collector.reset();
+    auto m = collector.snapshot();
+    EXPECT_EQ(m.total_requests, 0);
+    EXPECT_EQ(m.failed_requests, 0);
+    EXPECT_EQ(m.p95_latency_us, 0);
 }

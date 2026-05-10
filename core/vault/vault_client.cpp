@@ -125,6 +125,19 @@ http::response<http::string_body> do_post(
     return res;
 }
 
+std::string sanitise_path(const std::string& path) {
+    std::string result;
+    result.reserve(path.size());
+    for (char c : path) {
+        if (c == '/' || c == '-' || c == '_' || c == '.' || c == '~'
+            || (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z')
+            || (c >= '0' && c <= '9')) {
+            result += c;
+        }
+    }
+    return result;
+}
+
 } // anonymous namespace
 
 class VaultClient::Impl {
@@ -143,14 +156,20 @@ public:
     bool is_connected() const { return connected_; }
 
     std::string get_secret(const std::string& path, const std::string& key) {
+        if (path.empty()) { last_error_ = "Vault: path is empty"; return {}; }
         auto url = parse_url(config_.address);
-        // KV v2: /v1/{engine}/data/{path}
-        std::string api_path = "/v1/" + config_.engine_path + "/data/" + path;
+        std::string api_path = "/v1/" + config_.engine_path + "/data/" + sanitise_path(path);
 
         std::unordered_map<std::string, std::string> headers;
         headers["X-Vault-Token"] = config_.token;
 
-        auto res = do_get(url.host, url.port, api_path, headers, config_.timeout_seconds);
+        http::response<http::string_body> res;
+        try {
+            res = do_get(url.host, url.port, api_path, headers, config_.timeout_seconds);
+        } catch (const std::runtime_error& e) {
+            last_error_ = e.what();
+            return {};
+        }
 
         if (res.result_int() < 200 || res.result_int() >= 300) {
             last_error_ = "Vault request failed: " + std::to_string(res.result_int());
@@ -173,13 +192,20 @@ public:
     }
 
     std::unordered_map<std::string, std::string> get_secret_map(const std::string& path) {
+        if (path.empty()) return {};
         auto url = parse_url(config_.address);
-        std::string api_path = "/v1/" + config_.engine_path + "/data/" + path;
+        std::string api_path = "/v1/" + config_.engine_path + "/data/" + sanitise_path(path);
 
         std::unordered_map<std::string, std::string> headers;
         headers["X-Vault-Token"] = config_.token;
 
-        auto res = do_get(url.host, url.port, api_path, headers, config_.timeout_seconds);
+        http::response<http::string_body> res;
+        try {
+            res = do_get(url.host, url.port, api_path, headers, config_.timeout_seconds);
+        } catch (const std::runtime_error& e) {
+            last_error_ = e.what();
+            return {};
+        }
 
         if (res.result_int() < 200 || res.result_int() >= 300) {
             last_error_ = "Vault request failed: " + std::to_string(res.result_int());
@@ -204,8 +230,9 @@ public:
 
     bool put_secret(const std::string& path,
                    const std::unordered_map<std::string, std::string>& data) {
+        if (path.empty()) { last_error_ = "Vault: path is empty"; return false; }
         auto url = parse_url(config_.address);
-        std::string api_path = "/v1/" + config_.engine_path + "/data/" + path;
+        std::string api_path = "/v1/" + config_.engine_path + "/data/" + sanitise_path(path);
 
         json body;
         json data_obj;
@@ -215,8 +242,14 @@ public:
         std::unordered_map<std::string, std::string> headers;
         headers["X-Vault-Token"] = config_.token;
 
-        auto res = do_post(url.host, url.port, api_path,
-            body.dump(), headers, config_.timeout_seconds);
+        http::response<http::string_body> res;
+        try {
+            res = do_post(url.host, url.port, api_path,
+                body.dump(), headers, config_.timeout_seconds);
+        } catch (const std::runtime_error& e) {
+            last_error_ = e.what();
+            return false;
+        }
 
         return res.result_int() >= 200 && res.result_int() < 300;
     }
@@ -226,13 +259,21 @@ public:
     }
 
     std::string get_database_creds(const std::string& role_name) {
+        if (role_name.empty()) { last_error_ = "Vault: role_name is empty"; return {}; }
         auto url = parse_url(config_.address);
-        std::string api_path = "/v1/database/creds/" + role_name;
+        std::string safe_role = sanitise_path(role_name);
+        std::string api_path = "/v1/database/creds/" + safe_role;
 
         std::unordered_map<std::string, std::string> headers;
         headers["X-Vault-Token"] = config_.token;
 
-        auto res = do_get(url.host, url.port, api_path, headers, config_.timeout_seconds);
+        http::response<http::string_body> res;
+        try {
+            res = do_get(url.host, url.port, api_path, headers, config_.timeout_seconds);
+        } catch (const std::runtime_error& e) {
+            last_error_ = e.what();
+            return {};
+        }
 
         if (res.result_int() < 200 || res.result_int() >= 300) {
             last_error_ = "Vault DB creds failed: " + std::to_string(res.result_int());
@@ -253,6 +294,10 @@ public:
 
     std::string get_approle_token(const std::string& role_id,
                                  const std::string& secret_id) {
+        if (role_id.empty() || secret_id.empty()) {
+            last_error_ = "Vault: role_id and secret_id required";
+            return {};
+        }
         auto url = parse_url(config_.address);
         std::string api_path = "/v1/auth/approle/login";
 
@@ -262,8 +307,14 @@ public:
 
         std::unordered_map<std::string, std::string> headers;
 
-        auto res = do_post(url.host, url.port, api_path,
-            body.dump(), headers, config_.timeout_seconds);
+        http::response<http::string_body> res;
+        try {
+            res = do_post(url.host, url.port, api_path,
+                body.dump(), headers, config_.timeout_seconds);
+        } catch (const std::runtime_error& e) {
+            last_error_ = e.what();
+            return {};
+        }
 
         if (res.result_int() < 200 || res.result_int() >= 300) {
             last_error_ = "Vault AppRole login failed: " + std::to_string(res.result_int());
@@ -289,8 +340,12 @@ private:
         std::unordered_map<std::string, std::string> headers;
         if (!config_.token.empty()) headers["X-Vault-Token"] = config_.token;
 
-        auto res = do_get(url.host, url.port, api_path, headers, config_.timeout_seconds);
-        connected_ = (res.result_int() >= 200 && res.result_int() < 500);
+        try {
+            auto res = do_get(url.host, url.port, api_path, headers, config_.timeout_seconds);
+            connected_ = (res.result_int() >= 200 && res.result_int() < 500);
+        } catch (...) {
+            connected_ = false;
+        }
     }
 
     VaultConfig config_;

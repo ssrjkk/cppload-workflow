@@ -11,12 +11,15 @@
 #include <csignal>
 #include <cstdlib>
 #include <cstring>
+#include <memory>
 
 using namespace cppload;
 
-std::atomic<bool> running{true};
+scenario::ScenarioEngine* volatile global_engine = nullptr;
 
-void signal_handler(int) { running = false; }
+void signal_handler(int) {
+    if (global_engine) global_engine->stop();
+}
 
 struct CliArgs {
     std::string config;
@@ -50,8 +53,16 @@ CliArgs parse_args(int argc, char* argv[]) {
         };
         if (arg == "--config" || arg == "-c") args.config = next();
         else if (arg == "--target" || arg == "-t") args.target = next();
-        else if (arg == "--rps" || arg == "-r") args.rps = std::stoi(next());
-        else if (arg == "--duration" || arg == "-d") args.duration = std::stoi(next());
+        else if (arg == "--rps" || arg == "-r") {
+            auto s = next();
+            try { args.rps = std::stoi(s); }
+            catch (...) { std::cerr << "Invalid --rps: " << s << "\n"; args.help = true; }
+        }
+        else if (arg == "--duration" || arg == "-d") {
+            auto s = next();
+            try { args.duration = std::stoi(s); }
+            catch (...) { std::cerr << "Invalid --duration: " << s << "\n"; args.help = true; }
+        }
         else if (arg == "--auth-type") args.auth_type = next();
         else if (arg == "--auth-token") args.auth_token = next();
         else if (arg == "--client-id") args.client_id = next();
@@ -100,10 +111,10 @@ int main(int argc, char* argv[]) {
     std::signal(SIGTERM, signal_handler);
 
     // --- Scenario engine ---
-    scenario::ScenarioEngine* engine = nullptr;
+    std::unique_ptr<scenario::ScenarioEngine> engine;
 
     if (!args.config.empty()) {
-        engine = new scenario::ScenarioEngine(args.config);
+        engine = std::make_unique<scenario::ScenarioEngine>(args.config);
         if (!engine->load_config()) {
             std::cerr << "Config error: " << engine->last_error() << "\n";
             return 1;
@@ -137,12 +148,12 @@ int main(int argc, char* argv[]) {
     security::AuthProvider auth(auth_cfg);
 
     // --- Vault ---
-    vault::VaultClient* vault = nullptr;
+    std::unique_ptr<vault::VaultClient> vault;
     if (!args.vault_addr.empty()) {
         vault::VaultConfig vc;
         vc.address = args.vault_addr;
         vc.token = args.vault_token;
-        vault = new vault::VaultClient(vc);
+        vault = std::make_unique<vault::VaultClient>(vc);
         if (vault->is_connected()) {
             std::cout << "Vault connected: " << vc.address << "\n";
         } else {
@@ -174,6 +185,7 @@ int main(int argc, char* argv[]) {
 
     metrics::MetricsCollector metrics;
 
+    global_engine = engine.get();
     engine->run([&](const scenario::HttpStep& step,
                      const net::HttpResponse& resp,
                      metrics::MetricsCollector& m) {
@@ -186,6 +198,7 @@ int main(int argc, char* argv[]) {
     });
 
     tracer.end_span();
+    global_engine = nullptr;
 
     auto elapsed = std::chrono::duration_cast<std::chrono::seconds>(
         std::chrono::steady_clock::now() - test_start);
@@ -209,7 +222,5 @@ int main(int argc, char* argv[]) {
         std::cout << "\nSLA: FAILED\n";
     }
 
-    delete vault;
-    delete engine;
     return 0;
 }

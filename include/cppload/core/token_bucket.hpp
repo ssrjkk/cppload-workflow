@@ -2,6 +2,7 @@
 
 #include <chrono>
 #include <mutex>
+#include <stdexcept>
 
 namespace cppload {
 

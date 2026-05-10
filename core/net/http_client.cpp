@@ -1,9 +1,10 @@
 #include "cppload/net/http_client.hpp"
 #include <boost/beast/http.hpp>
 #include <boost/asio/ip/tcp.hpp>
-#include <boost/asio/connect.hpp>
 #include <memory>
+#include <algorithm>
 #include <chrono>
+#include <cctype>
 
 namespace beast = boost::beast;
 namespace http = beast::http;
@@ -27,8 +28,21 @@ public:
         auto buffer = std::make_shared<beast::flat_buffer>();
         auto res = std::make_shared<http::response<http::string_body>>();
 
-        req_msg->method_string(http::string_to_verb(req.method));
-        req_msg->target(req.target);
+        // Validate and sanitize HTTP method
+        auto verb = http::string_to_verb(req.method);
+        if (verb == http::verb::unknown) {
+            HttpResponse err_resp;
+            err_resp.status_code = 0;
+            callback(err_resp);
+            return;
+        }
+        req_msg->method_string(verb);
+
+        // Sanitize target: strip CR/LF to prevent HTTP header injection
+        std::string safe_target = req.target;
+        safe_target.erase(std::remove_if(safe_target.begin(), safe_target.end(),
+            [](char c) { return c == '\r' || c == '\n'; }), safe_target.end());
+        req_msg->target(safe_target);
         req_msg->version(11);
         req_msg->set(http::field::host, req.host);
         req_msg->set(http::field::user_agent, "cppload-pro/1.0");

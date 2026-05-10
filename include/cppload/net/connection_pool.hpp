@@ -2,6 +2,7 @@
 
 #include "http_client.hpp"
 #include <boost/asio/io_context.hpp>
+#include <chrono>
 #include <memory>
 #include <queue>
 #include <mutex>

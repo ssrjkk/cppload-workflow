@@ -9,9 +9,11 @@ TokenBucket::TokenBucket(double rate, double burst)
     , tokens_(burst_)
     , last_refill_(std::chrono::steady_clock::now())
 {
+    if (rate_ <= 0.0) throw std::invalid_argument("TokenBucket: rate must be > 0");
 }
 
 void TokenBucket::set_rate(double rate) {
+    if (rate <= 0.0) throw std::invalid_argument("TokenBucket: rate must be > 0");
     std::lock_guard<std::mutex> lock(mutex_);
     refill();
     rate_ = rate;
@@ -31,7 +33,7 @@ void TokenBucket::consume() {
         double deficit = 1.0 - tokens_;
         double wait_sec = deficit / rate_;
         auto wait_us = std::chrono::microseconds(
-            static_cast<int>(wait_sec * 1'000'000));
+            static_cast<int64_t>(wait_sec * 1'000'000));
         if (wait_us.count() > 0) {
             lock.unlock();
             std::this_thread::sleep_for(wait_us);
