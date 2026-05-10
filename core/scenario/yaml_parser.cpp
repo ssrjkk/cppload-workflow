@@ -98,10 +98,10 @@ void substitute_env(YAML::Node node) {
 
 } // anonymous namespace
 
-bool ScenarioEngine::Impl::load_config() {
-    std::ifstream file(config_path_);
+bool parse_config_file(const std::string& path, ScenarioConfig& config, std::string& error) {
+    std::ifstream file(path);
     if (!file) {
-        last_error_ = "Cannot open config file: " + config_path_;
+        error = "Cannot open config file: " + path;
         return false;
     }
 
@@ -109,21 +109,21 @@ bool ScenarioEngine::Impl::load_config() {
     try {
         root = YAML::Load(file);
     } catch (const YAML::Exception& e) {
-        last_error_ = std::string("YAML parse error: ") + e.what();
+        error = std::string("YAML parse error: ") + e.what();
         return false;
     }
 
     substitute_env(root);
 
-    if (root["version"]) config_.version = root["version"].as<std::string>();
-    if (root["test_id"]) config_.test_id = root["test_id"].as<std::string>();
+    if (root["version"]) config.version = root["version"].as<std::string>();
+    if (root["test_id"]) config.test_id = root["test_id"].as<std::string>();
 
     if (root["target"]) {
         auto target = root["target"];
-        if (target["base_url"]) config_.target.base_url = target["base_url"].as<std::string>();
-        if (target["protocol"]) config_.target.protocol = target["protocol"].as<std::string>();
+        if (target["base_url"]) config.target.base_url = target["base_url"].as<std::string>();
+        if (target["protocol"]) config.target.protocol = target["protocol"].as<std::string>();
         if (target["tls"] && target["tls"]["verify"]) {
-            config_.target.tls.verify = target["tls"]["verify"].as<bool>();
+            config.target.tls.verify = target["tls"]["verify"].as<bool>();
         }
     }
 
@@ -133,7 +133,7 @@ bool ScenarioEngine::Impl::load_config() {
             if (st["stage"]) stage.name = st["stage"].as<std::string>();
             if (st["duration"]) stage.duration = parse_duration(st["duration"].as<std::string>());
             if (st["target_rps"]) stage.target_rps = st["target_rps"].as<uint32_t>();
-            config_.load_profile.stages.push_back(std::move(stage));
+            config.load_profile.stages.push_back(std::move(stage));
         }
     }
 
@@ -174,17 +174,17 @@ bool ScenarioEngine::Impl::load_config() {
                 }
             }
 
-            config_.scenarios.push_back(std::move(scenario));
+            config.scenarios.push_back(std::move(scenario));
         }
     }
 
     if (root["sla"]) {
         auto sla = root["sla"];
         if (sla["error_rate"]) {
-            config_.sla.max_error_rate = parse_error_rate(sla["error_rate"].as<std::string>());
+            config.sla.max_error_rate = parse_error_rate(sla["error_rate"].as<std::string>());
         }
         if (sla["p99_latency"]) {
-            config_.sla.max_p99_latency = parse_latency(sla["p99_latency"].as<std::string>());
+            config.sla.max_p99_latency = parse_latency(sla["p99_latency"].as<std::string>());
         }
     }
 

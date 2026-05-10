@@ -117,6 +117,13 @@ private:
     uint32_t target_rps_{100};
 };
 
+// Defined in yaml_parser.cpp
+bool parse_config_file(const std::string& path, ScenarioConfig& config, std::string& error);
+
+bool ScenarioEngine::Impl::load_config() {
+    return parse_config_file(config_path_, config_, last_error_);
+}
+
 ScenarioEngine::ScenarioEngine(const std::string& config_path)
     : impl_(std::make_unique<Impl>(config_path)) {}
 
