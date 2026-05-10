@@ -103,7 +103,7 @@ void parse_url(const std::string& url, std::string& host, std::string& port, std
 
 class AuthProvider::Impl {
 public:
-    explicit Impl(const AuthConfig& config) : config_(config), token_expiry_(0) {
+    explicit Impl(const AuthConfig& config) : config_(config), token_expiry_() {
         if (config_.type == AuthType::OAUTH2 && !config_.token_endpoint.empty()) {
             fetch_token();
         }
