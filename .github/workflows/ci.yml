@@ -54,7 +54,7 @@ jobs:
       - name: Run tests
         if: success()
         run: |
-          cd build && ctest --output-on-failure || echo "Tests completed with warnings"
+          cd build && ctest --output-on-failure --timeout 60 -j$(nproc) || echo "Tests completed with warnings"
 
   coverage:
     name: Coverage
@@ -96,7 +96,7 @@ jobs:
 
       - name: Run tests
         run: |
-          cd build-cov && ctest --output-on-failure || true
+          cd build-cov && ctest --output-on-failure --timeout 60 -j$(nproc) || true
         continue-on-error: true
 
       - name: Capture coverage info
@@ -174,7 +174,7 @@ jobs:
       - name: Run tests
         if: success()
         run: |
-          cd build-asan && ctest --output-on-failure || echo "ASan tests completed with warnings"
+          cd build-asan && ctest --output-on-failure --timeout 60 -j$(nproc) || echo "ASan tests completed with warnings"
 
   lint:
     name: Lint

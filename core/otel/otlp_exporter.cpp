@@ -49,7 +49,7 @@ void do_post_json(
     const std::string& port,
     const std::string& target,
     const json& body,
-    std::chrono::seconds timeout = std::chrono::seconds(5))
+    std::chrono::seconds timeout = std::chrono::seconds(1))
 {
     beast::error_code ec;
     asio::io_context ioc;
