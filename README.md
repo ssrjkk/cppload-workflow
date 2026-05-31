@@ -118,12 +118,12 @@ docker run --rm cppload-pro:latest --help
 │  CLI Tool / HTTP Worker / Python SDK                     │
 │                                                          │
 │  ┌──────────────────────────────────────────────────┐    │
-│  │  Scenario Engine                                  │    │
-│  │  • YAML парсер (env vars, load profiles, SLA)     │    │
-│  │  • TokenBucket rate limiter                       │    │
-│  │  • Step callback pipeline                         │    │
+│  │  Scenario Engine                                 │    │
+│  │  • YAML парсер (env vars, load profiles, SLA)    │    │
+│  │  • TokenBucket rate limiter                      │    │
+│  │  • Step callback pipeline                        │    │
 │  └────────────────────┬─────────────────────────────┘    │
-│                       │                                   │
+│                       │                                  │
 │  ┌────────────────────▼─────────────────────────────┐    │
 │  │  HTTP Client (Boost.Beast + ASIO)                │    │
 │  │  • Async request/resolve/connect                 │    │
@@ -131,7 +131,7 @@ docker run --rm cppload-pro:latest --help
 │  │  • mTLS / TLS Context                            │    │
 │  │  • URL encoding + CR/LF sanitization             │    │
 │  └────────────────────┬─────────────────────────────┘    │
-│                       │                                   │
+│                       │                                  │
 │  ┌────────────────────▼─────────────────────────────┐    │
 │  │  Metrics & Observability                         │    │
 │  │  • Lock-free Metrics Collector (p50/p95/p99)     │    │
@@ -140,11 +140,11 @@ docker run --rm cppload-pro:latest --help
 │  └──────────────────────────────────────────────────┘    │
 │                                                          │
 │  ┌──────────────────────────────────────────────────┐    │
-│  │  Auth & Secrets                                   │    │
+│  │  Auth & Secrets                                  │    │
 │  │  • OAuth2 (client_credentials, auto-refresh)     │    │
 │  │  • API Key / Bearer Token                        │    │
-│  │  • mTLS (взаимная TLS аутентификация)           │    │
-│  │  • HashiCorp Vault (KV v2, AppRole, DB creds)   │    │
+│  │  • mTLS (взаимная TLS аутентификация)            │    │
+│  │  • HashiCorp Vault (KV v2, AppRole, DB creds)    │    │
 │  └──────────────────────────────────────────────────┘    │
 └─────────────────────────┬────────────────────────────────┘
                           │
