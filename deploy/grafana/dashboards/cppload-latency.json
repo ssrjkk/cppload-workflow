@@ -1,0 +1,110 @@
+{
+  "title": "cppload-pro Latency Detail",
+  "uid": "cppload-latency",
+  "version": 1,
+  "tags": ["cppload", "load-testing", "latency"],
+  "timezone": "browser",
+  "editable": true,
+  "refresh": "10s",
+  "panels": [
+    {
+      "title": "Latency Distribution (Histogram)",
+      "type": "heatmap",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+      "targets": [
+        {
+          "expr": "rate(cppload_request_duration_seconds_bucket[30s])",
+          "legendFormat": "le {{le}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "title": "P50 / P95 / P99 Latency",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
+      "targets": [
+        {
+          "expr": "cppload_request_duration_seconds_bucket{le=\"0.01\"}",
+          "legendFormat": "<10ms",
+          "refId": "A"
+        },
+        {
+          "expr": "cppload_request_duration_seconds_bucket{le=\"0.1\"}",
+          "legendFormat": "<100ms",
+          "refId": "B"
+        },
+        {
+          "expr": "cppload_request_duration_seconds_bucket{le=\"1\"}",
+          "legendFormat": "<1s",
+          "refId": "C"
+        }
+      ]
+    },
+    {
+      "title": "Latency Heatmap",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.50, rate(cppload_request_duration_seconds_bucket[30s]))",
+          "legendFormat": "P50",
+          "refId": "A"
+        },
+        {
+          "expr": "histogram_quantile(0.95, rate(cppload_request_duration_seconds_bucket[30s]))",
+          "legendFormat": "P95",
+          "refId": "B"
+        },
+        {
+          "expr": "histogram_quantile(0.99, rate(cppload_request_duration_seconds_bucket[30s]))",
+          "legendFormat": "P99",
+          "refId": "C"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 0.1 },
+              { "color": "red", "value": 0.5 }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "title": "Mean Latency",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 4, "x": 0, "y": 16 },
+      "targets": [
+        {
+          "expr": "rate(cppload_request_duration_seconds_sum[30s]) / rate(cppload_request_duration_seconds_count[30s])",
+          "legendFormat": "Mean",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "title": "Min / Max Latency",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 4, "x": 4, "y": 16 },
+      "targets": [
+        {
+          "expr": "cppload_request_duration_seconds_min",
+          "legendFormat": "Min",
+          "refId": "A"
+        },
+        {
+          "expr": "cppload_request_duration_seconds_max",
+          "legendFormat": "Max",
+          "refId": "B"
+        }
+      ]
+    }
+  ],
+  "schemaVersion": 36
+}

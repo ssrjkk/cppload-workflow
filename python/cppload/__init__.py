@@ -2,6 +2,40 @@
 
 __version__ = "1.0.0"
 
-from .core import LoadTest, Scenario, MetricsCollector
+from .core import (
+    LoadTest,
+    Scenario,
+    MetricsCollector,
+    TokenBucket,
+    AuthProvider,
+    AuthConfig,
+    AuthType,
+    VaultClient,
+    VaultConfig,
+    Tracer,
+    TraceConfig,
+    HttpClient,
+    HttpRequest,
+    ConnectionPool,
+    PoolConfig,
+    ScenarioEngine,
+)
 
-__all__ = ["LoadTest", "Scenario", "MetricsCollector"]
+__all__ = [
+    "LoadTest",
+    "Scenario",
+    "MetricsCollector",
+    "TokenBucket",
+    "AuthProvider",
+    "AuthConfig",
+    "AuthType",
+    "VaultClient",
+    "VaultConfig",
+    "Tracer",
+    "TraceConfig",
+    "HttpClient",
+    "HttpRequest",
+    "ConnectionPool",
+    "PoolConfig",
+    "ScenarioEngine",
+]

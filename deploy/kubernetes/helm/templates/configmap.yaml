@@ -1,0 +1,15 @@
+{{- if .Values.config }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "cppload-pro.fullname" . }}-config
+  labels:
+    {{- include "cppload-pro.labels" . | nindent 4 }}
+data:
+  load-test.yaml: |
+{{ .Values.config.scenario | default "{}" | indent 4 }}
+  {{- if .Values.config.prometheus }}
+  prometheus.yml: |
+{{ .Values.config.prometheus | indent 4 }}
+  {{- end }}
+{{- end }}

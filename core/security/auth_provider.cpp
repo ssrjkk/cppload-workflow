@@ -10,6 +10,7 @@
 #include <sstream>
 #include <algorithm>
 #include <stdexcept>
+#include <cstdint>
 
 namespace beast = boost::beast;
 namespace http = beast::http;

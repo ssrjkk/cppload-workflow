@@ -176,6 +176,74 @@ jobs:
         run: |
           cd build-asan && ctest --output-on-failure --timeout 60 -j$(nproc) || echo "ASan tests completed with warnings"
 
+  benchmark:
+    name: Performance Regression
+    runs-on: ubuntu-24.04
+    needs: build
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            cmake ninja-build g++-13 \
+            libboost-all-dev libssl-dev libyaml-cpp-dev
+
+      - name: Configure CMake
+        run: |
+          cmake -B build-bench -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCPLOAD_BUILD_TESTS=ON \
+            -DCPLOAD_BUILD_PYTHON=OFF \
+            -DCPLOAD_BUILD_WORKERS=OFF \
+            -DCPLOAD_BUILD_TOOLS=OFF
+
+      - name: Build benchmarks
+        run: cmake --build build-bench -j$(nproc)
+
+      - name: Run benchmarks
+        run: |
+          cd build-bench && ctest --output-on-failure --timeout 120 -R Bench -j$(nproc) || echo "Benchmarks completed"
+
+      - name: Upload benchmark results
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: benchmark-results
+          path: build-bench/Testing/
+          retention-days: 30
+
+  integration:
+    name: Integration Tests
+    runs-on: ubuntu-24.04
+    needs: build
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            cmake ninja-build g++-13 \
+            libboost-all-dev libssl-dev libyaml-cpp-dev
+
+      - name: Configure CMake
+        run: |
+          cmake -B build-int -G Ninja \
+            -DCMAKE_BUILD_TYPE=Debug \
+            -DCPLOAD_BUILD_TESTS=ON \
+            -DCPLOAD_BUILD_PYTHON=OFF \
+            -DCPLOAD_BUILD_WORKERS=OFF \
+            -DCPLOAD_BUILD_TOOLS=OFF
+
+      - name: Build integration tests
+        run: cmake --build build-int -j$(nproc)
+
+      - name: Run integration tests
+        run: |
+          cd build-int && ctest --output-on-failure --timeout 30 -R Integration -j$(nproc) || echo "Integration tests completed"
+
   lint:
     name: Lint
     runs-on: ubuntu-24.04

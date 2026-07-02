@@ -62,3 +62,9 @@ add_test(NAME AuthProviderTest COMMAND test_auth)
 add_test(NAME VaultClientTest COMMAND test_vault)
 add_test(NAME OtlpExporterTest COMMAND test_otlp)
 add_test(NAME YamlParserTest COMMAND test_yaml_parser)
+
+# Benchmarks (performance regression tests)
+add_subdirectory(benchmarks)
+
+# Integration tests (mock server)
+add_subdirectory(integration)
