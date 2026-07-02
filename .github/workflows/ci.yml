@@ -37,7 +37,9 @@ jobs:
             -DCPLOAD_BUILD_TESTS=ON \
             -DCPLOAD_BUILD_PYTHON=OFF \
             -DCPLOAD_BUILD_WORKERS=OFF \
-            -DCPLOAD_BUILD_TOOLS=OFF
+            -DCPLOAD_BUILD_TOOLS=OFF \
+            -DCPLOAD_BUILD_BENCHMARKS=OFF \
+            -DCPLOAD_BUILD_INTEGRATION_TESTS=OFF
 
       - name: Build
         run: |
@@ -80,7 +82,9 @@ jobs:
             -DCPLOAD_BUILD_TESTS=ON \
             -DCPLOAD_BUILD_PYTHON=OFF \
             -DCPLOAD_BUILD_WORKERS=OFF \
-            -DCPLOAD_BUILD_TOOLS=OFF
+            -DCPLOAD_BUILD_TOOLS=OFF \
+            -DCPLOAD_BUILD_BENCHMARKS=OFF \
+            -DCPLOAD_BUILD_INTEGRATION_TESTS=OFF
 
       - name: Build
         run: |
@@ -157,7 +161,9 @@ jobs:
             -DCPLOAD_BUILD_TESTS=ON \
             -DCPLOAD_BUILD_PYTHON=OFF \
             -DCPLOAD_BUILD_WORKERS=OFF \
-            -DCPLOAD_BUILD_TOOLS=OFF
+            -DCPLOAD_BUILD_TOOLS=OFF \
+            -DCPLOAD_BUILD_BENCHMARKS=OFF \
+            -DCPLOAD_BUILD_INTEGRATION_TESTS=OFF
 
       - name: Build
         run: |
@@ -197,7 +203,9 @@ jobs:
             -DCPLOAD_BUILD_TESTS=ON \
             -DCPLOAD_BUILD_PYTHON=OFF \
             -DCPLOAD_BUILD_WORKERS=OFF \
-            -DCPLOAD_BUILD_TOOLS=OFF
+            -DCPLOAD_BUILD_TOOLS=OFF \
+            -DCPLOAD_BUILD_BENCHMARKS=ON \
+            -DCPLOAD_BUILD_INTEGRATION_TESTS=OFF
 
       - name: Build benchmarks
         run: cmake --build build-bench -j$(nproc)
@@ -235,7 +243,9 @@ jobs:
             -DCPLOAD_BUILD_TESTS=ON \
             -DCPLOAD_BUILD_PYTHON=OFF \
             -DCPLOAD_BUILD_WORKERS=OFF \
-            -DCPLOAD_BUILD_TOOLS=OFF
+            -DCPLOAD_BUILD_TOOLS=OFF \
+            -DCPLOAD_BUILD_BENCHMARKS=OFF \
+            -DCPLOAD_BUILD_INTEGRATION_TESTS=ON
 
       - name: Build integration tests
         run: cmake --build build-int -j$(nproc)
@@ -283,7 +293,9 @@ jobs:
             -DCPLOAD_BUILD_TESTS=ON \
             -DCPLOAD_BUILD_PYTHON=OFF \
             -DCPLOAD_BUILD_WORKERS=OFF \
-            -DCPLOAD_BUILD_TOOLS=OFF
+            -DCPLOAD_BUILD_TOOLS=OFF \
+            -DCPLOAD_BUILD_BENCHMARKS=OFF \
+            -DCPLOAD_BUILD_INTEGRATION_TESTS=OFF
 
       - name: Run clang-tidy
         continue-on-error: true

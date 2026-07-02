@@ -125,7 +125,9 @@ for f in ['scenarios/ecommerce/load-test.yaml', 'deploy/kubernetes/helm/values.y
           cmake -B build -G Ninja \
             -DCMAKE_BUILD_TYPE=Debug \
             -DCMAKE_TOOLCHAIN_FILE=build-conan/conan_toolchain.cmake \
-            -DCPLOAD_BUILD_TESTS=ON
+            -DCPLOAD_BUILD_TESTS=ON \
+            -DCPLOAD_BUILD_BENCHMARKS=OFF \
+            -DCPLOAD_BUILD_INTEGRATION_TESTS=OFF
           cmake --build build
       
       - name: Run tests

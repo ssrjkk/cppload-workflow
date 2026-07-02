@@ -64,7 +64,11 @@ add_test(NAME OtlpExporterTest COMMAND test_otlp)
 add_test(NAME YamlParserTest COMMAND test_yaml_parser)
 
 # Benchmarks (performance regression tests)
-add_subdirectory(benchmarks)
+if(CPLOAD_BUILD_BENCHMARKS)
+    add_subdirectory(benchmarks)
+endif()
 
 # Integration tests (mock server)
-add_subdirectory(integration)
+if(CPLOAD_BUILD_INTEGRATION_TESTS)
+    add_subdirectory(integration)
+endif()
