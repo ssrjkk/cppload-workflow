@@ -6,6 +6,8 @@ on:
   pull_request:
     branches: [main]
 
+permissions: write-all
+
 concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
@@ -57,20 +59,13 @@ jobs:
       - name: Publish build log
         if: failure()
         env:
-          GITHUB_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ github.token }}
         run: |
-          cp build.log /tmp/build-${{ github.run_number }}.log
-          cd /tmp
-          git init
-          git config user.email "ci@cppload.dev"
-          git config user.name "CI Bot"
-          git checkout -b build-logs
-          cp /tmp/build-${{ github.run_number }}.log build-${{ github.run_number }}.log
-          git add build-${{ github.run_number }}.log
-          git commit -m "build log #${{ github.run_number }}"
-          git remote add origin https://x-access-token:$GITHUB_TOKEN@github.com/${{ github.repository }}.git
-          git push origin build-logs --force 2>&1 || echo "push failed (may be first time)"
-          cd /tmp && rm -rf /tmp/.git
+          head -80 build.log > /tmp/issue_body.txt
+          gh issue create \
+            --repo ${{ github.repository }} \
+            --title "Build failure #${{ github.run_number }} (${{ github.sha }})" \
+            --body-file /tmp/issue_body.txt || echo "gh issue create failed"
 
       - name: Upload build log
         if: failure()
