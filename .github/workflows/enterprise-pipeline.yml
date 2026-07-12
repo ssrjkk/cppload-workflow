@@ -44,16 +44,17 @@ jobs:
           flake8 python/ --max-line-length=120 || echo "Warning: lint issues"
       
       - name: Validate YAML
-        run: python -c "
-import yaml, sys
-for f in ['scenarios/ecommerce/load-test.yaml', 'deploy/kubernetes/helm/values.yaml']:
-    try:
-        yaml.safe_load(open(f))
-        print(f'OK: {f}')
-    except Exception as e:
-        print(f'ERROR: {f} - {e}')
-        sys.exit(1)
-"
+        run: |
+          python -c "
+          import yaml, sys
+          for f in ['scenarios/ecommerce/load-test.yaml', 'deploy/kubernetes/helm/values.yaml']:
+              try:
+                  yaml.safe_load(open(f))
+                  print(f'OK: {f}')
+              except Exception as e:
+                  print(f'ERROR: {f} - {e}')
+                  sys.exit(1)
+          "
 
   build-linux:
     name: C++ Build (Linux)
