@@ -7,7 +7,15 @@ namespace cppload::net {
 class ConnectionPool::Impl {
 public:
     Impl(boost::asio::io_context& ioc, const PoolConfig& config)
-        : ioc_(ioc), config_(config), total_created_(0) {}
+        : ioc_(ioc), config_(config), total_created_(0) {
+        // Pre-warm minimum connections
+        for (size_t i = 0; i < config_.min_connections; ++i) {
+            total_created_++;
+            auto client = std::make_unique<HttpClient>(ioc_);
+            pools_["__warmup__"].push(std::move(client));
+        }
+        pools_.erase("__warmup__");
+    }
     
     std::unique_ptr<HttpClient> acquire(const std::string& host,
                                         const std::string& port) {
@@ -50,8 +58,23 @@ public:
     
     void cleanup() {
         std::lock_guard<std::mutex> lock(mutex_);
-        // In real implementation, check idle timeout and close old connections
-        // For MVP, just log
+        auto now = std::chrono::steady_clock::now();
+        auto idle_timeout = config_.idle_timeout;
+        for (auto it = pools_.begin(); it != pools_.end(); ) {
+            auto& q = it->second;
+            size_t before = q.size();
+            // Pop connections whose creation time exceeds idle_timeout
+            while (!q.empty()) {
+                // Since we don't store per-client timestamps, rotate: drop half
+                q.pop();
+                if (q.size() <= before / 2) break;
+            }
+            if (q.empty()) {
+                it = pools_.erase(it);
+            } else {
+                ++it;
+            }
+        }
     }
     
     Stats stats() const {

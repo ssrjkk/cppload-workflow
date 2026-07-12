@@ -495,27 +495,19 @@ class LoadTest:
             target_rps = profiles[0].get("target_rps", 100)
             self.token_bucket = TokenBucket(target_rps)
 
-    def run(self):
-        """Execute the load test scenario"""
-        print(f"Running test: {self.test_id}")
-        print(f"Target: {self.target_url}")
-
-        self.tracer.start_span("load_test")
-        self.tracer.add_attribute("test_id", self.test_id)
-
+    def _worker(self, scenarios: list, base_url: str):
         http_client = HttpClient()
-        scenarios = self.config.get("scenarios", [])
+        from urllib.parse import urlparse
+        parsed = urlparse(base_url)
+        host = parsed.hostname or "localhost"
 
         for scenario in scenarios:
-            print(f"  Scenario: {scenario.get('name', 'unnamed')}")
             for step in scenario.get("steps", []):
                 http_step = step.get("http", {})
-                from urllib.parse import urlparse
-                parsed = urlparse(self.target_url)
                 req = HttpRequest(
                     method=http_step.get("method", "GET"),
                     target=http_step.get("path", "/"),
-                    host=parsed.hostname or "localhost",
+                    host=host,
                 )
 
                 if self.token_bucket:
@@ -527,8 +519,25 @@ class LoadTest:
                     resp.get("latency_us", 0),
                 )
 
-                if (resp["status_code"] % 100) == 5:
-                    print(f"    Error: {resp['status_code']}")
+    def run(self):
+        print(f"Running test: {self.test_id}")
+        print(f"Target: {self.target_url}")
+
+        self.tracer.start_span("load_test")
+        self.tracer.add_attribute("test_id", self.test_id)
+
+        profiles = self.config.get("load_profile", [])
+        concurrency = profiles[0].get("concurrent_users", 10) if profiles else 10
+
+        scenarios = self.config.get("scenarios", [])
+        threads = []
+        for _ in range(concurrency):
+            t = threading.Thread(target=self._worker, args=(scenarios, self.target_url))
+            t.start()
+            threads.append(t)
+
+        for t in threads:
+            t.join()
 
         self.tracer.end_span()
         self._print_results()

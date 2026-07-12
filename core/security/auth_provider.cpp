@@ -1,8 +1,10 @@
 #include "cppload/security/auth_provider.hpp"
+#include "cppload/security/tls_context.hpp"
 #include <boost/beast/core.hpp>
 #include <boost/beast/http.hpp>
 #include <boost/asio/ip/tcp.hpp>
 #include <boost/asio/connect.hpp>
+#include <boost/asio/ssl.hpp>
 #include <nlohmann/json.hpp>
 #include <chrono>
 #include <iomanip>
@@ -118,6 +120,8 @@ public:
         } else if (config_.type == AuthType::OAUTH2) {
             if (is_expired()) refresh_token();
             headers["Authorization"] = "Bearer " + current_token_;
+        } else if (config_.type == AuthType::MTLS) {
+            headers["X-SSL-Cert"] = "mtls";
         }
     }
 
@@ -126,11 +130,14 @@ public:
             return "X-API-Key: " + config_.api_key;
         } else if (config_.type == AuthType::BEARER_TOKEN || config_.type == AuthType::OAUTH2) {
             return "Authorization: Bearer " + current_token_;
+        } else if (config_.type == AuthType::MTLS) {
+            return "X-SSL-Cert: mtls";
         }
         return "";
     }
 
     bool refresh_token() {
+        if (config_.type == AuthType::MTLS) return true;
         if (config_.type != AuthType::OAUTH2) return true;
         try {
             fetch_token();

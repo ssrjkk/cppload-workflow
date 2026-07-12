@@ -133,6 +133,7 @@ bool parse_config_file(const std::string& path, ScenarioConfig& config, std::str
             if (st["stage"]) stage.name = st["stage"].as<std::string>();
             if (st["duration"]) stage.duration = parse_duration(st["duration"].as<std::string>());
             if (st["target_rps"]) stage.target_rps = st["target_rps"].as<uint32_t>();
+            if (st["concurrent_users"]) stage.concurrent_users = st["concurrent_users"].as<uint32_t>();
             config.load_profile.stages.push_back(std::move(stage));
         }
     }

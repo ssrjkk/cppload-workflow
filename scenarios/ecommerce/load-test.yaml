@@ -18,12 +18,15 @@ load_profile:
   - stage: rampup
     duration: 5m
     target_rps: 1000
+    concurrent_users: 10
   - stage: steady
     duration: 30m
     target_rps: 5000
+    concurrent_users: 50
   - stage: spike
     duration: 2m
     target_rps: 15000
+    concurrent_users: 100
 
 scenarios:
   - name: "user_checkout_flow"
