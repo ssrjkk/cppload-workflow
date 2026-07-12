@@ -6,8 +6,6 @@ on:
   pull_request:
     branches: [main]
 
-permissions: write-all
-
 concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
@@ -47,25 +45,6 @@ jobs:
         run: |
           set -o pipefail
           cmake --build build -j$(nproc) 2>&1 | tee build.log
-
-      - name: Report build error
-        if: failure()
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          echo "### Build error log (${{ github.run_number }})" >> $GITHUB_STEP_SUMMARY
-          tail -100 build.log >> $GITHUB_STEP_SUMMARY
-
-      - name: Publish build log
-        if: failure()
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          head -80 build.log > /tmp/issue_body.txt
-          gh issue create \
-            --repo ${{ github.repository }} \
-            --title "Build failure #${{ github.run_number }} (${{ github.sha }})" \
-            --body-file /tmp/issue_body.txt || echo "gh issue create failed"
 
       - name: Upload build log
         if: failure()

@@ -1,6 +1,7 @@
 #include "cppload/net/http_client.hpp"
 #include "cppload/net/connection.hpp"
 #include <boost/beast/http.hpp>
+#include <boost/beast/core/flat_buffer.hpp>
 #include <boost/asio/ip/tcp.hpp>
 #include <memory>
 #include <algorithm>
