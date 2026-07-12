@@ -1,5 +1,6 @@
 #include "cppload/scenario/engine.hpp"
 #include "cppload/core/token_bucket.hpp"
+#include "cppload/net/protocol_factory.hpp"
 #include <boost/asio/io_context.hpp>
 #include <atomic>
 #include <thread>
@@ -46,6 +47,14 @@ public:
         boost::asio::io_context ioc;
         active_ioc_ = &ioc;
 
+        std::string proto_name = config_.target.protocol;
+        if (proto_name.empty()) proto_name = "http1.1";
+
+        // Configure TLS
+        cppload::security::TlsConfig tls_cfg;
+        tls_cfg.verify_peer = config_.target.tls.verify;
+        net::ProtocolFactory::set_tls_config(tls_cfg);
+
         uint32_t concurrency = 10;
         if (!config_.load_profile.stages.empty()) {
             concurrency = config_.load_profile.stages[0].concurrent_users;
@@ -55,8 +64,12 @@ public:
         std::vector<std::thread> workers;
 
         for (uint32_t w = 0; w < concurrency; ++w) {
-            workers.emplace_back([this, &ioc, &metrics, &callback]() {
-                net::HttpClient client(ioc);
+            workers.emplace_back([this, &ioc, &metrics, &callback, &proto_name]() {
+                auto client = net::ProtocolFactory::create(proto_name, ioc);
+                if (!client) {
+                    last_error_ = "unsupported protocol: " + proto_name;
+                    return;
+                }
 
                 for (const auto& scenario : config_.scenarios) {
                     if (stopped_) break;
@@ -65,22 +78,24 @@ public:
 
                         bucket_.consume();
 
-                        net::HttpRequest req;
+                        net::Request req;
                         req.method = step.method;
-                        req.target = step.path;
+                        req.path = step.path;
                         req.body = step.body;
                         req.headers = step.headers;
-                        parse_url(config_.target.base_url, req.host, req.port);
+                        parse_url(config_.target.base_url, req.host, req.port,
+                                  req.use_tls, step.use_tls);
 
                         std::atomic<bool> done{false};
-                        client.async_request(req, [&, step](const auto& resp) mutable {
-                            metrics.record_request(resp.status_code, resp.latency,
-                                                   req.body.size(), resp.body.size());
-                            if (callback) {
-                                callback(step, resp, metrics);
-                            }
-                            done = true;
-                        });
+                        client->async_request(req,
+                            [&, step](std::error_code ec, net::Response resp) mutable {
+                                metrics.record_request(resp.status_code, resp.latency,
+                                                       req.body.size(), resp.body.size());
+                                if (callback) {
+                                    callback(step, resp, metrics);
+                                }
+                                done = true;
+                            });
 
                         while (!done && !stopped_) {
                             ioc.run_one();
@@ -110,21 +125,30 @@ public:
     std::string last_error() const { return last_error_; }
 
 private:
-    void parse_url(const std::string& url, std::string& host, std::string& port) {
+    void parse_url(const std::string& url, std::string& host,
+                   uint16_t& port, bool& use_tls, bool step_tls) {
+        bool is_https = false;
         auto proto_end = url.find("://");
+        if (proto_end != std::string::npos) {
+            auto scheme = url.substr(0, proto_end);
+            is_https = (scheme == "https");
+        }
         auto start = (proto_end != std::string::npos) ? proto_end + 3 : 0;
         auto path_start = url.find("/", start);
-        auto host_port = (path_start != std::string::npos)
+        auto host_port_str = (path_start != std::string::npos)
             ? url.substr(start, path_start - start)
             : url.substr(start);
 
-        auto colon = host_port.find(":");
+        use_tls = is_https || step_tls;
+
+        auto colon = host_port_str.find(":");
         if (colon != std::string::npos) {
-            host = host_port.substr(0, colon);
-            port = host_port.substr(colon + 1);
+            host = host_port_str.substr(0, colon);
+            port = static_cast<uint16_t>(
+                std::stoul(host_port_str.substr(colon + 1)));
         } else {
-            host = host_port;
-            port = "80";
+            host = host_port_str;
+            port = use_tls ? 443 : 80;
         }
     }
 

@@ -7,13 +7,13 @@
 TEST(HttpClientTest, ConstructAndDestroy) {
     boost::asio::io_context ioc;
     ASSERT_NO_THROW({
-        cppload::net::HttpClient client(ioc);
+        cppload::net::Http11Client client(ioc);
     });
 }
 
 TEST(HttpClientTest, SetTimeout) {
     boost::asio::io_context ioc;
-    cppload::net::HttpClient client(ioc);
+    cppload::net::Http11Client client(ioc);
     ASSERT_NO_THROW({
         client.set_timeout(std::chrono::milliseconds(1000));
     });
@@ -21,7 +21,7 @@ TEST(HttpClientTest, SetTimeout) {
 
 TEST(HttpClientTest, SetKeepAlive) {
     boost::asio::io_context ioc;
-    cppload::net::HttpClient client(ioc);
+    cppload::net::Http11Client client(ioc);
     ASSERT_NO_THROW({
         client.set_keep_alive(true);
     });
@@ -29,19 +29,19 @@ TEST(HttpClientTest, SetKeepAlive) {
 
 TEST(HttpClientTest, AsyncRequestFailsGracefully) {
     boost::asio::io_context ioc;
-    cppload::net::HttpClient client(ioc);
+    cppload::net::Http11Client client(ioc);
     client.set_timeout(std::chrono::milliseconds(100));
 
-    cppload::net::HttpRequest req;
+    cppload::net::Request req;
     req.method = "GET";
-    req.target = "/";
+    req.path = "/";
     req.host = "192.0.2.1"; // Non-routable, will fail
-    req.port = "99";
+    req.port = 99;
 
     std::atomic<bool> called{false};
-    client.async_request(req, [&](const cppload::net::HttpResponse& resp) {
+    client.async_request(req, [&](std::error_code ec, cppload::net::Response resp) {
         called = true;
-        EXPECT_EQ(resp.status_code, 0);
+        EXPECT_NE(ec.value(), 0);
     });
 
     ioc.run();

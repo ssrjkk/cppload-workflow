@@ -20,17 +20,17 @@ TEST(HttpClientIntegrationTest, SuccessfulRequest) {
     ASSERT_TRUE(server.start());
 
     boost::asio::io_context ioc;
-    cppload::net::HttpClient client(ioc);
+    cppload::net::Http11Client client(ioc);
     client.set_timeout(std::chrono::seconds(5));
 
-    cppload::net::HttpRequest req;
+    cppload::net::Request req;
     req.method = "GET";
-    req.target = "/api/test";
+    req.path = "/api/test";
     req.host = "127.0.0.1";
-    req.port = std::to_string(server.port());
+    req.port = server.port();
 
     std::atomic<bool> called{false};
-    client.async_request(req, [&](const cppload::net::HttpResponse& resp) {
+    client.async_request(req, [&](std::error_code ec, cppload::net::Response resp) {
         EXPECT_EQ(resp.status_code, 200);
         EXPECT_EQ(resp.body, R"({"status":"ok"})");
         EXPECT_GT(resp.latency.count(), 0);
@@ -54,18 +54,18 @@ TEST(HttpClientIntegrationTest, PostWithBody) {
     ASSERT_TRUE(server.start());
 
     boost::asio::io_context ioc;
-    cppload::net::HttpClient client(ioc);
+    cppload::net::Http11Client client(ioc);
     client.set_timeout(std::chrono::seconds(5));
 
-    cppload::net::HttpRequest req;
+    cppload::net::Request req;
     req.method = "POST";
-    req.target = "/api/data";
+    req.path = "/api/data";
     req.body = "hello";
     req.host = "127.0.0.1";
-    req.port = std::to_string(server.port());
+    req.port = server.port();
 
     std::atomic<bool> called{false};
-    client.async_request(req, [&](const cppload::net::HttpResponse& resp) {
+    client.async_request(req, [&](std::error_code ec, cppload::net::Response resp) {
         EXPECT_EQ(resp.status_code, 201);
         called = true;
     });
@@ -86,17 +86,17 @@ TEST(HttpClientIntegrationTest, ServerError) {
     ASSERT_TRUE(server.start());
 
     boost::asio::io_context ioc;
-    cppload::net::HttpClient client(ioc);
+    cppload::net::Http11Client client(ioc);
     client.set_timeout(std::chrono::seconds(5));
 
-    cppload::net::HttpRequest req;
+    cppload::net::Request req;
     req.method = "GET";
-    req.target = "/";
+    req.path = "/";
     req.host = "127.0.0.1";
-    req.port = std::to_string(server.port());
+    req.port = server.port();
 
     std::atomic<bool> called{false};
-    client.async_request(req, [&](const cppload::net::HttpResponse& resp) {
+    client.async_request(req, [&](std::error_code ec, cppload::net::Response resp) {
         EXPECT_EQ(resp.status_code, 500);
         called = true;
     });

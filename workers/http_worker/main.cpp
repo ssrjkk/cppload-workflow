@@ -61,7 +61,7 @@ int main(int argc, char* argv[]) {
     std::signal(SIGTERM, signal_handler);
 
     asio::io_context ioc;
-    net::HttpClient client(ioc);
+    net::Http11Client client(ioc);
     cppload::metrics::MetricsCollector metrics;
     cppload::TokenBucket bucket(static_cast<double>(cfg.rps));
 
@@ -97,13 +97,13 @@ int main(int argc, char* argv[]) {
 
     // Main load loop
     while (running && std::chrono::steady_clock::now() < end_time) {
-        net::HttpRequest req;
+        net::Request req;
         req.method = cfg.method;
-        req.target = cfg.target_path;
+        req.path = cfg.target_path;
         req.host = cfg.target_host;
-        req.port = cfg.target_port;
+        req.port = static_cast<uint16_t>(std::stoul(cfg.target_port));
 
-        client.async_request(req, [&metrics](const auto& resp) {
+        client.async_request(req, [&metrics](std::error_code, net::Response resp) {
             metrics.record_request(
                 resp.status_code, resp.latency,
                 0, resp.body.size());

@@ -187,7 +187,7 @@ int main(int argc, char* argv[]) {
 
     global_engine = engine.get();
     engine->run([&](const scenario::HttpStep& step,
-                     const net::HttpResponse& resp,
+                     const net::Response& resp,
                      metrics::MetricsCollector& m) {
         tracer.start_span(step.method + " " + step.path);
         tracer.add_attribute("http.method", step.method);

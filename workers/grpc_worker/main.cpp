@@ -119,7 +119,7 @@ private:
 
 void run_load_test(const AssignTaskResponse& task) {
     boost::asio::io_context ioc;
-    cppload::net::HttpClient client(ioc);
+    cppload::net::Http11Client client(ioc);
     cppload::TokenBucket bucket(static_cast<double>(task.task().target_rps()));
     cppload::metrics::MetricsCollector metrics;
 
@@ -127,11 +127,11 @@ void run_load_test(const AssignTaskResponse& task) {
         + std::chrono::seconds(task.task().duration_seconds());
 
     while (running && std::chrono::steady_clock::now() < end_time) {
-        cppload::net::HttpRequest req;
+        cppload::net::Request req;
         req.method = "GET";
-        req.target = task.task().target_url();
+        req.path = task.task().target_url();
         req.host = task.task().target_url();
-        req.port = "80";
+        req.port = 80;
 
         for (const auto& [key, val] : task.task().headers()) {
             req.headers[key] = val;
@@ -140,7 +140,7 @@ void run_load_test(const AssignTaskResponse& task) {
         auto start = std::chrono::steady_clock::now();
         std::atomic<bool> done{false};
 
-        client.async_request(req, [&](const cppload::net::HttpResponse& resp) {
+        client.async_request(req, [&](std::error_code, cppload::net::Response resp) {
             auto latency = std::chrono::duration_cast<std::chrono::microseconds>(
                 std::chrono::steady_clock::now() - start);
             metrics.record_request(resp.status_code, latency, req.body.size(), resp.body.size());

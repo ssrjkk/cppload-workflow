@@ -1,4 +1,5 @@
 #include "cppload/net/http_client.hpp"
+#include "cppload/net/connection.hpp"
 #include <boost/beast/http.hpp>
 #include <boost/asio/ip/tcp.hpp>
 #include <memory>
@@ -11,7 +12,8 @@
 namespace beast = boost::beast;
 namespace http = beast::http;
 namespace asio = boost::asio;
-namespace net = cppload::net;
+
+namespace cppload::net {
 
 static std::string url_encode_path(const std::string& raw) {
     std::ostringstream out;
@@ -29,19 +31,33 @@ static std::string url_encode_path(const std::string& raw) {
     return out.str();
 }
 
-class net::HttpClient::Impl : public std::enable_shared_from_this<Impl> {
+class Http11Client::Impl : public std::enable_shared_from_this<Impl> {
 public:
-    explicit Impl(asio::io_context& ioc)
-        : ioc_(ioc), timeout_(5000), keep_alive_(true) {}
+    Impl(asio::io_context& ioc, const security::TlsConfig& tls_config)
+        : ioc_(ioc), timeout_(5000)
+    {
+        if (tls_config.verify_peer) {
+            tls_ctx_ = std::make_unique<security::TlsContext>(tls_config);
+        }
+    }
 
-    void async_request(const HttpRequest& req,
-                      std::function<void(const HttpResponse&)> callback) {
+    void async_request(const Request& req,
+                       std::function<void(std::error_code, Response)> handler)
+    {
         auto start_time = std::chrono::steady_clock::now();
         auto self = shared_from_this();
 
-        auto resolver = std::make_shared<asio::ip::tcp::resolver>(ioc_);
-        auto stream = std::make_shared<beast::tcp_stream>(ioc_);
-        auto response = std::make_shared<HttpResponse>();
+        bool use_tls = req.use_tls;
+        bool has_tls_ctx = tls_ctx_ != nullptr;
+
+        if (use_tls && !has_tls_ctx) {
+            Response resp;
+            resp.ec = Err::tls_verify_failed;
+            handler(resp.ec, resp);
+            return;
+        }
+
+        auto response = std::make_shared<Response>();
         auto req_msg = std::make_shared<http::request<http::string_body>>();
         auto buffer = std::make_shared<beast::flat_buffer>();
         auto res = std::make_shared<http::response<http::string_body>>();
@@ -49,15 +65,14 @@ public:
         // Validate and sanitize HTTP method
         auto verb = http::string_to_verb(req.method);
         if (verb == http::verb::unknown) {
-            HttpResponse err_resp;
-            err_resp.status_code = 0;
-            callback(err_resp);
+            response->ec = Err::invalid_method;
+            handler(response->ec, *response);
             return;
         }
         req_msg->method(verb);
 
-        // Sanitize target: strip CR/LF and URL-encode to prevent injection/invalid chars
-        std::string safe_target = req.target;
+        // Sanitize target: strip CR/LF and URL-encode to prevent injection
+        std::string safe_target = req.path;
         safe_target.erase(std::remove_if(safe_target.begin(), safe_target.end(),
             [](char c) { return c == '\r' || c == '\n'; }), safe_target.end());
         req_msg->target(url_encode_path(safe_target));
@@ -74,102 +89,251 @@ public:
             req_msg->set(key, value);
         }
 
-        stream->expires_after(timeout_);
-        resolver->async_resolve(req.host, req.port,
-            [self, resolver, stream, req_msg, response, callback, start_time, buffer, res](
-                beast::error_code ec, asio::ip::tcp::resolver::results_type results) {
-
+        // Resolve and connect
+        auto resolver = std::make_shared<asio::ip::tcp::resolver>(ioc_);
+        resolver->async_resolve(req.host, std::to_string(req.port),
+            [self, resolver, req_msg, response, handler, start_time,
+             buffer, res, req, use_tls, has_tls_ctx](
+                beast::error_code ec, asio::ip::tcp::resolver::results_type results)
+            {
                 if (ec) {
-                    HttpResponse err_resp;
-                    err_resp.status_code = 0;
-                    callback(err_resp);
+                    response->ec = (ec == asio::error::host_not_found)
+                        ? Err::dns_failure : Err::connection_refused;
+                    handler(response->ec, *response);
                     return;
                 }
 
-                stream->expires_after(self->timeout_);
-                stream->async_connect(results,
-                    [self, stream, req_msg, response, callback, start_time, buffer, res](
-                        beast::error_code ec, const asio::ip::tcp::endpoint&) {
+                if (use_tls && has_tls_ctx) {
+                    self->connect_tls(results, req, req_msg, response,
+                                      handler, start_time, buffer, res);
+                } else {
+                    self->connect_tcp(results, req_msg, response,
+                                      handler, start_time, buffer, res);
+                }
+            });
+    }
 
+    void set_timeout(std::chrono::milliseconds timeout) {
+        timeout_ = timeout;
+    }
+
+    void set_keep_alive(bool keep_alive) {
+        keep_alive_ = keep_alive;
+    }
+
+private:
+    void connect_tcp(
+        asio::ip::tcp::resolver::results_type results,
+        std::shared_ptr<http::request<http::string_body>> req_msg,
+        std::shared_ptr<Response> response,
+        std::function<void(std::error_code, Response)> handler,
+        std::chrono::steady_clock::time_point start_time,
+        std::shared_ptr<beast::flat_buffer> buffer,
+        std::shared_ptr<http::response<http::string_body>> res)
+    {
+        auto self = shared_from_this();
+        auto stream = std::make_shared<beast::tcp_stream>(ioc_);
+        stream->expires_after(timeout_);
+
+        stream->async_connect(results,
+            [self, stream, req_msg, response, handler, start_time, buffer, res](
+                beast::error_code ec, const asio::ip::tcp::endpoint&)
+            {
+                if (ec) {
+                    response->ec = (ec == asio::error::timed_out)
+                        ? Err::connection_timeout : Err::connection_refused;
+                    handler(response->ec, *response);
+                    return;
+                }
+
+                self->send_and_receive(stream, req_msg, response, handler,
+                                       start_time, buffer, res);
+            });
+    }
+
+    void connect_tls(
+        asio::ip::tcp::resolver::results_type results,
+        const Request& req,
+        std::shared_ptr<http::request<http::string_body>> req_msg,
+        std::shared_ptr<Response> response,
+        std::function<void(std::error_code, Response)> handler,
+        std::chrono::steady_clock::time_point start_time,
+        std::shared_ptr<beast::flat_buffer> buffer,
+        std::shared_ptr<http::response<http::string_body>> res)
+    {
+        auto self = shared_from_this();
+        auto tcp_stream = std::make_shared<beast::tcp_stream>(ioc_);
+        tcp_stream->expires_after(timeout_);
+
+        tcp_stream->async_connect(results,
+            [self, tcp_stream, req_msg, response, handler, start_time,
+             buffer, res, req](
+                beast::error_code ec, const asio::ip::tcp::endpoint&)
+            {
+                if (ec) {
+                    response->ec = (ec == asio::error::timed_out)
+                        ? Err::connection_timeout : Err::connection_refused;
+                    handler(response->ec, *response);
+                    return;
+                }
+
+                // Create SSL stream on top of connected TCP stream
+                auto ssl_stream = std::make_shared<
+                    asio::ssl::stream<beast::tcp_stream>>(
+                        std::move(*tcp_stream),
+                        self->tls_ctx_->get_native_context());
+
+                // Set SNI hostname
+                SSL_set_tlsext_host_name(
+                    ssl_stream->native_handle(), req.host.c_str());
+
+                tcp_stream->expires_after(self->timeout_);
+                ssl_stream->async_handshake(asio::ssl::stream_base::client,
+                    [self, ssl_stream, req_msg, response, handler,
+                     start_time, buffer, res](
+                        beast::error_code ec)
+                    {
                         if (ec) {
-                            HttpResponse err_resp;
-                            err_resp.status_code = 0;
-                            callback(err_resp);
+                            response->ec = Err::tls_handshake_failed;
+                            handler(response->ec, *response);
                             return;
                         }
 
-                        stream->expires_after(self->timeout_);
-                        http::async_write(*stream, *req_msg,
-                            [self, stream, req_msg, response, callback, start_time, buffer, res](
-                                beast::error_code ec, std::size_t) {
-
-                                if (ec) {
-                                    HttpResponse err_resp;
-                                    err_resp.status_code = 0;
-                                    callback(err_resp);
-                                    return;
-                                }
-
-                                stream->expires_after(self->timeout_);
-                                http::async_read(*stream, *buffer, *res,
-                                    [self, stream, buffer, res, response, callback, start_time](
-                                        beast::error_code ec, std::size_t) {
-
-                                        auto end_time = std::chrono::steady_clock::now();
-
-                                        if (ec && ec != beast::http::error::end_of_stream) {
-                                            response->status_code = 0;
-                                        } else {
-                                            response->status_code = res->result_int();
-                                            response->body = res->body();
-                                            response->latency =
-                                                std::chrono::duration_cast<std::chrono::microseconds>(
-                                                    end_time - start_time);
-
-                                            for (const auto& field : *res) {
-                                                response->headers[std::string(field.name_string())] =
-                                                    std::string(field.value());
-                                            }
-                                        }
-
-                                        if (!self->keep_alive_) {
-                                            beast::error_code shutdown_ec;
-                                            stream->socket().shutdown(asio::ip::tcp::socket::shutdown_both, shutdown_ec);
-                                        }
-
-                                        callback(*response);
-                                    });
-                            });
+                        self->send_and_receive_tls(ssl_stream, req_msg,
+                            response, handler, start_time, buffer, res);
                     });
             });
     }
 
-    void set_timeout(std::chrono::milliseconds timeout) { timeout_ = timeout; }
-    void set_keep_alive(bool keep_alive) { keep_alive_ = keep_alive; }
+    void send_and_receive(
+        std::shared_ptr<beast::tcp_stream> stream,
+        std::shared_ptr<http::request<http::string_body>> req_msg,
+        std::shared_ptr<Response> response,
+        std::function<void(std::error_code, Response)> handler,
+        std::chrono::steady_clock::time_point start_time,
+        std::shared_ptr<beast::flat_buffer> buffer,
+        std::shared_ptr<http::response<http::string_body>> res)
+    {
+        auto self = shared_from_this();
 
-private:
+        stream->expires_after(timeout_);
+        http::async_write(*stream, *req_msg,
+            [self, stream, req_msg, response, handler, start_time, buffer, res](
+                beast::error_code ec, std::size_t)
+            {
+                if (ec) {
+                    response->ec = Err::write_error;
+                    handler(response->ec, *response);
+                    return;
+                }
+
+                stream->expires_after(self->timeout_);
+                http::async_read(*stream, *buffer, *res,
+                    [self, stream, buffer, res, response, handler, start_time](
+                        beast::error_code ec, std::size_t)
+                    {
+                        auto end_time = std::chrono::steady_clock::now();
+                        response->latency =
+                            std::chrono::duration_cast<std::chrono::microseconds>(
+                                end_time - start_time);
+
+                        if (ec && ec != http::error::end_of_stream) {
+                            response->ec = Err::read_error;
+                        } else {
+                            response->status_code = res->result_int();
+                            response->body = res->body();
+                            for (const auto& field : *res) {
+                                response->headers[
+                                    std::string(field.name_string())] =
+                                    std::string(field.value());
+                            }
+                        }
+
+                        handler(response->ec, *response);
+                    });
+            });
+    }
+
+    void send_and_receive_tls(
+        std::shared_ptr<asio::ssl::stream<beast::tcp_stream>> ssl_stream,
+        std::shared_ptr<http::request<http::string_body>> req_msg,
+        std::shared_ptr<Response> response,
+        std::function<void(std::error_code, Response)> handler,
+        std::chrono::steady_clock::time_point start_time,
+        std::shared_ptr<beast::flat_buffer> buffer,
+        std::shared_ptr<http::response<http::string_body>> res)
+    {
+        auto self = shared_from_this();
+
+        beast::get_lowest_layer(*ssl_stream).expires_after(timeout_);
+        http::async_write(*ssl_stream, *req_msg,
+            [self, ssl_stream, req_msg, response, handler, start_time, buffer, res](
+                beast::error_code ec, std::size_t)
+            {
+                if (ec) {
+                    response->ec = Err::write_error;
+                    handler(response->ec, *response);
+                    return;
+                }
+
+                beast::get_lowest_layer(*ssl_stream).expires_after(self->timeout_);
+                http::async_read(*ssl_stream, *buffer, *res,
+                    [self, ssl_stream, buffer, res, response, handler, start_time](
+                        beast::error_code ec, std::size_t)
+                    {
+                        auto end_time = std::chrono::steady_clock::now();
+                        response->latency =
+                            std::chrono::duration_cast<std::chrono::microseconds>(
+                                end_time - start_time);
+
+                        if (ec && ec != http::error::end_of_stream) {
+                            response->ec = Err::read_error;
+                        } else {
+                            response->status_code = res->result_int();
+                            response->body = res->body();
+                            for (const auto& field : *res) {
+                                response->headers[
+                                    std::string(field.name_string())] =
+                                    std::string(field.value());
+                            }
+                        }
+
+                        handler(response->ec, *response);
+                    });
+            });
+    }
+
     asio::io_context& ioc_;
     std::chrono::milliseconds timeout_;
-    bool keep_alive_;
+    bool keep_alive_{true};
+    std::unique_ptr<security::TlsContext> tls_ctx_;
 };
 
-net::HttpClient::HttpClient(asio::io_context& ioc) 
-    : impl_(std::make_shared<Impl>(ioc)) {}
-
-net::HttpClient::~HttpClient() = default;
-
-net::HttpClient::HttpClient(HttpClient&&) noexcept = default;
-net::HttpClient& net::HttpClient::operator=(HttpClient&&) noexcept = default;
-
-void net::HttpClient::async_request(const HttpRequest& req, 
-                                   std::function<void(const HttpResponse&)> callback) {
-    impl_->async_request(req, callback);
+Http11Client::Http11Client(
+    asio::io_context& ioc,
+    const security::TlsConfig& tls_config)
+    : impl_(std::make_shared<Impl>(ioc, tls_config))
+{
 }
 
-void net::HttpClient::set_timeout(std::chrono::milliseconds timeout) {
-    impl_->set_timeout(timeout);
+Http11Client::~Http11Client() = default;
+
+Http11Client::Http11Client(Http11Client&&) noexcept = default;
+Http11Client& Http11Client::operator=(Http11Client&&) noexcept = default;
+
+void Http11Client::async_request(
+    const Request& req,
+    std::function<void(std::error_code, Response)> handler)
+{
+    impl_->async_request(req, handler);
 }
 
-void net::HttpClient::set_keep_alive(bool keep_alive) {
+void Http11Client::set_timeout(std::chrono::milliseconds ms) {
+    impl_->set_timeout(ms);
+}
+
+void Http11Client::set_keep_alive(bool keep_alive) {
     impl_->set_keep_alive(keep_alive);
 }
+
+} // namespace cppload::net

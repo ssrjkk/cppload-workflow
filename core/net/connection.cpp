@@ -1,0 +1,288 @@
+#include "cppload/net/connection.hpp"
+#include <boost/beast/core.hpp>
+#include <boost/asio/ip/tcp.hpp>
+#include <memory>
+#include <set>
+
+namespace beast = boost::beast;
+namespace asio = boost::asio;
+using tcp = asio::ip::tcp;
+
+namespace cppload::net {
+
+//
+// TcpConnection
+//
+
+TcpConnection::TcpConnection(asio::io_context& ioc)
+    : stream_(ioc)
+{
+}
+
+void TcpConnection::async_write(
+    asio::const_buffer buffer,
+    std::function<void(std::error_code, size_t)> handler)
+{
+    stream_.expires_after(timeout_);
+    beast::async_write(stream_, asio::const_buffer(buffer),
+        [handler](beast::error_code ec, size_t n) {
+            if (ec == asio::error::operation_aborted) {
+                handler(Err::operation_cancelled, n);
+            } else {
+                handler(ec, n);
+            }
+        });
+}
+
+void TcpConnection::async_read_some(
+    asio::mutable_buffer buffer,
+    std::function<void(std::error_code, size_t)> handler)
+{
+    stream_.expires_after(timeout_);
+    stream_.async_read_some(buffer,
+        [handler](beast::error_code ec, size_t n) {
+            if (ec == asio::error::operation_aborted) {
+                handler(Err::operation_cancelled, n);
+            } else {
+                handler(ec, n);
+            }
+        });
+}
+
+void TcpConnection::close() {
+    beast::error_code ec;
+    stream_.socket().shutdown(tcp::socket::shutdown_both, ec);
+    stream_.close();
+}
+
+void TcpConnection::set_timeout(std::chrono::milliseconds ms) {
+    timeout_ = ms;
+}
+
+bool TcpConnection::is_open() const {
+    return stream_.socket().is_open();
+}
+
+std::string TcpConnection::remote_address() const {
+    beast::error_code ec;
+    auto ep = stream_.socket().remote_endpoint(ec);
+    return ec ? "" : ep.address().to_string();
+}
+
+uint16_t TcpConnection::remote_port() const {
+    beast::error_code ec;
+    auto ep = stream_.socket().remote_endpoint(ec);
+    return ec ? 0 : ep.port();
+}
+
+//
+// SslConnection
+//
+
+SslConnection::SslConnection(
+    asio::io_context& ioc,
+    asio::ssl::context& ssl_ctx)
+    : ssl_stream_(beast::tcp_stream(ioc), ssl_ctx)
+{
+}
+
+void SslConnection::async_write(
+    asio::const_buffer buffer,
+    std::function<void(std::error_code, size_t)> handler)
+{
+    beast::get_lowest_layer(ssl_stream_).expires_after(timeout_);
+    beast::async_write(ssl_stream_, asio::const_buffer(buffer),
+        [this, handler](beast::error_code ec, size_t n) {
+            if (ec == asio::error::operation_aborted) {
+                handler(Err::operation_cancelled, n);
+            } else {
+                handler(ec, n);
+            }
+        });
+}
+
+void SslConnection::async_read_some(
+    asio::mutable_buffer buffer,
+    std::function<void(std::error_code, size_t)> handler)
+{
+    beast::get_lowest_layer(ssl_stream_).expires_after(timeout_);
+    ssl_stream_.async_read_some(buffer,
+        [this, handler](beast::error_code ec, size_t n) {
+            if (ec == asio::error::operation_aborted) {
+                handler(Err::operation_cancelled, n);
+            } else {
+                handler(ec, n);
+            }
+        });
+}
+
+void SslConnection::async_handshake(
+    std::function<void(std::error_code)> handler)
+{
+    beast::get_lowest_layer(ssl_stream_).expires_after(timeout_);
+    ssl_stream_.async_handshake(asio::ssl::stream_base::client,
+        [this, handler](beast::error_code ec) {
+            if (ec) {
+                handler(Err::tls_handshake_failed);
+            } else {
+                handler({});
+            }
+        });
+}
+
+void SslConnection::close() {
+    beast::error_code ec;
+    ssl_stream_.async_shutdown([&](beast::error_code) {});
+    beast::get_lowest_layer(ssl_stream_).socket().close(ec);
+}
+
+void SslConnection::set_timeout(std::chrono::milliseconds ms) {
+    timeout_ = ms;
+}
+
+bool SslConnection::is_open() const {
+    return beast::get_lowest_layer(ssl_stream_).socket().is_open();
+}
+
+std::string SslConnection::remote_address() const {
+    beast::error_code ec;
+    auto ep = beast::get_lowest_layer(ssl_stream_).socket().remote_endpoint(ec);
+    return ec ? "" : ep.address().to_string();
+}
+
+uint16_t SslConnection::remote_port() const {
+    beast::error_code ec;
+    auto ep = beast::get_lowest_layer(ssl_stream_).socket().remote_endpoint(ec);
+    return ec ? 0 : ep.port();
+}
+
+//
+// TcpConnector
+//
+
+TcpConnector::TcpConnector(asio::io_context& ioc)
+    : ioc_(ioc)
+{
+}
+
+void TcpConnector::async_connect(
+    const std::string& host,
+    uint16_t port,
+    std::function<void(std::error_code, std::unique_ptr<Connection>)> handler)
+{
+    auto resolver = std::make_shared<tcp::resolver>(ioc_);
+    auto conn = std::make_unique<TcpConnection>(ioc_);
+    auto& stream = conn->stream();
+
+    auto self = conn.get();
+    stream.expires_after(timeout_);
+
+    resolver->async_resolve(host, std::to_string(port),
+        [resolver, conn = std::move(conn), &stream, handler, this](
+            beast::error_code ec, tcp::resolver::results_type results) mutable
+        {
+            if (ec) {
+                std::error_code err = (ec == asio::error::host_not_found)
+                    ? Err::dns_failure : Err::connection_refused;
+                handler(err, nullptr);
+                return;
+            }
+
+            stream.expires_after(timeout_);
+            stream.async_connect(results,
+                [conn = std::move(conn), handler](
+                    beast::error_code ec, const tcp::endpoint& ep) mutable
+                {
+                    if (ec) {
+                        std::error_code err = (ec == asio::error::timed_out)
+                            ? Err::connection_timeout : Err::connection_refused;
+                        handler(err, nullptr);
+                        return;
+                    }
+                    handler({}, std::move(conn));
+                });
+        });
+}
+
+void TcpConnector::set_timeout(std::chrono::milliseconds ms) {
+    timeout_ = ms;
+}
+
+//
+// SslConnector
+//
+
+SslConnector::SslConnector(
+    asio::io_context& ioc,
+    asio::ssl::context& ssl_ctx)
+    : ioc_(ioc), ssl_ctx_(ssl_ctx)
+{
+}
+
+void SslConnector::async_connect(
+    const std::string& host,
+    uint16_t port,
+    std::function<void(std::error_code, std::unique_ptr<Connection>)> handler)
+{
+    auto resolver = std::make_shared<tcp::resolver>(ioc_);
+    auto conn = std::make_unique<SslConnection>(ioc_, ssl_ctx_);
+    auto* raw_conn = conn.get();
+    auto& ssl_stream = raw_conn->stream();
+    auto& tcp_stream = beast::get_lowest_layer(ssl_stream);
+
+    tcp_stream.expires_after(timeout_);
+
+    resolver->async_resolve(host, std::to_string(port),
+        [resolver, conn = std::move(conn), &tcp_stream, &ssl_stream,
+         handler, host, this](beast::error_code ec,
+                              tcp::resolver::results_type results) mutable
+        {
+            if (ec) {
+                std::error_code err = (ec == asio::error::host_not_found)
+                    ? Err::dns_failure : Err::connection_refused;
+                handler(err, nullptr);
+                return;
+            }
+
+            tcp_stream.expires_after(timeout_);
+            tcp_stream.async_connect(results,
+                [conn = std::move(conn), &ssl_stream, &tcp_stream,
+                 handler, host, timeout = timeout_](
+                    beast::error_code ec,
+                    const tcp::endpoint&) mutable
+                {
+                    if (ec) {
+                        std::error_code err = (ec == asio::error::timed_out)
+                            ? Err::connection_timeout : Err::connection_refused;
+                        handler(err, nullptr);
+                        return;
+                    }
+
+                    // Set SNI hostname
+                    if (!SSL_set_tlsext_host_name(
+                            ssl_stream.native_handle(), host.c_str()))
+                    {
+                        handler(Err::tls_handshake_failed, nullptr);
+                        return;
+                    }
+
+                    tcp_stream.expires_after(timeout);
+                    ssl_stream.async_handshake(asio::ssl::stream_base::client,
+                        [conn = std::move(conn), handler](
+                            beast::error_code ec) mutable
+                        {
+                            if (ec) {
+                                handler(Err::tls_handshake_failed, nullptr);
+                                return;
+                            }
+                            handler({}, std::move(conn));
+                        });
+                });
+        });
+}
+
+void SslConnector::set_timeout(std::chrono::milliseconds ms) {
+    timeout_ = ms;
+}
+
+} // namespace cppload::net

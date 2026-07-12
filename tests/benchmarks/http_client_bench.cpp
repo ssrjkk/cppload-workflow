@@ -7,7 +7,7 @@
 static void BM_HttpClient_Construct(benchmark::State& state) {
     boost::asio::io_context ioc;
     for (auto _ : state) {
-        cppload::net::HttpClient client(ioc);
+        cppload::net::Http11Client client(ioc);
         benchmark::DoNotOptimize(&client);
     }
 }
@@ -21,9 +21,9 @@ static void BM_ConnectionPool_AcquireRelease(benchmark::State& state) {
     cppload::net::ConnectionPool pool(ioc, cfg);
 
     for (auto _ : state) {
-        auto client = pool.acquire("localhost", "8080");
+        auto client = pool.acquire("localhost", 8080);
         if (client) {
-            pool.release(std::move(client), "localhost", "8080");
+            pool.release(std::move(client), "localhost", 8080);
         }
         benchmark::DoNotOptimize(client);
     }
@@ -35,8 +35,8 @@ static void BM_ConnectionPool_Stats(benchmark::State& state) {
     cppload::net::ConnectionPool pool(ioc);
 
     for (int i = 0; i < 10; ++i) {
-        auto c = pool.acquire("testhost", "9090");
-        if (c) pool.release(std::move(c), "testhost", "9090");
+        auto c = pool.acquire("testhost", 9090);
+        if (c) pool.release(std::move(c), "testhost", 9090);
     }
 
     for (auto _ : state) {

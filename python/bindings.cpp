@@ -2,7 +2,10 @@
 #include <pybind11/stl.h>
 #include <pybind11/chrono.h>
 #include <pybind11/functional.h>
+#include "cppload/error.hpp"
+#include "cppload/net/protocol.hpp"
 #include "cppload/net/http_client.hpp"
+#include "cppload/net/protocol_factory.hpp"
 #include "cppload/net/connection_pool.hpp"
 #include "cppload/metrics/collector.hpp"
 #include "cppload/metrics/prometheus_exporter.hpp"
@@ -25,28 +28,40 @@ namespace scenario = cppload::scenario;
 PYBIND11_MODULE(_cppload, m) {
     m.doc() = "cppload-pro: Enterprise Load Testing Platform (C++ core)";
 
-    // --- HTTP Client ---
-    py::class_<net::HttpRequest>(m, "HttpRequest")
-        .def(py::init<>())
-        .def_readwrite("method", &net::HttpRequest::method)
-        .def_readwrite("target", &net::HttpRequest::target)
-        .def_readwrite("body", &net::HttpRequest::body)
-        .def_readwrite("headers", &net::HttpRequest::headers)
-        .def_readwrite("host", &net::HttpRequest::host)
-        .def_readwrite("port", &net::HttpRequest::port);
+    // --- Error codes ---
+    py::enum_<cppload::Err>(m, "Err")
+        .value("SUCCESS", cppload::Err::success)
+        .value("DNS_FAILURE", cppload::Err::dns_failure)
+        .value("CONNECTION_REFUSED", cppload::Err::connection_refused)
+        .value("TIMEOUT", cppload::Err::timeout)
+        .value("TLS_HANDSHAKE_FAILED", cppload::Err::tls_handshake_failed)
+        .value("NOT_IMPLEMENTED", cppload::Err::not_implemented)
+        .export_values();
 
-    py::class_<net::HttpResponse>(m, "HttpResponse")
+    // --- Protocol ---
+    py::class_<net::Request>(m, "Request")
         .def(py::init<>())
-        .def_readwrite("status_code", &net::HttpResponse::status_code)
-        .def_readwrite("body", &net::HttpResponse::body)
-        .def_readwrite("headers", &net::HttpResponse::headers)
+        .def_readwrite("method", &net::Request::method)
+        .def_readwrite("path", &net::Request::path)
+        .def_readwrite("body", &net::Request::body)
+        .def_readwrite("headers", &net::Request::headers)
+        .def_readwrite("host", &net::Request::host)
+        .def_readwrite("port", &net::Request::port)
+        .def_readwrite("use_tls", &net::Request::use_tls);
+
+    py::class_<net::Response>(m, "Response")
+        .def(py::init<>())
+        .def_readwrite("status_code", &net::Response::status_code)
+        .def_readwrite("body", &net::Response::body)
+        .def_readwrite("headers", &net::Response::headers)
         .def_property("latency_us",
-            [](const net::HttpResponse& r) { return r.latency.count(); });
+            [](const net::Response& r) { return r.latency.count(); });
 
-    py::class_<net::HttpClient>(m, "HttpClient")
+    py::class_<net::Http11Client>(m, "Http11Client")
         .def(py::init<boost::asio::io_context&>())
-        .def("set_timeout", &net::HttpClient::set_timeout)
-        .def("set_keep_alive", &net::HttpClient::set_keep_alive);
+        .def("set_timeout", &net::Http11Client::set_timeout)
+        .def("set_keep_alive", &net::Http11Client::set_keep_alive)
+        .def("name", &net::Http11Client::name);
 
     // --- Connection Pool ---
     py::class_<net::PoolConfig>(m, "PoolConfig")
