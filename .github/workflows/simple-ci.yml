@@ -44,9 +44,9 @@ jobs:
       - name: Python check
         run: |
           python3 -c "
-import os
-for root, dirs, files in os.walk('.'):
-    name = os.path.basename(root)
-    if root.count(os.sep) - root.replace('.','').count(os.sep) < 2:
-        print(f'{name}/')
-"
+          import os
+          for root, dirs, files in os.walk('.'):
+              name = os.path.basename(root)
+              if root.count(os.sep) - root.replace('.','').count(os.sep) < 2:
+                  print(f'{name}/')
+          "
