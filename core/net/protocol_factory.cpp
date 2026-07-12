@@ -1,23 +1,67 @@
 #include "cppload/net/protocol_factory.hpp"
 #include "cppload/net/http_client.hpp"
-#include <stdexcept>
+#include "cppload/net/tcp_raw_client.hpp"
+#include "cppload/net/ws_client.hpp"
+#include "cppload/error.hpp"
+#include <system_error>
+#include <vector>
 
 namespace cppload::net {
 
 security::TlsConfig ProtocolFactory::global_tls_config_;
 std::unique_ptr<security::TlsContext> ProtocolFactory::global_tls_ctx_;
 
+std::unordered_map<std::string, ProtocolFactory::FactoryFunc>& ProtocolFactory::registry() {
+    static std::unordered_map<std::string, FactoryFunc> reg;
+    static bool init = false;
+    if (!init) {
+        reg["http1.1"] = [](boost::asio::io_context& ioc,
+                             const security::TlsConfig& tls) {
+            return std::make_unique<Http11Client>(ioc, tls);
+        };
+        reg["tcp_raw"] = [](boost::asio::io_context& ioc,
+                            const security::TlsConfig& tls) {
+            return std::make_unique<TcpRawClient>(ioc, tls);
+        };
+        reg["ws"] = [](boost::asio::io_context& ioc,
+                       const security::TlsConfig& tls) {
+            return std::make_unique<WsClient>(ioc, tls);
+        };
+        init = true;
+    }
+    return reg;
+}
+
 std::unique_ptr<ProtocolClient> ProtocolFactory::create(
     const std::string& protocol_name,
     boost::asio::io_context& ioc,
     const security::TlsConfig& tls_config)
 {
-    if (protocol_name == "http1.1" || protocol_name.empty()) {
-        return std::make_unique<Http11Client>(ioc, tls_config);
+    auto& reg = registry();
+    std::string key = protocol_name.empty() ? "http1.1" : protocol_name;
+
+    auto it = reg.find(key);
+    if (it != reg.end()) {
+        return it->second(ioc, tls_config);
     }
 
-    // Protocols not yet implemented - return error via nullptr
-    return nullptr;
+    throw std::system_error(make_error_code(Err::not_implemented),
+        "protocol \"" + protocol_name + "\" is not registered");
+}
+
+void ProtocolFactory::register_protocol(
+    const std::string& name,
+    FactoryFunc factory)
+{
+    registry()[name] = std::move(factory);
+}
+
+std::vector<std::string> ProtocolFactory::available_protocols() {
+    std::vector<std::string> result;
+    for (const auto& [name, _] : registry()) {
+        result.push_back(name);
+    }
+    return result;
 }
 
 void ProtocolFactory::set_tls_config(const security::TlsConfig& tls_config) {

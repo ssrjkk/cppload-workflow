@@ -1,0 +1,53 @@
+version: "1.0"
+test_id: "auth-stress-2026"
+
+target:
+  base_url: ${TARGET_URL:-http://auth:8080}
+  protocol: http1.1
+  tls:
+    verify: true
+
+authentication:
+  type: oauth2
+  token_endpoint: "https://auth.internal/oauth/token"
+  client_credentials:
+    client_id: ${CLIENT_ID}
+    client_secret: ${CLIENT_SECRET}
+
+load_profile:
+  - stage: rampup
+    duration: 2m
+    target_rps: 500
+    concurrent_users: 10
+  - stage: steady
+    duration: 10m
+    target_rps: 2000
+    concurrent_users: 50
+
+scenarios:
+  - name: "login_flow"
+    weight: 60
+    steps:
+      - http:
+          method: POST
+          path: "/auth/login"
+          body: '{"username": "${TEST_USER}", "password": "${TEST_PASS}"}'
+          headers:
+            Content-Type: application/json
+          assertions:
+            - status_code == 200
+  - name: "token_refresh"
+    weight: 40
+    steps:
+      - http:
+          method: POST
+          path: "/auth/token/refresh"
+          body: '{"refresh_token": "${REFRESH_TOKEN}"}'
+          headers:
+            Content-Type: application/json
+          assertions:
+            - status_code == 200
+
+sla:
+  error_rate: "< 0.5%"
+  p99_latency: "< 300ms"

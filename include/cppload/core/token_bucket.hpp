@@ -9,6 +9,10 @@ namespace cppload {
 class TokenBucket {
 public:
     explicit TokenBucket(double rate, double burst = 0);
+    TokenBucket(const TokenBucket&) = delete;
+    TokenBucket& operator=(const TokenBucket&) = delete;
+    TokenBucket(TokenBucket&&) = delete;
+    TokenBucket& operator=(TokenBucket&&) = delete;
     void set_rate(double rate);
     void set_burst(double burst);
     void consume();

@@ -3,7 +3,7 @@ test_id: "checkout-stress-2026"
 
 target:
   base_url: ${TARGET_URL:-http://gateway:8080}
-  protocol: http2
+  protocol: http1.1
   tls:
     verify: true
 

@@ -18,6 +18,7 @@ cmake_dependent_option(CPLOAD_BUILD_WORKERS "Build worker executables" ON PROJEC
 cmake_dependent_option(CPLOAD_BUILD_TOOLS "Build CLI tools" ON PROJECT_IS_TOP_LEVEL OFF)
 cmake_dependent_option(CPLOAD_BUILD_BENCHMARKS "Build benchmark tests" ON CPLOAD_BUILD_TESTS OFF)
 cmake_dependent_option(CPLOAD_BUILD_INTEGRATION_TESTS "Build integration tests" ON CPLOAD_BUILD_TESTS OFF)
+option(CPLOAD_BUILD_GRPC_WORKER "Build gRPC worker (requires gRPC and Protobuf)" OFF)
 
 # Dependencies via Conan or find_package
 find_package(Boost 1.83 REQUIRED COMPONENTS system)

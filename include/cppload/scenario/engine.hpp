@@ -40,6 +40,32 @@ struct Scenario {
     std::vector<HttpStep> steps;
 };
 
+struct AuthConfig {
+    std::string type;
+    std::string token_endpoint;
+    struct {
+        std::string client_id;
+        std::string client_secret;
+    } client_credentials;
+};
+
+struct ObservabilityConfig {
+    struct {
+        struct {
+            bool enabled{false};
+            uint16_t port{9090};
+        } prometheus;
+    } metrics;
+    struct {
+        std::string otlp_endpoint;
+        double sample_rate{0.1};
+    } tracing;
+    struct {
+        std::string level{"info"};
+        std::string format{"json"};
+    } logging;
+};
+
 struct SLAConfig {
     double max_error_rate{0.1};
     std::chrono::milliseconds max_p99_latency{500};
@@ -57,6 +83,8 @@ struct ScenarioConfig {
         } tls;
     } target;
 
+    AuthConfig authentication;
+    ObservabilityConfig observability;
     LoadProfile load_profile;
     std::vector<Scenario> scenarios;
     SLAConfig sla;

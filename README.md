@@ -27,6 +27,9 @@
 | Возможность | Статус | Детали |
 |------------|--------|--------|
 | **Async HTTP/1.1 Client** | ✅ PROD | Boost.Beast + ASIO, per-request safety, URL encoding |
+| **Raw TCP Client** | ✅ PROD | Произвольные байты поверх TCP/TLS, любой протокол вручную |
+| **WebSocket Client** | ✅ PROD | ws:// + wss://, произвольные сообщения |
+| **Protocol Factory** | ✅ PROD | Регистрация кастомных протоколов через `register_protocol()` |
 | **TokenBucket Rate Limiter** | ✅ PROD | Точный контроль RPS, consume/try_consume, overflow-safe |
 | **Connection Pool** | ✅ PROD | Переиспользование TCP/TLS соединений |
 | **YAML Scenario Engine** | ✅ PROD | yaml-cpp парсер, env vars `${VAR:-default}`, SLA валидация |
@@ -35,15 +38,18 @@
 | **mTLS** | ✅ PROD | Взаимная TLS аутентификация с сертификатами |
 | **TLS Context** | ✅ PROD | Централизованная настройка TLS для всех outbound соединений |
 | **OpenTelemetry OTLP** | ✅ PROD | OTLP/HTTP+JSON, batch export, sampling, thread-safe |
-| **Prometheus Exporter** | ✅ PROD | /metrics endpoint, counters, histograms, gauges |
+| **Prometheus Exporter** | ✅ PROD¹ | /metrics endpoint, counters, histograms, gauges |
 | **CLI Tool** | ✅ PROD | Полноценный запуск нагрузки из командной строки |
 | **HTTP Worker** | ✅ PROD | Автономный воркер без YAML, только аргументы CLI |
 | **Helm Charts** | ✅ PROD | K8s деплой за 2 минуты |
 | **Docker Multi-stage** | ✅ PROD | <50MB runtime image, Ubuntu 22.04, non-root user |
 | **AddressSanitizer** | ✅ CI | Каждый коммит проверяется на memory errors |
 | **clang-tidy Lint** | ✅ CI | Статический анализ C++ кода |
-| **Python SDK** | 🔶 ALPHA | pybind11 биндинги, Python-контроллеры |
-| **gRPC Worker** | 🔧 PLANNED | Управление нагрузкой через gRPC control plane |
+| **Python SDK** | 🔶 ALPHA | urllib-based (pure Python), отдельные pybind11 биндинги |
+| **gRPC Worker** | ✅ PROD² | Управление нагрузкой через gRPC control plane |
+
+> ¹ Требуется `prometheus-cpp` при сборке. Без него — заглушка (все методы no-op).
+> ² Требуется `gRPC` и `Protobuf` при сборке (автообнаружение).
 
 ## Быстрый старт
 
@@ -129,7 +135,10 @@ docker run --rm cppload-pro:latest --help
 │  │  • Async request/resolve/connect                 │    │
 │  │  • Connection pool (reuse TCP/TLS)               │    │
 │  │  • mTLS / TLS Context                            │    │
-│  │  • URL encoding + CR/LF sanitization             │    │
+│  │  • URL encoding + CR/LF sanitization             │
+│  │  • Raw TCP (произвольные байты)                  │
+│  │  • WebSocket (ws:// + wss://)                    │
+│  │  • Protocol Factory (регистрация кастомных)       │    │
 │  └────────────────────┬─────────────────────────────┘    │
 │                       │                                  │
 │  ┌────────────────────▼─────────────────────────────┐    │
@@ -201,7 +210,9 @@ sla:
 | **OAuth2** | auth | client_credentials grant, auto-refresh, URL encoding |
 | **mTLS** | auth | Взаимная аутентификация через TLS сертификаты |
 | **OpenTelemetry** | tracing | OTLP/HTTP+JSON, batch export, sampling, thread-safe |
-| **Prometheus** | metrics | /metrics endpoint, histograms, gauges, counters |
+| **Prometheus** | metrics | /metrics endpoint (stub без prometheus-cpp) |
+| **Raw TCP** | protocol | Любой сырой протокол поверх TCP/TLS |
+| **WebSocket** | protocol | ws:// / wss:// потоковые сообщения |
 | **Kubernetes** | deploy | Helm charts, service monitors |
 | **Docker** | deploy | Multi-stage build, <50MB, non-root user |
 
@@ -227,7 +238,7 @@ cppload-pro/
 │   └── vault/                     # vault_client.hpp
 ├── workers/                       # Исполняемые воркеры
 │   ├── http_worker/               # Автономный HTTP воркер (✅ PROD)
-│   └── grpc_worker/               # gRPC control plane (🔧 PLANNED)
+│   └── grpc_worker/               # gRPC control plane (✅ PROD, опционально)
 ├── tools/                         # CLI утилита (cppload-cli)
 ├── tests/                         # GTest (8 test suites, 51+ тестов)
 ├── python/                        # Python SDK (pybind11, alpha)

@@ -4,15 +4,20 @@
 
 namespace cppload::net {
 
+struct PoolEntry {
+    std::unique_ptr<Http11Client> client;
+    std::chrono::steady_clock::time_point idle_since;
+};
+
 class ConnectionPool::Impl {
 public:
     Impl(boost::asio::io_context& ioc, const PoolConfig& config)
         : ioc_(ioc), config_(config), total_created_(0) {
-        // Pre-warm minimum connections
+        auto now = std::chrono::steady_clock::now();
         for (size_t i = 0; i < config_.min_connections; ++i) {
             total_created_++;
             auto client = std::make_unique<Http11Client>(ioc_);
-            pools_["__warmup__"].push(std::move(client));
+            pools_["__warmup__"].push({std::move(client), now});
         }
         pools_.erase("__warmup__");
     }
@@ -24,20 +29,17 @@ public:
         auto key = host + ":" + std::to_string(port);
         auto& pool = pools_[key];
 
-        // Try to get from pool
         if (!pool.empty()) {
-            auto client = std::move(pool.front());
+            auto entry = std::move(pool.front());
             pool.pop();
-            return client;
+            return std::move(entry.client);
         }
 
-        // Create new connection if under limit
         if (total_created_ < config_.max_connections) {
             total_created_++;
             return std::make_unique<Http11Client>(ioc_);
         }
 
-        // Pool exhausted - return nullptr (caller should retry or fail)
         return nullptr;
     }
 
@@ -51,9 +53,9 @@ public:
 
         if (pool.size() < config_.max_connections) {
             client->set_keep_alive(config_.keep_alive);
-            pool.push(std::move(client));
+            auto now = std::chrono::steady_clock::now();
+            pool.push({std::move(client), now});
         }
-        // If pool is full, let client be destroyed
     }
 
     void cleanup() {
@@ -63,10 +65,18 @@ public:
         for (auto it = pools_.begin(); it != pools_.end(); ) {
             auto& q = it->second;
             size_t before = q.size();
-            // Pop connections whose creation time exceeds idle_timeout
+            size_t kept = 0;
+            size_t total = q.size();
+            // Remove expired connections (oldest at front)
             while (!q.empty()) {
-                q.pop();
-                if (q.size() <= before / 2) break;
+                auto& entry = q.front();
+                auto age = std::chrono::duration_cast<std::chrono::seconds>(
+                    now - entry.idle_since);
+                if (age >= idle_timeout) {
+                    q.pop();
+                } else {
+                    break;
+                }
             }
             if (q.empty()) {
                 it = pools_.erase(it);
@@ -93,7 +103,7 @@ private:
     boost::asio::io_context& ioc_;
     PoolConfig config_;
     mutable std::mutex mutex_;
-    std::unordered_map<std::string, std::queue<std::unique_ptr<Http11Client>>> pools_;
+    std::unordered_map<std::string, std::queue<PoolEntry>> pools_;
     size_t total_created_;
 };
 

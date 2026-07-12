@@ -1,0 +1,55 @@
+version: "1.0"
+test_id: "spike-test-2026"
+
+target:
+  base_url: ${TARGET_URL:-http://gateway:8080}
+  protocol: http1.1
+  tls:
+    verify: true
+
+load_profile:
+  - stage: warmup
+    duration: 1m
+    target_rps: 100
+    concurrent_users: 5
+  - stage: spike_1
+    duration: 30s
+    target_rps: 20000
+    concurrent_users: 200
+  - stage: recovery_1
+    duration: 2m
+    target_rps: 500
+    concurrent_users: 10
+  - stage: spike_2
+    duration: 30s
+    target_rps: 50000
+    concurrent_users: 500
+  - stage: cooldown
+    duration: 1m
+    target_rps: 100
+    concurrent_users: 5
+
+scenarios:
+  - name: "health_check"
+    weight: 30
+    steps:
+      - http:
+          method: GET
+          path: "/health"
+          assertions:
+            - status_code == 200
+  - name: "api_request"
+    weight: 70
+    steps:
+      - http:
+          method: GET
+          path: "/api/v1/resource"
+          headers:
+            Accept: application/json
+          assertions:
+            - status_code == 200
+            - latency_p95 < 1000ms
+
+sla:
+  error_rate: "< 1%"
+  p99_latency: "< 2s"

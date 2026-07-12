@@ -1,6 +1,7 @@
 #include "cppload/scenario/engine.hpp"
 #include <yaml-cpp/yaml.h>
 #include <fstream>
+#include <iostream>
 #include <sstream>
 #include <string>
 #include <chrono>
@@ -25,7 +26,10 @@ std::chrono::seconds parse_duration(const std::string& str) {
         case 's': return std::chrono::seconds{value};
         case 'm': return std::chrono::minutes{value};
         case 'h': return std::chrono::hours{value};
-        default: return std::chrono::seconds{0};
+        default:
+            std::cerr << "Warning: unrecognized duration unit '" << unit
+                      << "' in \"" << str << "\", treating as 0s" << std::endl;
+            return std::chrono::seconds{0};
     }
 }
 
@@ -176,6 +180,36 @@ bool parse_config_file(const std::string& path, ScenarioConfig& config, std::str
             }
 
             config.scenarios.push_back(std::move(scenario));
+        }
+    }
+
+    if (root["authentication"]) {
+        auto auth = root["authentication"];
+        if (auth["type"]) config.authentication.type = auth["type"].as<std::string>();
+        if (auth["token_endpoint"]) config.authentication.token_endpoint = auth["token_endpoint"].as<std::string>();
+        if (auth["client_credentials"]) {
+            auto cc = auth["client_credentials"];
+            if (cc["client_id"]) config.authentication.client_credentials.client_id = cc["client_id"].as<std::string>();
+            if (cc["client_secret"]) config.authentication.client_credentials.client_secret = cc["client_secret"].as<std::string>();
+        }
+    }
+
+    if (root["observability"]) {
+        auto obs = root["observability"];
+        if (obs["metrics"] && obs["metrics"]["prometheus"]) {
+            auto pm = obs["metrics"]["prometheus"];
+            if (pm["enabled"]) config.observability.metrics.prometheus.enabled = pm["enabled"].as<bool>();
+            if (pm["port"]) config.observability.metrics.prometheus.port = pm["port"].as<uint16_t>();
+        }
+        if (obs["tracing"]) {
+            auto tr = obs["tracing"];
+            if (tr["otlp_endpoint"]) config.observability.tracing.otlp_endpoint = tr["otlp_endpoint"].as<std::string>();
+            if (tr["sample_rate"]) config.observability.tracing.sample_rate = tr["sample_rate"].as<double>();
+        }
+        if (obs["logging"]) {
+            auto lg = obs["logging"];
+            if (lg["level"]) config.observability.logging.level = lg["level"].as<std::string>();
+            if (lg["format"]) config.observability.logging.format = lg["format"].as<std::string>();
         }
     }
 
