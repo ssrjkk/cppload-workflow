@@ -1,6 +1,7 @@
 #include "cppload/net/connection.hpp"
 #include <boost/beast/core.hpp>
 #include <boost/asio/ip/tcp.hpp>
+#include <boost/asio/write.hpp>
 #include <memory>
 #include <set>
 
@@ -24,13 +25,9 @@ void TcpConnection::async_write(
     std::function<void(std::error_code, size_t)> handler)
 {
     stream_.expires_after(timeout_);
-    beast::async_write(stream_, asio::const_buffer(buffer),
+    asio::async_write(stream_, asio::const_buffer(buffer),
         [handler](beast::error_code ec, size_t n) {
-            if (ec == asio::error::operation_aborted) {
-                handler(Err::operation_cancelled, n);
-            } else {
-                handler(ec, n);
-            }
+            handler(ec == asio::error::operation_aborted ? Err::operation_cancelled : ec, n);
         });
 }
 
@@ -91,13 +88,9 @@ void SslConnection::async_write(
     std::function<void(std::error_code, size_t)> handler)
 {
     beast::get_lowest_layer(ssl_stream_).expires_after(timeout_);
-    beast::async_write(ssl_stream_, asio::const_buffer(buffer),
+    asio::async_write(ssl_stream_, asio::const_buffer(buffer),
         [this, handler](beast::error_code ec, size_t n) {
-            if (ec == asio::error::operation_aborted) {
-                handler(Err::operation_cancelled, n);
-            } else {
-                handler(ec, n);
-            }
+            handler(ec == asio::error::operation_aborted ? Err::operation_cancelled : ec, n);
         });
 }
 

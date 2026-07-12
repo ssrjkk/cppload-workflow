@@ -8,6 +8,7 @@
 #include <boost/asio/ssl/context.hpp>
 #include <boost/asio/ssl/stream.hpp>
 #include <chrono>
+#include <cstdint>
 #include <functional>
 #include <memory>
 #include <string>
