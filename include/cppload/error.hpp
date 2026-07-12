@@ -2,6 +2,7 @@
 
 #include <system_error>
 #include <string>
+#include <type_traits>
 
 namespace cppload {
 

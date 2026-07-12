@@ -167,7 +167,6 @@ void TcpConnector::async_connect(
     auto conn = std::make_unique<TcpConnection>(ioc_);
     auto& stream = conn->stream();
 
-    auto self = conn.get();
     stream.expires_after(timeout_);
 
     resolver->async_resolve(host, std::to_string(port),

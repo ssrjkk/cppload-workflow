@@ -89,7 +89,7 @@ public:
                         std::atomic<bool> done{false};
                         client->async_request(req,
                             [&, step](std::error_code ec, net::Response resp) mutable {
-                                metrics.record_request(resp.status_code, resp.latency,
+                                metrics.record_request(static_cast<uint16_t>(resp.status_code), resp.latency,
                                                        req.body.size(), resp.body.size());
                                 if (callback) {
                                     callback(step, resp, metrics);
