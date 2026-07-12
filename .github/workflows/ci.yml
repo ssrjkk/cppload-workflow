@@ -46,12 +46,28 @@ jobs:
           set -o pipefail
           cmake --build build -j$(nproc) 2>&1 | tee build.log
 
-      - name: Print build log
+      - name: Report build error
         if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
-          echo "### Build error log" >> $GITHUB_STEP_SUMMARY
-          cat build.log >> $GITHUB_STEP_SUMMARY
-          echo "done"
+          echo "### Build error log (${{ github.run_number }})" >> $GITHUB_STEP_SUMMARY
+          tail -100 build.log >> $GITHUB_STEP_SUMMARY
+
+      - name: Create issue with build log
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python3 -c "
+with open('build.log') as f:
+    log = f.read()[:3000]
+with open('/tmp/body.md', 'w') as f:
+    f.write('```\n' + log + '\n```')
+"
+          gh issue create --repo ${{ github.repository }} \
+            --title "Build failure #${{ github.run_number }}" \
+            --body-file /tmp/body.md || true
 
       - name: Upload build log
         if: failure()
