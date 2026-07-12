@@ -54,20 +54,23 @@ jobs:
           echo "### Build error log (${{ github.run_number }})" >> $GITHUB_STEP_SUMMARY
           tail -100 build.log >> $GITHUB_STEP_SUMMARY
 
-      - name: Create issue with build log
+      - name: Publish build log
         if: failure()
         env:
-          GH_TOKEN: ${{ github.token }}
+          GITHUB_TOKEN: ${{ github.token }}
         run: |
-          python3 -c "
-with open('build.log') as f:
-    log = f.read()[:3000]
-with open('/tmp/body.md', 'w') as f:
-    f.write('```\n' + log + '\n```')
-"
-          gh issue create --repo ${{ github.repository }} \
-            --title "Build failure #${{ github.run_number }}" \
-            --body-file /tmp/body.md || true
+          cp build.log /tmp/build-${{ github.run_number }}.log
+          cd /tmp
+          git init
+          git config user.email "ci@cppload.dev"
+          git config user.name "CI Bot"
+          git checkout -b build-logs
+          cp /tmp/build-${{ github.run_number }}.log build-${{ github.run_number }}.log
+          git add build-${{ github.run_number }}.log
+          git commit -m "build log #${{ github.run_number }}"
+          git remote add origin https://x-access-token:$GITHUB_TOKEN@github.com/${{ github.repository }}.git
+          git push origin build-logs --force 2>&1 || echo "push failed (may be first time)"
+          cd /tmp && rm -rf /tmp/.git
 
       - name: Upload build log
         if: failure()
