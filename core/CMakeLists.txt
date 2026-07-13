@@ -14,6 +14,7 @@ set(CORE_SOURCES
     security/tls_context.cpp
     vault/vault_client.cpp
     token_bucket.cpp
+    io_context_pool.cpp
 )
 
 set(CORE_HEADERS
@@ -30,6 +31,7 @@ set(CORE_HEADERS
     ${CMAKE_SOURCE_DIR}/include/cppload/metrics/prometheus_exporter.hpp
     ${CMAKE_SOURCE_DIR}/include/cppload/scenario/engine.hpp
     ${CMAKE_SOURCE_DIR}/include/cppload/otel/exporter.hpp
+    ${CMAKE_SOURCE_DIR}/include/cppload/core/io_context_pool.hpp
     ${CMAKE_SOURCE_DIR}/include/cppload/security/auth_provider.hpp
     ${CMAKE_SOURCE_DIR}/include/cppload/security/tls_context.hpp
     ${CMAKE_SOURCE_DIR}/include/cppload/vault/vault_client.hpp

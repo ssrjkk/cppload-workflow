@@ -1,7 +1,7 @@
 #pragma once
 
+#include <atomic>
 #include <chrono>
-#include <mutex>
 #include <stdexcept>
 
 namespace cppload {
@@ -20,7 +20,7 @@ public:
 
 private:
     void refill();
-    std::mutex mutex_;
+    std::atomic_flag lock_ = ATOMIC_FLAG_INIT;
     double rate_;
     double burst_;
     double tokens_;

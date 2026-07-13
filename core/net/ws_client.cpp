@@ -1,6 +1,8 @@
 #include "cppload/net/ws_client.hpp"
 #include <boost/beast/websocket.hpp>
+#include <boost/beast/websocket/ssl.hpp>
 #include <boost/asio/ip/tcp.hpp>
+#include <boost/asio/ssl.hpp>
 #include <memory>
 #include <chrono>
 

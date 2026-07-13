@@ -5,7 +5,6 @@
 #include <chrono>
 #include <memory>
 #include <queue>
-#include <mutex>
 #include <unordered_map>
 
 namespace cppload::net {
