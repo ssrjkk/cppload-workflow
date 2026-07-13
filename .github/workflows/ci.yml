@@ -42,9 +42,21 @@ jobs:
             -DCPLOAD_BUILD_INTEGRATION_TESTS=OFF
 
       - name: Build
+        id: build
+        continue-on-error: true
         run: |
-          set -o pipefail
           cmake --build build -j$(nproc) 2>&1 | tee build.log
+
+      - name: Show build output
+        if: always()
+        run: |
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          tail -300 build.log >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+
+      - name: Check build result
+        if: steps.build.outcome == 'failure'
+        run: exit 1
 
       - name: Upload build log
         if: failure()
