@@ -101,12 +101,13 @@ jobs:
           set -o pipefail
           cmake --build build-cov -j$(nproc) VERBOSE=1 2>&1 | tee build-cov.log
 
-      - name: Show build output
+      - name: Show build errors
         if: failure()
         run: |
-          echo '```' >> $GITHUB_STEP_SUMMARY
-          tail -300 build-cov.log >> $GITHUB_STEP_SUMMARY
-          echo '```' >> $GITHUB_STEP_SUMMARY
+          cat build-cov.log
+          while IFS= read -r line; do
+            echo "::error title=Coverage-Build::$line"
+          done < build-cov.log
 
       - name: Upload coverage build log
         if: failure()
@@ -187,12 +188,13 @@ jobs:
           set -o pipefail
           cmake --build build-asan -j$(nproc) VERBOSE=1 2>&1 | tee build-asan.log
 
-      - name: Show build output
+      - name: Show build errors
         if: failure()
         run: |
-          echo '```' >> $GITHUB_STEP_SUMMARY
-          tail -300 build-asan.log >> $GITHUB_STEP_SUMMARY
-          echo '```' >> $GITHUB_STEP_SUMMARY
+          cat build-asan.log
+          while IFS= read -r line; do
+            echo "::error title=ASan-Build::$line"
+          done < build-asan.log
 
       - name: Upload build log
         if: failure()
@@ -237,12 +239,13 @@ jobs:
         run: |
           cmake --build build-bench -j$(nproc) 2>&1 | tee build-bench.log
 
-      - name: Show build output
+      - name: Show build errors
         if: failure()
         run: |
-          echo '```' >> $GITHUB_STEP_SUMMARY
-          tail -300 build-bench.log >> $GITHUB_STEP_SUMMARY
-          echo '```' >> $GITHUB_STEP_SUMMARY
+          cat build-bench.log
+          while IFS= read -r line; do
+            echo "::error title=Bench-Build::$line"
+          done < build-bench.log
 
       - name: Run benchmarks
         run: |
@@ -287,12 +290,13 @@ jobs:
         run: |
           cmake --build build-int -j$(nproc) 2>&1 | tee build-int.log
 
-      - name: Show build output
+      - name: Show build errors
         if: failure()
         run: |
-          echo '```' >> $GITHUB_STEP_SUMMARY
-          tail -300 build-int.log >> $GITHUB_STEP_SUMMARY
-          echo '```' >> $GITHUB_STEP_SUMMARY
+          cat build-int.log
+          while IFS= read -r line; do
+            echo "::error title=Int-Build::$line"
+          done < build-int.log
 
       - name: Run integration tests
         run: |
