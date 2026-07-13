@@ -2,6 +2,8 @@
 #include "cppload/net/connection.hpp"
 #include <boost/beast/core.hpp>
 #include <boost/asio/ip/tcp.hpp>
+#include <boost/asio/read.hpp>
+#include <boost/asio/write.hpp>
 #include <memory>
 #include <chrono>
 
