@@ -99,6 +99,13 @@ jobs:
           set -o pipefail
           cmake --build build-cov -j$(nproc) 2>&1 | tee build-cov.log
 
+      - name: Show build output
+        if: failure()
+        run: |
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          tail -300 build-cov.log >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+
       - name: Upload coverage build log
         if: failure()
         uses: actions/upload-artifact@v4
@@ -178,6 +185,13 @@ jobs:
           set -o pipefail
           cmake --build build-asan -j$(nproc) 2>&1 | tee build-asan.log
 
+      - name: Show build output
+        if: failure()
+        run: |
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          tail -300 build-asan.log >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+
       - name: Upload build log
         if: failure()
         uses: actions/upload-artifact@v4
@@ -218,7 +232,15 @@ jobs:
             -DCPLOAD_BUILD_INTEGRATION_TESTS=OFF
 
       - name: Build benchmarks
-        run: cmake --build build-bench -j$(nproc)
+        run: |
+          cmake --build build-bench -j$(nproc) 2>&1 | tee build-bench.log
+
+      - name: Show build output
+        if: failure()
+        run: |
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          tail -300 build-bench.log >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
 
       - name: Run benchmarks
         run: |
@@ -260,7 +282,15 @@ jobs:
             -DCPLOAD_BUILD_INTEGRATION_TESTS=ON
 
       - name: Build integration tests
-        run: cmake --build build-int -j$(nproc)
+        run: |
+          cmake --build build-int -j$(nproc) 2>&1 | tee build-int.log
+
+      - name: Show build output
+        if: failure()
+        run: |
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          tail -300 build-int.log >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
 
       - name: Run integration tests
         run: |
