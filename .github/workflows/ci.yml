@@ -42,21 +42,15 @@ jobs:
             -DCPLOAD_BUILD_INTEGRATION_TESTS=OFF
 
       - name: Build
-        id: build
-        continue-on-error: true
         run: |
           cmake --build build -j$(nproc) 2>&1 | tee build.log
 
       - name: Show build output
-        if: always()
+        if: failure()
         run: |
           echo '```' >> $GITHUB_STEP_SUMMARY
           tail -300 build.log >> $GITHUB_STEP_SUMMARY
           echo '```' >> $GITHUB_STEP_SUMMARY
-
-      - name: Check build result
-        if: steps.build.outcome == 'failure'
-        run: exit 1
 
       - name: Upload build log
         if: failure()
@@ -84,6 +78,8 @@ jobs:
             cmake ninja-build g++-13 \
             libboost-all-dev libssl-dev libyaml-cpp-dev \
             python3-pip python3-venv lcov
+          echo "CC=gcc-13" >> $GITHUB_ENV
+          echo "CXX=g++-13" >> $GITHUB_ENV
 
       - name: Configure CMake (Coverage)
         run: |
@@ -207,6 +203,8 @@ jobs:
           sudo apt-get install -y \
             cmake ninja-build g++-13 \
             libboost-all-dev libssl-dev libyaml-cpp-dev
+          echo "CC=gcc-13" >> $GITHUB_ENV
+          echo "CXX=g++-13" >> $GITHUB_ENV
 
       - name: Configure CMake
         run: |
@@ -247,6 +245,8 @@ jobs:
           sudo apt-get install -y \
             cmake ninja-build g++-13 \
             libboost-all-dev libssl-dev libyaml-cpp-dev
+          echo "CC=gcc-13" >> $GITHUB_ENV
+          echo "CXX=g++-13" >> $GITHUB_ENV
 
       - name: Configure CMake
         run: |
