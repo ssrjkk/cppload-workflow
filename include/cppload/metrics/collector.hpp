@@ -68,8 +68,8 @@ private:
     static constexpr size_t kRingMask = kRingCapacity - 1;
 
     std::unique_ptr<Cell[]> ring_;
-    std::atomic<uint64_t> head_{0};
-    std::atomic<uint64_t> tail_{0};
+    mutable std::atomic<uint64_t> head_{0};
+    mutable std::atomic<uint64_t> tail_{0};
 };
 
 } // namespace cppload::metrics
