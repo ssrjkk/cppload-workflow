@@ -43,6 +43,7 @@ jobs:
 
       - name: Build
         run: |
+          set -o pipefail
           cmake --build build -j$(nproc) 2>&1 | tee build.log
 
       - name: Show build output
@@ -96,6 +97,7 @@ jobs:
 
       - name: Build
         run: |
+          set -o pipefail
           cmake --build build-cov -j$(nproc) VERBOSE=1 2>&1 | tee build-cov.log
 
       - name: Show build output
@@ -181,6 +183,7 @@ jobs:
 
       - name: Build
         run: |
+          set -o pipefail
           cmake --build build-asan -j$(nproc) VERBOSE=1 2>&1 | tee build-asan.log
 
       - name: Show build output
