@@ -2,6 +2,7 @@
 
 #include <boost/asio/executor_work_guard.hpp>
 #include <boost/asio/io_context.hpp>
+#include <atomic>
 #include <memory>
 #include <thread>
 #include <vector>
@@ -23,11 +24,10 @@ public:
 
 private:
     using IoContext = boost::asio::io_context;
-    using WorkGuard = boost::asio::executor_work_guard<
-        boost::asio::io_context::executor_type>;
 
     std::vector<std::unique_ptr<IoContext>> contexts_;
-    std::vector<WorkGuard> work_guards_;
+    std::vector<boost::asio::executor_work_guard<
+        boost::asio::io_context::executor_type>> work_guards_;
     std::vector<std::thread> threads_;
     std::atomic<std::size_t> next_{0};
     bool started_{false};
