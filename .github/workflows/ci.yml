@@ -99,7 +99,7 @@ jobs:
       - name: Build
         run: |
           set -o pipefail
-          cmake --build build-cov -j$(nproc) VERBOSE=1 2>&1 | tee build-cov.log
+          cmake --build build-cov -j$(nproc) 2>&1 | tee build-cov.log
 
       - name: Show build errors
         if: failure()
@@ -186,7 +186,7 @@ jobs:
       - name: Build
         run: |
           set -o pipefail
-          cmake --build build-asan -j$(nproc) VERBOSE=1 2>&1 | tee build-asan.log
+          cmake --build build-asan -j$(nproc) 2>&1 | tee build-asan.log
 
       - name: Show build errors
         if: failure()
