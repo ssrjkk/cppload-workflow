@@ -114,7 +114,7 @@ int main(int argc, char* argv[]) {
 
         client.async_request(req, [&metrics](std::error_code, net::Response resp) {
             metrics.record_request(
-                resp.status_code, resp.latency,
+                static_cast<uint16_t>(resp.status_code), resp.latency,
                 0, resp.body.size());
         });
 

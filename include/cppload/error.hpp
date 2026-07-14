@@ -67,11 +67,11 @@ inline const std::error_category& err_category() {
     return category;
 }
 
-inline std::error_code make_error_code(Err e) {
+[[nodiscard]] inline std::error_code make_error_code(Err e) {
     return std::error_code(static_cast<int>(e), err_category());
 }
 
-inline std::error_condition make_error_condition(Err e) {
+[[nodiscard]] inline std::error_condition make_error_condition(Err e) {
     return std::error_condition(static_cast<int>(e), err_category());
 }
 

@@ -21,7 +21,7 @@ public:
     VaultClient(const VaultClient&) = delete;
     VaultClient& operator=(const VaultClient&) = delete;
     
-    bool is_connected() const;
+    [[nodiscard]] bool is_connected() const;
     
     std::string get_secret(const std::string& path, 
                          const std::string& key);
@@ -40,7 +40,7 @@ public:
     std::string get_approle_token(const std::string& role_id,
                                  const std::string& secret_id);
     
-    std::string last_error() const;
+    [[nodiscard]] std::string last_error() const;
     
 private:
     class Impl;

@@ -33,10 +33,10 @@ public:
                        size_t bytes_sent,
                        size_t bytes_received);
 
-    RequestMetrics snapshot() const;
+    [[nodiscard]] RequestMetrics snapshot() const;
 
-    double requests_per_second() const;
-    double error_rate() const;
+    [[nodiscard]] double requests_per_second() const;
+    [[nodiscard]] double error_rate() const;
 
     void reset();
 

@@ -32,10 +32,10 @@ public:
     ~AuthProvider();
     
     void apply_headers(std::unordered_map<std::string, std::string>& headers);
-    std::string get_auth_header() const;
+    [[nodiscard]] std::string get_auth_header() const;
     
     bool refresh_token();
-    bool is_expired() const;
+    [[nodiscard]] bool is_expired() const;
     
 private:
     class Impl;

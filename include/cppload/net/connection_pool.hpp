@@ -44,7 +44,7 @@ public:
         size_t total_created{0};
     };
 
-    Stats stats() const;
+    [[nodiscard]] Stats stats() const;
 
 private:
     class Impl;

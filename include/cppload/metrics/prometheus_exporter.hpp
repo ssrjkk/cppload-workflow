@@ -27,13 +27,13 @@ public:
     void stop();
     
     // Check if server is running
-    bool is_running() const;
+    [[nodiscard]] bool is_running() const;
     
     // Update metrics from collector (call periodically or on each request)
     void update_metrics(const MetricsCollector& collector);
     
     // Get the metrics endpoint URL
-    std::string endpoint() const;
+    [[nodiscard]] std::string endpoint() const;
     
 private:
     std::unique_ptr<PrometheusExporterImpl> impl_;

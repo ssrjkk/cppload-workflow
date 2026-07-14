@@ -99,9 +99,9 @@ public:
     ScenarioEngine& operator=(const ScenarioEngine&) = delete;
 
     bool load_config();
-    bool validate() const;
+    [[nodiscard]] bool validate() const;
 
-    const ScenarioConfig& config() const;
+    [[nodiscard]] const ScenarioConfig& config() const;
 
     using StepCallback = std::function<void(
         const HttpStep& step,
@@ -115,9 +115,9 @@ public:
     void set_target_rps(uint32_t rps);
     uint32_t target_rps() const;
 
-    bool check_sla(const metrics::MetricsCollector& metrics) const;
+    [[nodiscard]] bool check_sla(const metrics::MetricsCollector& metrics) const;
 
-    std::string last_error() const;
+    [[nodiscard]] std::string last_error() const;
 
 private:
     class Impl;

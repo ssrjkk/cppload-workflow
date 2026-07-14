@@ -25,7 +25,7 @@ public:
     void end_span();
     void add_attribute(const std::string& key, const std::string& value);
     
-    std::string trace_id() const;
+    [[nodiscard]] std::string trace_id() const;
     
 private:
     class Impl;
