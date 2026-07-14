@@ -1,8 +1,7 @@
 #include "cppload/net/connection_pool.hpp"
 #include <boost/asio/ip/tcp.hpp>
-#include <atomic>
+#include <mutex>
 #include <chrono>
-#include <thread>
 
 namespace cppload::net {
 
@@ -26,9 +25,7 @@ public:
 
     std::unique_ptr<Http11Client> acquire(const std::string& host,
                                           uint16_t port) {
-        while (lock_.test_and_set(std::memory_order_acquire)) {
-            std::this_thread::yield();
-        }
+        std::lock_guard<std::mutex> lock(mtx_);
 
         auto key = host + ":" + std::to_string(port);
         auto& pool = pools_[key];
@@ -36,26 +33,21 @@ public:
         if (!pool.empty()) {
             auto entry = std::move(pool.front());
             pool.pop();
-            lock_.clear(std::memory_order_release);
             return std::move(entry.client);
         }
 
         if (total_created_ < config_.max_connections) {
             total_created_++;
-            lock_.clear(std::memory_order_release);
             return std::make_unique<Http11Client>(ioc_);
         }
 
-        lock_.clear(std::memory_order_release);
         return nullptr;
     }
 
     void release(std::unique_ptr<Http11Client> client,
                  const std::string& host,
                  uint16_t port) {
-        while (lock_.test_and_set(std::memory_order_acquire)) {
-            std::this_thread::yield();
-        }
+        std::lock_guard<std::mutex> lock(mtx_);
 
         auto key = host + ":" + std::to_string(port);
         auto& pool = pools_[key];
@@ -65,18 +57,14 @@ public:
             auto now = std::chrono::steady_clock::now();
             pool.push({std::move(client), now});
         }
-        lock_.clear(std::memory_order_release);
     }
 
     void cleanup() {
-        while (lock_.test_and_set(std::memory_order_acquire)) {
-            std::this_thread::yield();
-        }
+        std::lock_guard<std::mutex> lock(mtx_);
         auto now = std::chrono::steady_clock::now();
         auto idle_timeout = config_.idle_timeout;
         for (auto it = pools_.begin(); it != pools_.end(); ) {
             auto& q = it->second;
-            // Remove expired connections (oldest at front)
             while (!q.empty()) {
                 auto& entry = q.front();
                 auto age = std::chrono::duration_cast<std::chrono::seconds>(
@@ -93,13 +81,10 @@ public:
                 ++it;
             }
         }
-        lock_.clear(std::memory_order_release);
     }
 
     Stats stats() const {
-        while (lock_.test_and_set(std::memory_order_acquire)) {
-            std::this_thread::yield();
-        }
+        std::lock_guard<std::mutex> lock(mtx_);
         Stats s;
         s.total_created = total_created_;
 
@@ -108,14 +93,13 @@ public:
         }
 
         s.active_connections = total_created_ - s.idle_connections;
-        lock_.clear(std::memory_order_release);
         return s;
     }
 
 private:
     boost::asio::io_context& ioc_;
     PoolConfig config_;
-    mutable std::atomic_flag lock_ = ATOMIC_FLAG_INIT;
+    mutable std::mutex mtx_;
     std::unordered_map<std::string, std::queue<PoolEntry>> pools_;
     size_t total_created_;
 };
