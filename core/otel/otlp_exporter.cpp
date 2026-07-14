@@ -6,6 +6,7 @@
 #include <nlohmann/json.hpp>
 #include <string>
 #include <sstream>
+#include <iostream>
 #include <chrono>
 #include <vector>
 #include <random>
@@ -57,11 +58,19 @@ void do_post_json(
     beast::tcp_stream stream(ioc);
 
     auto results = resolver.resolve(host, port, ec);
-    if (ec) return;
+    if (ec) {
+        std::cerr << "OTLP: resolve failed for " << host << ":" << port
+                  << " - " << ec.message() << std::endl;
+        return;
+    }
 
     stream.expires_after(timeout);
     stream.connect(results, ec);
-    if (ec) return;
+    if (ec) {
+        std::cerr << "OTLP: connect failed to " << host << ":" << port
+                  << " - " << ec.message() << std::endl;
+        return;
+    }
 
     std::string body_str = body.dump();
     http::request<http::string_body> req{http::verb::post, target, 11};
@@ -73,13 +82,19 @@ void do_post_json(
 
     stream.expires_after(timeout);
     http::write(stream, req, ec);
-    if (ec) return;
+    if (ec) {
+        std::cerr << "OTLP: write failed - " << ec.message() << std::endl;
+        return;
+    }
 
     beast::flat_buffer buffer;
     http::response<http::string_body> res;
     stream.expires_after(timeout);
     http::read(stream, buffer, res, ec);
-    if (ec && ec != http::error::end_of_stream) return;
+    if (ec && ec != http::error::end_of_stream) {
+        std::cerr << "OTLP: read failed - " << ec.message() << std::endl;
+        return;
+    }
 
     beast::error_code shutdown_ec;
     stream.socket().shutdown(asio::ip::tcp::socket::shutdown_both, shutdown_ec);
@@ -99,8 +114,8 @@ public:
     ~Impl() noexcept {
         try {
             flush();
-        } catch (...) {
-            // Suppress all exceptions during destruction
+        } catch (const std::exception& e) {
+            std::cerr << "OTLP: export failed during shutdown - " << e.what() << std::endl;
         }
     }
 

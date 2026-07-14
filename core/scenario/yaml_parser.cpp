@@ -19,7 +19,7 @@ std::chrono::seconds parse_duration(const std::string& str) {
     long long value = 0;
     try {
         value = std::stoll(num_str);
-    } catch (...) {
+    } catch (const std::exception&) {
         return std::chrono::seconds{0};
     }
     switch (unit) {
@@ -39,7 +39,7 @@ double parse_error_rate(const std::string& str) {
     if (start != std::string::npos && end != std::string::npos) {
         try {
             return std::stod(str.substr(start, end - start));
-        } catch (...) {
+        } catch (const std::exception&) {
             return 0.1;
         }
     }
@@ -54,7 +54,7 @@ std::chrono::milliseconds parse_latency(const std::string& str) {
     long long value = 0;
     try {
         value = std::stoll(str.substr(start, num_end - start));
-    } catch (...) {
+    } catch (const std::exception&) {
         return std::chrono::milliseconds{500};
     }
     if (str.find("ms") != std::string::npos) return std::chrono::milliseconds{value};
