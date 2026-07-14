@@ -3,6 +3,7 @@
 #include "cppload/net/protocol_factory.hpp"
 #include <boost/asio/io_context.hpp>
 #include <atomic>
+#include <mutex>
 #include <thread>
 #include <memory>
 
@@ -16,6 +17,7 @@ public:
 
     void stop() {
         stopped_ = true;
+        std::lock_guard<std::mutex> lock(ioc_mutex_);
         if (active_ioc_) active_ioc_->stop();
     }
 
@@ -45,7 +47,10 @@ public:
     void run(StepCallback callback) {
         stopped_ = false;
         boost::asio::io_context ioc;
-        active_ioc_ = &ioc;
+        {
+            std::lock_guard<std::mutex> lock(ioc_mutex_);
+            active_ioc_ = &ioc;
+        }
 
         std::string proto_name = config_.target.protocol;
         if (proto_name.empty()) proto_name = "http1.1";
@@ -109,7 +114,10 @@ public:
             if (t.joinable()) t.join();
         }
 
-        active_ioc_ = nullptr;
+        {
+            std::lock_guard<std::mutex> lock(ioc_mutex_);
+            active_ioc_ = nullptr;
+        }
     }
 
     bool check_sla(const metrics::MetricsCollector& m) const {
@@ -164,6 +172,7 @@ private:
         }
     }
 
+    mutable std::mutex ioc_mutex_;
     boost::asio::io_context* active_ioc_{nullptr};
     std::atomic<bool> stopped_{false};
     std::string config_path_;

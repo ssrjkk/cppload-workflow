@@ -112,16 +112,18 @@ class MetricsCollector:
 
     @property
     def requests_per_second(self) -> float:
-        elapsed = time.time() - self._start_time
-        if elapsed < 0.001:
-            return 0.0
-        return self._total_requests / elapsed
+        with self._lock:
+            elapsed = time.time() - self._start_time
+            if elapsed < 0.001:
+                return 0.0
+            return self._total_requests / elapsed
 
     @property
     def error_rate(self) -> float:
-        if self._total_requests == 0:
-            return 0.0
-        return self._failed_requests / self._total_requests * 100.0
+        with self._lock:
+            if self._total_requests == 0:
+                return 0.0
+            return self._failed_requests / self._total_requests * 100.0
 
     @property
     def p95_latency_us(self) -> int:

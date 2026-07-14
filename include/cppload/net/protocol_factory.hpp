@@ -4,6 +4,7 @@
 #include "cppload/security/tls_context.hpp"
 #include <functional>
 #include <memory>
+#include <mutex>
 #include <string>
 #include <unordered_map>
 
@@ -33,7 +34,9 @@ public:
 private:
     static security::TlsConfig global_tls_config_;
     static std::unique_ptr<security::TlsContext> global_tls_ctx_;
+    static std::mutex global_mutex_;
     static std::unordered_map<std::string, FactoryFunc>& registry();
+    static std::mutex& registry_mutex();
 };
 
 } // namespace cppload::net

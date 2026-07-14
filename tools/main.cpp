@@ -15,10 +15,10 @@
 
 using namespace cppload;
 
-std::atomic<scenario::ScenarioEngine*> global_engine{nullptr};
+std::atomic<bool> g_stop_requested{false};
 
 void signal_handler(int) {
-    if (global_engine) global_engine->stop();
+    g_stop_requested = true;
 }
 
 struct CliArgs {
@@ -56,12 +56,12 @@ CliArgs parse_args(int argc, char* argv[]) {
         else if (arg == "--rps" || arg == "-r") {
             auto s = next();
             try { args.rps = std::stoi(s); }
-            catch (...) { std::cerr << "Invalid --rps: " << s << "\n"; args.help = true; }
+            catch (const std::exception&) { std::cerr << "Invalid --rps: " << s << "\n"; args.help = true; }
         }
         else if (arg == "--duration" || arg == "-d") {
             auto s = next();
             try { args.duration = std::stoi(s); }
-            catch (...) { std::cerr << "Invalid --duration: " << s << "\n"; args.help = true; }
+            catch (const std::exception&) { std::cerr << "Invalid --duration: " << s << "\n"; args.help = true; }
         }
         else if (arg == "--auth-type") args.auth_type = next();
         else if (arg == "--auth-token") args.auth_token = next();
@@ -185,7 +185,13 @@ int main(int argc, char* argv[]) {
 
     metrics::MetricsCollector metrics;
 
-    global_engine = engine.get();
+    std::thread watcher([&]() {
+        while (!g_stop_requested) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        }
+        engine->stop();
+    });
+
     engine->run([&](const scenario::HttpStep& step,
                      const net::Response& resp,
                      metrics::MetricsCollector& m) {
@@ -197,8 +203,10 @@ int main(int argc, char* argv[]) {
         tracer.end_span();
     });
 
+    g_stop_requested = true;
+    if (watcher.joinable()) watcher.join();
+
     tracer.end_span();
-    global_engine = nullptr;
 
     auto elapsed = std::chrono::duration_cast<std::chrono::seconds>(
         std::chrono::steady_clock::now() - test_start);

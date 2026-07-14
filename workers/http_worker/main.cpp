@@ -49,11 +49,11 @@ WorkerConfig parse_args(int argc, char* argv[]) {
         else if (arg == "--method" && i + 1 < argc) cfg.method = argv[++i];
         else if (arg == "--rps" && i + 1 < argc) {
             try { cfg.rps = static_cast<uint32_t>(std::stoi(argv[++i])); }
-            catch (...) { std::cerr << "Invalid --rps value\n"; exit(1); }
+            catch (const std::exception&) { std::cerr << "Invalid --rps value\n"; exit(1); }
         }
         else if (arg == "--duration" && i + 1 < argc) {
             try { cfg.duration_sec = std::stoi(argv[++i]); }
-            catch (...) { std::cerr << "Invalid --duration value\n"; exit(1); }
+            catch (const std::exception&) { std::cerr << "Invalid --duration value\n"; exit(1); }
         }
         else if (arg == "--help") { print_usage(argv[0]); exit(0); }
     }
@@ -110,7 +110,7 @@ int main(int argc, char* argv[]) {
         try {
             auto p = std::stoul(cfg.target_port);
             req.port = (p > 0 && p <= 65535) ? static_cast<uint16_t>(p) : 80;
-        } catch (...) { req.port = 80; }
+        } catch (const std::exception&) { req.port = 80; }
 
         client.async_request(req, [&metrics](std::error_code, net::Response resp) {
             metrics.record_request(

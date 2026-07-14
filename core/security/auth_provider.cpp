@@ -142,7 +142,7 @@ public:
         try {
             fetch_token();
             return true;
-        } catch (...) {
+        } catch (const std::exception&) {
             return false;
         }
     }

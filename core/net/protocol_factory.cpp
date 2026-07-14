@@ -11,6 +11,7 @@ namespace cppload::net {
 
 security::TlsConfig ProtocolFactory::global_tls_config_;
 std::unique_ptr<security::TlsContext> ProtocolFactory::global_tls_ctx_;
+std::mutex ProtocolFactory::global_mutex_;
 
 std::unordered_map<std::string, ProtocolFactory::FactoryFunc>& ProtocolFactory::registry() {
     static auto& reg = *new std::unordered_map<std::string, FactoryFunc>();
@@ -30,6 +31,11 @@ std::unordered_map<std::string, ProtocolFactory::FactoryFunc>& ProtocolFactory::
         };
     });
     return reg;
+}
+
+std::mutex& ProtocolFactory::registry_mutex() {
+    static std::mutex mtx;
+    return mtx;
 }
 
 std::unique_ptr<ProtocolClient> ProtocolFactory::create(
@@ -53,10 +59,12 @@ void ProtocolFactory::register_protocol(
     const std::string& name,
     FactoryFunc factory)
 {
+    std::lock_guard<std::mutex> lock(registry_mutex());
     registry()[name] = std::move(factory);
 }
 
 std::vector<std::string> ProtocolFactory::available_protocols() {
+    std::lock_guard<std::mutex> lock(registry_mutex());
     std::vector<std::string> result;
     for (const auto& [name, _] : registry()) {
         result.push_back(name);
@@ -65,15 +73,18 @@ std::vector<std::string> ProtocolFactory::available_protocols() {
 }
 
 void ProtocolFactory::set_tls_config(const security::TlsConfig& tls_config) {
+    std::lock_guard<std::mutex> lock(global_mutex_);
     global_tls_config_ = tls_config;
     global_tls_ctx_ = std::make_unique<security::TlsContext>(tls_config);
 }
 
 const security::TlsConfig& ProtocolFactory::tls_config() {
+    std::lock_guard<std::mutex> lock(global_mutex_);
     return global_tls_config_;
 }
 
 boost::asio::ssl::context* ProtocolFactory::ssl_context() {
+    std::lock_guard<std::mutex> lock(global_mutex_);
     if (global_tls_ctx_) {
         return &global_tls_ctx_->get_native_context();
     }
@@ -81,6 +92,7 @@ boost::asio::ssl::context* ProtocolFactory::ssl_context() {
 }
 
 bool ProtocolFactory::ensure_tls_context() {
+    std::lock_guard<std::mutex> lock(global_mutex_);
     if (!global_tls_ctx_) {
         global_tls_ctx_ = std::make_unique<security::TlsContext>(global_tls_config_);
     }

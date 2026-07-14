@@ -138,17 +138,17 @@ void run_load_test(const AssignTaskResponse& task) {
 
         // Parse URL to extract host, port and path
         auto proto_end = url.find("://");
-        auto start = (proto_end != std::string::npos) ? proto_end + 3 : 0;
-        auto path_start = url.find("/", start);
+        auto url_start = (proto_end != std::string::npos) ? proto_end + 3 : 0;
+        auto path_start = url.find("/", url_start);
         auto host_port_end = (path_start != std::string::npos) ? path_start : url.size();
-        std::string host_port = url.substr(start, host_port_end - start);
+        std::string host_port = url.substr(url_start, host_port_end - url_start);
         auto colon = host_port.find(":");
         if (colon != std::string::npos) {
             req.host = host_port.substr(0, colon);
             try {
                 auto p = std::stoul(host_port.substr(colon + 1));
                 if (p > 0 && p <= 65535) req.port = static_cast<uint16_t>(p);
-            } catch (...) {}
+            } catch (const std::exception&) {}
         } else {
             req.host = host_port;
         }
@@ -196,7 +196,7 @@ int main(int argc, char** argv) {
         else if (arg == "--worker-id" && i + 1 < argc) worker_id = argv[++i];
         else if (arg == "--max-rps" && i + 1 < argc) {
             try { max_rps = std::stoi(argv[++i]); }
-            catch (...) { std::cerr << "Invalid --max-rps value\n"; return 1; }
+            catch (const std::exception&) { std::cerr << "Invalid --max-rps value\n"; return 1; }
         }
         else if (arg == "--help") {
             std::cout << "Usage: grpc_worker --controller=HOST:PORT --worker-id=ID --max-rps=N\n";

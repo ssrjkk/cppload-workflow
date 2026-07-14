@@ -148,7 +148,7 @@ public:
         try {
             health_check();
             connected_ = true;
-        } catch (...) {
+        } catch (const std::exception&) {
             connected_ = false;
         }
     }
@@ -343,7 +343,7 @@ private:
         try {
             auto res = do_get(url.host, url.port, api_path, headers, config_.timeout_seconds);
             connected_ = (res.result_int() >= 200 && res.result_int() < 500);
-        } catch (...) {
+        } catch (const std::exception&) {
             connected_ = false;
         }
     }

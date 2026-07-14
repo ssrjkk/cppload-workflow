@@ -44,7 +44,7 @@ public:
             running_ = true;
             thread_ = std::thread([this]() { run(); });
             return true;
-        } catch (...) {
+        } catch (const std::exception&) {
             return false;
         }
     }
