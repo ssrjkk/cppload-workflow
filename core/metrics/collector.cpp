@@ -3,6 +3,12 @@
 
 namespace cppload::metrics {
 
+namespace {
+    constexpr double kP95 = 0.95;
+    constexpr double kP99 = 0.99;
+    constexpr double kMinElapsedSeconds = 0.001;
+}
+
 MetricsCollector::MetricsCollector()
     : ring_(std::make_unique<Cell[]>(kRingCapacity))
 {
@@ -90,8 +96,8 @@ RequestMetrics MetricsCollector::snapshot() const {
 
     if (!sorted.empty()) {
         std::sort(sorted.begin(), sorted.end());
-        auto p95_idx = static_cast<size_t>(sorted.size() * 0.95);
-        auto p99_idx = static_cast<size_t>(sorted.size() * 0.99);
+        auto p95_idx = static_cast<size_t>(sorted.size() * kP95);
+        auto p99_idx = static_cast<size_t>(sorted.size() * kP99);
         m.p95_latency_us = static_cast<uint64_t>(sorted[std::min(p95_idx, sorted.size() - 1)]);
         m.p99_latency_us = static_cast<uint64_t>(sorted[std::min(p99_idx, sorted.size() - 1)]);
     }
@@ -106,7 +112,7 @@ double MetricsCollector::requests_per_second() const {
             start_time_.load(std::memory_order_relaxed)));
     auto elapsed = std::chrono::duration<double>(now - start).count();
 
-    if (elapsed < 0.001) return 0.0;
+    if (elapsed < kMinElapsedSeconds) return 0.0;
     return total_requests_.load(std::memory_order_relaxed) / elapsed;
 }
 
