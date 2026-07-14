@@ -109,6 +109,8 @@ class MetricsCollector:
             else:
                 self._failed_requests += 1
             self._latencies.append(latency_us)
+            if len(self._latencies) > 100000:
+                self._latencies = self._latencies[-50000:]
 
     @property
     def requests_per_second(self) -> float:
@@ -194,8 +196,16 @@ class TokenBucket:
             self.last_refill = now
 
     def consume(self):
-        while not self.try_consume():
-            time.sleep(0.001)
+        while True:
+            with self._lock:
+                self._refill()
+                if self.tokens >= 1.0:
+                    self.tokens -= 1.0
+                    return
+                deficit = 1.0 - self.tokens
+                wait_sec = min(deficit / self.rate, 1.0)
+            if wait_sec > 0.0:
+                time.sleep(wait_sec)
 
     def try_consume(self) -> bool:
         with self._lock:

@@ -46,10 +46,10 @@ public:
 
     void run(StepCallback callback) {
         stopped_ = false;
-        boost::asio::io_context ioc;
+        auto ioc = std::make_shared<boost::asio::io_context>();
         {
             std::lock_guard<std::mutex> lock(ioc_mutex_);
-            active_ioc_ = &ioc;
+            active_ioc_ = ioc.get();
         }
 
         std::string proto_name = config_.target.protocol;
@@ -69,8 +69,8 @@ public:
         std::vector<std::thread> workers;
 
         for (uint32_t w = 0; w < concurrency; ++w) {
-            workers.emplace_back([this, &ioc, &metrics, &callback, &proto_name]() {
-                auto client = net::ProtocolFactory::create(proto_name, ioc);
+            workers.emplace_back([this, ioc, &metrics, &callback, &proto_name]() {
+                auto client = net::ProtocolFactory::create(proto_name, *ioc);
                 if (!client) {
                     last_error_ = "unsupported protocol: " + proto_name;
                     return;
@@ -103,7 +103,7 @@ public:
                             });
 
                         while (!done && !stopped_) {
-                            ioc.run_one();
+                            ioc->run_one();
                         }
                     }
                 }

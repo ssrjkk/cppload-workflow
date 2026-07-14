@@ -73,14 +73,14 @@ public:
     }
     
     bool start() {
-        // Exposer starts automatically in constructor
         return true;
     }
-    
+
     void stop() {
-        // Exposer stops when destroyed
+        registry_->Clear();
+        exposer_.reset();
     }
-    
+
     bool is_running() const {
         return exposer_ != nullptr;
     }
