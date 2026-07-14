@@ -127,8 +127,12 @@ private:
                     return;
                 }
 
-                SSL_set_tlsext_host_name(
-                    ws->next_layer().native_handle(), req.host.c_str());
+                if (!SSL_set_tlsext_host_name(
+                        ws->next_layer().native_handle(), req.host.c_str())) {
+                    response->ec = boost::asio::error::invalid_argument;
+                    handler(response->ec, *response);
+                    return;
+                }
 
                 beast::get_lowest_layer(*ws).expires_after(self->timeout_);
                 ws->next_layer().async_handshake(asio::ssl::stream_base::client,

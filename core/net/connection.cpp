@@ -3,7 +3,6 @@
 #include <boost/asio/ip/tcp.hpp>
 #include <boost/asio/write.hpp>
 #include <memory>
-#include <set>
 
 namespace beast = boost::beast;
 namespace asio = boost::asio;

@@ -13,7 +13,6 @@
 namespace beast = boost::beast;
 namespace http = beast::http;
 namespace asio = boost::asio;
-using tcp = asio::ip::tcp;
 
 class MockHttpServer {
 public:
@@ -35,7 +34,7 @@ public:
     bool start() {
         try {
             auto address = asio::ip::make_address("127.0.0.1");
-            tcp::endpoint ep(address, port_);
+            asio::ip::tcp::endpoint ep(address, port_);
             acceptor_.open(ep.protocol());
             acceptor_.set_option(asio::socket_base::reuse_address(true));
             acceptor_.bind(ep);
@@ -68,7 +67,7 @@ private:
     void run() {
         while (running_) {
             beast::error_code ec;
-            tcp::socket socket(ioc_);
+            asio::ip::tcp::socket socket(ioc_);
             acceptor_.accept(socket, ec);
             if (ec || !running_) break;
             {
@@ -80,7 +79,7 @@ private:
         }
     }
 
-    void handle_session(tcp::socket socket) {
+    void handle_session(asio::ip::tcp::socket socket) {
         beast::flat_buffer buffer;
         http::request<http::string_body> req;
         beast::error_code ec;
@@ -100,12 +99,12 @@ private:
 
         http::write(socket, res, ec);
         beast::error_code shut_ec;
-        socket.shutdown(tcp::socket::shutdown_both, shut_ec);
+        socket.shutdown(asio::ip::tcp::socket::shutdown_both, shut_ec);
     }
 
     asio::io_context ioc_;
     uint16_t port_;
-    tcp::acceptor acceptor_;
+    asio::ip::tcp::acceptor acceptor_;
     std::thread thread_;
     std::atomic<bool> running_;
     Handler handler_;

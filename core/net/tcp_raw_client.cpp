@@ -120,8 +120,12 @@ private:
                         std::move(*tcp_stream),
                         self->tls_ctx_->get_native_context());
 
-                SSL_set_tlsext_host_name(
-                    ssl_stream->native_handle(), req.host.c_str());
+                if (!SSL_set_tlsext_host_name(
+                        ssl_stream->native_handle(), req.host.c_str())) {
+                    response->ec = boost::asio::error::invalid_argument;
+                    handler(response->ec, *response);
+                    return;
+                }
 
                 beast::get_lowest_layer(*ssl_stream).expires_after(self->timeout_);
                 ssl_stream->async_handshake(asio::ssl::stream_base::client,
