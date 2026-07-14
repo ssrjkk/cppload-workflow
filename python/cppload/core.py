@@ -98,8 +98,9 @@ class MetricsCollector:
         self._lock = threading.Lock()
         self._start_time = time.time()
 
-    def record_request(self, status_code: int, latency_us: int,
-                       bytes_sent: int = 0, bytes_received: int = 0):
+    def record_request(
+        self, status_code: int, latency_us: int, bytes_sent: int = 0, bytes_received: int = 0
+    ):
         with self._lock:
             self._total_requests += 1
             self._total_bytes_sent += bytes_sent
@@ -154,8 +155,7 @@ class MetricsCollector:
                 "total_bytes_sent": self._total_bytes_sent,
                 "total_bytes_received": self._total_bytes_received,
                 "mean_latency_us": (
-                    sum(self._latencies) / len(self._latencies)
-                    if self._latencies else 0
+                    sum(self._latencies) / len(self._latencies) if self._latencies else 0
                 ),
                 "min_latency_us": min(self._latencies) if self._latencies else 0,
                 "max_latency_us": max(self._latencies) if self._latencies else 0,
@@ -230,8 +230,7 @@ class HttpClient:
         data = req.body.encode() if req.body else None
         headers = req.headers.copy()
 
-        r = urllib.request.Request(url, data=data, headers=headers,
-                                   method=req.method)
+        r = urllib.request.Request(url, data=data, headers=headers, method=req.method)
         start = time.time()
         try:
             response = urllib.request.urlopen(r, timeout=self.timeout_ms / 1000)
@@ -308,15 +307,18 @@ class AuthProvider:
         import urllib.request
         import urllib.parse
 
-        data = urllib.parse.urlencode({
-            "grant_type": "client_credentials",
-            "client_id": self.config.client_id,
-            "client_secret": self.config.client_secret,
-        }).encode()
+        data = urllib.parse.urlencode(
+            {
+                "grant_type": "client_credentials",
+                "client_id": self.config.client_id,
+                "client_secret": self.config.client_secret,
+            }
+        ).encode()
 
         req = urllib.request.Request(
-            self.config.token_endpoint, data=data,
-            headers={"Content-Type": "application/x-www-form-urlencoded"}
+            self.config.token_endpoint,
+            data=data,
+            headers={"Content-Type": "application/x-www-form-urlencoded"},
         )
 
         with urllib.request.urlopen(req, timeout=10) as resp:
@@ -402,6 +404,7 @@ class Tracer:
 
     def start_span(self, name: str):
         import uuid
+
         if self._active_span:
             self.end_span()
 
@@ -492,19 +495,23 @@ class LoadTest:
     def _setup_integrations(self):
         auth_cfg = self.config.get("authentication", {})
         if auth_cfg.get("type") == "oauth2":
-            self.auth = AuthProvider(AuthConfig(
-                type=AuthType.OAUTH2,
-                client_id=auth_cfg.get("client_credentials", {}).get("client_id", ""),
-                client_secret=auth_cfg.get("client_credentials", {}).get("client_secret", ""),
-                token_endpoint=auth_cfg.get("token_endpoint", ""),
-            ))
+            self.auth = AuthProvider(
+                AuthConfig(
+                    type=AuthType.OAUTH2,
+                    client_id=auth_cfg.get("client_credentials", {}).get("client_id", ""),
+                    client_secret=auth_cfg.get("client_credentials", {}).get("client_secret", ""),
+                    token_endpoint=auth_cfg.get("token_endpoint", ""),
+                )
+            )
 
         tracing = self.config.get("observability", {}).get("tracing", {})
         if tracing.get("otlp_endpoint"):
-            self.tracer = Tracer(TraceConfig(
-                endpoint=tracing["otlp_endpoint"],
-                sample_rate=tracing.get("sample_rate", 0.1),
-            ))
+            self.tracer = Tracer(
+                TraceConfig(
+                    endpoint=tracing["otlp_endpoint"],
+                    sample_rate=tracing.get("sample_rate", 0.1),
+                )
+            )
 
         profiles = self.config.get("load_profile", [])
         if profiles:
@@ -513,6 +520,7 @@ class LoadTest:
 
     def _worker(self, scenarios: list, base_url: str):
         from urllib.parse import urlparse
+
         parsed = urlparse(base_url)
         host = parsed.hostname or "localhost"
         port = str(parsed.port or 80)
@@ -596,7 +604,7 @@ class LoadTest:
 
     def _print_results(self):
         m = self.metrics.snapshot()
-        print(f"\nResults:")
+        print("\nResults:")
         print(f"  Total requests: {m['total_requests']}")
         print(f"  Successful:    {m['successful_requests']}")
         print(f"  Failed:        {m['failed_requests']}")
