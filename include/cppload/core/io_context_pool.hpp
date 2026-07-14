@@ -30,7 +30,7 @@ private:
         boost::asio::io_context::executor_type>> work_guards_;
     std::vector<std::thread> threads_;
     std::atomic<std::size_t> next_{0};
-    bool started_{false};
+    std::atomic<bool> started_{false};
 };
 
 } // namespace cppload

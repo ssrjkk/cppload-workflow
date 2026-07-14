@@ -162,11 +162,20 @@ void run_load_test(const AssignTaskResponse& task) {
 
         auto start = std::chrono::steady_clock::now();
         std::atomic<bool> done{false};
+        size_t req_body_size = req.body.size();
 
-        client.async_request(req, [&](std::error_code, cppload::net::Response resp) {
+        client.async_request(req, [start, &metrics, req_body_size, &done](std::error_code, cppload::net::Response resp) {
             auto latency = std::chrono::duration_cast<std::chrono::microseconds>(
                 std::chrono::steady_clock::now() - start);
-            metrics.record_request(resp.status_code, latency, req.body.size(), resp.body.size());
+            metrics.record_request(resp.status_code, latency, req_body_size, resp.body.size());
+            total_requests.fetch_add(1);
+            if (resp.status_code >= 200 && resp.status_code < 400) {
+                successful_requests.fetch_add(1);
+            } else {
+                failed_requests.fetch_add(1);
+            }
+            done = true;
+        });
             total_requests.fetch_add(1);
             if (resp.status_code >= 200 && resp.status_code < 400) {
                 successful_requests.fetch_add(1);

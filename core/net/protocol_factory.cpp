@@ -43,6 +43,7 @@ std::unique_ptr<ProtocolClient> ProtocolFactory::create(
     boost::asio::io_context& ioc,
     const security::TlsConfig& tls_config)
 {
+    std::lock_guard<std::mutex> lock(registry_mutex());
     auto& reg = registry();
     std::string key = protocol_name.empty() ? "http1.1" : protocol_name;
 
