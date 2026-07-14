@@ -9,6 +9,7 @@ on:
 concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
+  # trigger warm-ccache run
 
 env:
   CCACHE_DIR: /home/runner/.ccache
