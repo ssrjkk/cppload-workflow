@@ -44,6 +44,6 @@ TEST(HttpClientTest, AsyncRequestFailsGracefully) {
         EXPECT_NE(ec.value(), 0);
     });
 
-    ioc.run();
+    ioc.run_for(std::chrono::seconds(5));
     EXPECT_TRUE(called);
 }

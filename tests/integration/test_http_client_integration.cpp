@@ -37,7 +37,7 @@ TEST(HttpClientIntegrationTest, SuccessfulRequest) {
         called = true;
     });
 
-    ioc.run();
+    ioc.run_for(std::chrono::seconds(10));
     EXPECT_TRUE(called);
 }
 
@@ -70,7 +70,7 @@ TEST(HttpClientIntegrationTest, PostWithBody) {
         called = true;
     });
 
-    ioc.run();
+    ioc.run_for(std::chrono::seconds(10));
     EXPECT_TRUE(called);
 }
 
@@ -101,6 +101,6 @@ TEST(HttpClientIntegrationTest, ServerError) {
         called = true;
     });
 
-    ioc.run();
+    ioc.run_for(std::chrono::seconds(10));
     EXPECT_TRUE(called);
 }

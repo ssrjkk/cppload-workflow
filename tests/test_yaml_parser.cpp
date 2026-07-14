@@ -1,11 +1,16 @@
 #include <gtest/gtest.h>
 #include "cppload/scenario/engine.hpp"
+#include <filesystem>
 #include <fstream>
 #include <cstdio>
 
 class YamlParserTest : public ::testing::Test {
 protected:
     void SetUp() override {
+        auto tmp = std::filesystem::temp_directory_path();
+        test_file = (tmp / "cppload_test_config.yaml").string();
+        bad_file = (tmp / "cppload_test_bad_yaml.yaml").string();
+
         // Create a minimal valid YAML config
         std::ofstream f(test_file);
         f << "version: \"1.0\"\n"
