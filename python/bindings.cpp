@@ -85,8 +85,12 @@ PYBIND11_MODULE(_cppload, m) {
         })
         .def("requests_per_second", &metrics::MetricsCollector::requests_per_second)
         .def("error_rate", &metrics::MetricsCollector::error_rate)
-        .def("p95_latency_us", &metrics::MetricsCollector::p95_latency_us)
-        .def("p99_latency_us", &metrics::MetricsCollector::p99_latency_us)
+        .def("p95_latency_us", [](const metrics::MetricsCollector& m) -> uint64_t {
+            return m.snapshot().p95_latency_us;
+        })
+        .def("p99_latency_us", [](const metrics::MetricsCollector& m) -> uint64_t {
+            return m.snapshot().p99_latency_us;
+        })
         .def("reset", &metrics::MetricsCollector::reset)
         .def("snapshot", &metrics::MetricsCollector::snapshot);
 

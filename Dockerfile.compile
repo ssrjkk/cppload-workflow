@@ -1,0 +1,17 @@
+FROM ubuntu:24.04
+RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y \
+    cmake ninja-build g++-13 libboost-all-dev libssl-dev libyaml-cpp-dev \
+    nlohmann-json3-dev python3-pip python3-venv && \
+    rm -rf /var/lib/apt/lists/*
+ENV CC=gcc-13 CXX=g++-13
+WORKDIR /src
+CMD cmake -B build -G Ninja \
+      -DCMAKE_BUILD_TYPE=Release \
+      -DCPLOAD_BUILD_TESTS=ON \
+      -DCPLOAD_BUILD_PYTHON=OFF \
+      -DCPLOAD_BUILD_WORKERS=OFF \
+      -DCPLOAD_BUILD_TOOLS=OFF \
+      -DCPLOAD_BUILD_BENCHMARKS=OFF \
+      -DCPLOAD_BUILD_INTEGRATION_TESTS=OFF \
+      -DCPLOAD_BUILD_GRPC_WORKER=OFF \
+    && cmake --build build -j$(nproc) 2>&1

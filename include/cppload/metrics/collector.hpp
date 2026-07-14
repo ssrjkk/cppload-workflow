@@ -38,8 +38,6 @@ public:
 
     double requests_per_second() const;
     double error_rate() const;
-    uint64_t p95_latency_us() const;
-    uint64_t p99_latency_us() const;
 
     void reset();
 

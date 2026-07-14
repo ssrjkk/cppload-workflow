@@ -123,7 +123,7 @@ private:
                 SSL_set_tlsext_host_name(
                     ssl_stream->native_handle(), req.host.c_str());
 
-                tcp_stream->expires_after(self->timeout_);
+                beast::get_lowest_layer(*ssl_stream).expires_after(self->timeout_);
                 ssl_stream->async_handshake(asio::ssl::stream_base::client,
                     [self, ssl_stream, response, handler, start_time, buffer, req](
                         beast::error_code ec)

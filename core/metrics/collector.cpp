@@ -116,14 +116,6 @@ double MetricsCollector::error_rate() const {
     return static_cast<double>(failed_requests_.load(std::memory_order_relaxed)) / total * 100.0;
 }
 
-uint64_t MetricsCollector::p95_latency_us() const {
-    return snapshot().p95_latency_us;
-}
-
-uint64_t MetricsCollector::p99_latency_us() const {
-    return snapshot().p99_latency_us;
-}
-
 void MetricsCollector::reset() {
     total_requests_.store(0, std::memory_order_relaxed);
     successful_requests_.store(0, std::memory_order_relaxed);

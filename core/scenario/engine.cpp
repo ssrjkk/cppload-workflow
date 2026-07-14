@@ -116,7 +116,8 @@ public:
         if (m.error_rate() > config_.sla.max_error_rate) {
             return false;
         }
-        if (m.p99_latency_us() > config_.sla.max_p99_latency.count() * 1000) {
+        auto snap = m.snapshot();
+        if (snap.p99_latency_us > config_.sla.max_p99_latency.count() * 1000) {
             return false;
         }
         return true;
@@ -144,8 +145,19 @@ private:
         auto colon = host_port_str.find(":");
         if (colon != std::string::npos) {
             host = host_port_str.substr(0, colon);
-            port = static_cast<uint16_t>(
-                std::stoul(host_port_str.substr(colon + 1)));
+            std::string port_str = host_port_str.substr(colon + 1);
+            try {
+                auto p = std::stoul(port_str);
+                if (p == 0 || p > 65535) {
+                    last_error_ = "port out of range: " + port_str;
+                    port = use_tls ? 443 : 80;
+                } else {
+                    port = static_cast<uint16_t>(p);
+                }
+            } catch (const std::exception&) {
+                last_error_ = "invalid port: " + port_str;
+                port = use_tls ? 443 : 80;
+            }
         } else {
             host = host_port_str;
             port = use_tls ? 443 : 80;

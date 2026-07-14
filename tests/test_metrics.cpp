@@ -42,23 +42,26 @@ TEST(MetricsCollectorTest, Percentiles) {
         collector.record_request(200, std::chrono::microseconds(100 * (i + 1)), 100, 500);
     }
     
+    auto m = collector.snapshot();
     // p95: index = 20 * 0.95 = 19 → sorted[19] = 2000
-    EXPECT_EQ(collector.p95_latency_us(), 2000);
+    EXPECT_EQ(m.p95_latency_us, 2000);
     // p99: index = 20 * 0.99 = 19 → sorted[19] = 2000
-    EXPECT_EQ(collector.p99_latency_us(), 2000);
+    EXPECT_EQ(m.p99_latency_us, 2000);
 }
 
 TEST(MetricsCollectorTest, PercentilesSingleValue) {
     cppload::metrics::MetricsCollector collector;
     collector.record_request(200, std::chrono::microseconds(500), 100, 500);
-    EXPECT_EQ(collector.p95_latency_us(), 500);
-    EXPECT_EQ(collector.p99_latency_us(), 500);
+    auto m = collector.snapshot();
+    EXPECT_EQ(m.p95_latency_us, 500);
+    EXPECT_EQ(m.p99_latency_us, 500);
 }
 
 TEST(MetricsCollectorTest, PercentilesZeroRequests) {
     cppload::metrics::MetricsCollector collector;
-    EXPECT_EQ(collector.p95_latency_us(), 0);
-    EXPECT_EQ(collector.p99_latency_us(), 0);
+    auto m = collector.snapshot();
+    EXPECT_EQ(m.p95_latency_us, 0);
+    EXPECT_EQ(m.p99_latency_us, 0);
 }
 
 TEST(MetricsCollectorTest, SnapshotZeroNoRequests) {

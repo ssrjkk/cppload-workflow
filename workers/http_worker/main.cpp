@@ -87,7 +87,7 @@ int main(int argc, char* argv[]) {
                 << "req=" << m.total_requests
                 << " err=" << metrics.error_rate() << "%"
                 << " rps=" << metrics.requests_per_second()
-                << " p99=" << metrics.p99_latency_us() << "us"
+                << " p99=" << m.p99_latency_us << "us"
                 << "\n";
         }
     });
@@ -128,8 +128,8 @@ int main(int argc, char* argv[]) {
         << "  Failed: " << m.failed_requests << "\n"
         << "  Error rate: " << metrics.error_rate() << "%\n"
         << "  Mean latency: " << m.mean_latency_us << "us\n"
-        << "  P95 latency: " << metrics.p95_latency_us() << "us\n"
-        << "  P99 latency: " << metrics.p99_latency_us() << "us\n"
+        << "  P95 latency: " << m.p95_latency_us << "us\n"
+        << "  P99 latency: " << m.p99_latency_us << "us\n"
         << "  Actual RPS: " << metrics.requests_per_second() << "\n";
 
     return 0;

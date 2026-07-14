@@ -15,7 +15,8 @@ namespace cppload::metrics {
 class PrometheusExporterImpl {
 public:
     explicit PrometheusExporterImpl(const std::string& bind_address)
-        : exposer_(std::make_unique<prometheus::Exposer>(bind_address))
+        : bind_address_(bind_address)
+        , exposer_(std::make_unique<prometheus::Exposer>(bind_address))
         , registry_(std::make_shared<prometheus::Registry>())
     {
         exposer_->RegisterCollectable(registry_);
@@ -86,30 +87,38 @@ public:
     
     void update_metrics(const MetricsCollector& collector) {
         auto metrics = collector.snapshot();
-        
-        total_requests_->Increment(metrics.total_requests - last_total_);
-        successful_requests_->Increment(metrics.successful_requests - last_successful_);
-        failed_requests_->Increment(metrics.failed_requests - last_failed_);
-        bytes_sent_->Increment(metrics.total_bytes_sent - last_bytes_sent_);
-        bytes_received_->Increment(metrics.total_bytes_received - last_bytes_received_);
+
+        auto delta_or_reset = [](uint64_t curr, uint64_t& last) -> double {
+            if (curr >= last) {
+                double d = static_cast<double>(curr - last);
+                last = curr;
+                return d;
+            }
+            // Counter reset detected — use current value as increment
+            double d = static_cast<double>(curr);
+            last = curr;
+            return d;
+        };
+
+        total_requests_->Increment(delta_or_reset(metrics.total_requests, last_total_));
+        successful_requests_->Increment(delta_or_reset(metrics.successful_requests, last_successful_));
+        failed_requests_->Increment(delta_or_reset(metrics.failed_requests, last_failed_));
+        bytes_sent_->Increment(delta_or_reset(metrics.total_bytes_sent, last_bytes_sent_));
+        bytes_received_->Increment(delta_or_reset(metrics.total_bytes_received, last_bytes_received_));
         
         // Update gauges
         rps_gauge_->Set(collector.requests_per_second());
         error_rate_gauge_->Set(collector.error_rate());
         
-        // Store last values for delta calculation
-        last_total_ = metrics.total_requests;
-        last_successful_ = metrics.successful_requests;
-        last_failed_ = metrics.failed_requests;
-        last_bytes_sent_ = metrics.total_bytes_sent;
-        last_bytes_received_ = metrics.total_bytes_received;
+        // last_ values updated inside delta_or_reset()
     }
     
     std::string endpoint() const {
-        return "http://localhost:9090/metrics";
+        return "http://" + bind_address_ + "/metrics";
     }
     
 private:
+    std::string bind_address_;
     std::unique_ptr<prometheus::Exposer> exposer_;
     std::shared_ptr<prometheus::Registry> registry_;
     
