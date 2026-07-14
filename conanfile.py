@@ -3,8 +3,11 @@ from conan.tools.cmake import CMakeToolchain, CMake, cmake_layout
 
 class CPPLoadProConan(ConanFile):
     name = "cppload-pro"
-    with open("VERSION") as f:
-        version = f.read().strip()
+    try:
+        with open("VERSION") as f:
+            version = f.read().strip()
+    except OSError:
+        version = "1.0.0"
     settings = "os", "compiler", "build_type", "arch"
     generators = "CMakeDeps"
 
