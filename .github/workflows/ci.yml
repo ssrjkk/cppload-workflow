@@ -406,13 +406,13 @@ jobs:
         continue-on-error: true
         run: |
           set -o pipefail
-          run-clang-tidy-18 -p build-lint -quiet -j$(nproc) \
+          run-clang-tidy-18 -p build-lint -j$(nproc) \
             -header-filter='include/.*\.hpp$' \
-            2>&1 | tee clang-tidy.log
+            2>&1 | tee clang-tidy.log; true
           echo "clang-tidy completed (non-blocking)"
 
       - name: Upload clang-tidy log
-        if: failure()
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: clang-tidy-log
