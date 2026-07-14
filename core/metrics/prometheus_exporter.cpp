@@ -16,69 +16,69 @@ class PrometheusExporterImpl {
 public:
     explicit PrometheusExporterImpl(const std::string& bind_address)
         : bind_address_(bind_address)
-        , exposer_(std::make_unique<prometheus::Exposer>(bind_address))
-        , registry_(std::make_shared<prometheus::Registry>())
     {
+    }
+
+    bool start() {
+        exposer_ = std::make_unique<prometheus::Exposer>(bind_address_);
+        registry_ = std::make_shared<prometheus::Registry>();
         exposer_->RegisterCollectable(registry_);
-        
+
         // Create metrics
         auto& total_requests = prometheus::BuildCounter()
             .Name("cppload_requests_total")
             .Help("Total number of HTTP requests")
             .Register(*registry_);
         total_requests_ = &total_requests.Add({});
-        
+
         auto& successful_requests = prometheus::BuildCounter()
             .Name("cppload_requests_success_total")
             .Help("Total number of successful requests")
             .Register(*registry_);
         successful_requests_ = &successful_requests.Add({});
-        
+
         auto& failed_requests = prometheus::BuildCounter()
             .Name("cppload_requests_failed_total")
             .Help("Total number of failed requests")
             .Register(*registry_);
         failed_requests_ = &failed_requests.Add({});
-        
+
         auto& bytes_sent = prometheus::BuildCounter()
             .Name("cppload_bytes_sent_total")
             .Help("Total bytes sent")
             .Register(*registry_);
         bytes_sent_ = &bytes_sent.Add({});
-        
+
         auto& bytes_received = prometheus::BuildCounter()
             .Name("cppload_bytes_received_total")
             .Help("Total bytes received")
             .Register(*registry_);
         bytes_received_ = &bytes_received.Add({});
-        
+
         auto& latency_histogram = prometheus::BuildHistogram()
             .Name("cppload_request_duration_seconds")
             .Help("Request latency in seconds")
             .Buckets({0.001, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0})
             .Register(*registry_);
         latency_histogram_ = &latency_histogram.Add({});
-        
+
         auto& rps_gauge = prometheus::BuildGauge()
             .Name("cppload_requests_per_second")
             .Help("Current requests per second")
             .Register(*registry_);
         rps_gauge_ = &rps_gauge.Add({});
-        
+
         auto& error_rate_gauge = prometheus::BuildGauge()
             .Name("cppload_error_rate_percent")
             .Help("Current error rate in percent")
             .Register(*registry_);
         error_rate_gauge_ = &error_rate_gauge.Add({});
-    }
-    
-    bool start() {
         return true;
     }
 
     void stop() {
-        registry_->Clear();
         exposer_.reset();
+        registry_.reset();
     }
 
     bool is_running() const {
@@ -86,6 +86,7 @@ public:
     }
     
     void update_metrics(const MetricsCollector& collector) {
+        if (!total_requests_) return;
         auto metrics = collector.snapshot();
 
         auto delta_or_reset = [](uint64_t curr, uint64_t& last) -> double {
