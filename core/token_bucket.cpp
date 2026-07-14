@@ -23,6 +23,7 @@ void TokenBucket::set_rate(double rate) {
 }
 
 void TokenBucket::set_burst(double burst) {
+    if (burst <= 0.0) throw std::invalid_argument("TokenBucket: burst must be > 0");
     while (lock_.test_and_set(std::memory_order_acquire)) {
         std::this_thread::yield();
     }

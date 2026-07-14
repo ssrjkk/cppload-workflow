@@ -5,6 +5,7 @@
 #include "cppload/error.hpp"
 #include <system_error>
 #include <vector>
+#include <mutex>
 
 namespace cppload::net {
 
@@ -12,9 +13,9 @@ security::TlsConfig ProtocolFactory::global_tls_config_;
 std::unique_ptr<security::TlsContext> ProtocolFactory::global_tls_ctx_;
 
 std::unordered_map<std::string, ProtocolFactory::FactoryFunc>& ProtocolFactory::registry() {
-    static std::unordered_map<std::string, FactoryFunc> reg;
-    static bool init = false;
-    if (!init) {
+    static auto& reg = *new std::unordered_map<std::string, FactoryFunc>();
+    static std::once_flag init_flag;
+    std::call_once(init_flag, [&]() {
         reg["http1.1"] = [](boost::asio::io_context& ioc,
                              const security::TlsConfig& tls) {
             return std::make_unique<Http11Client>(ioc, tls);
@@ -27,8 +28,7 @@ std::unordered_map<std::string, ProtocolFactory::FactoryFunc>& ProtocolFactory::
                        const security::TlsConfig& tls) {
             return std::make_unique<WsClient>(ioc, tls);
         };
-        init = true;
-    }
+    });
     return reg;
 }
 

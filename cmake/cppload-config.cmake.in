@@ -5,6 +5,7 @@ include(CMakeFindDependencyMacro)
 find_dependency(Boost 1.83 COMPONENTS system)
 find_dependency(OpenSSL 3.0)
 find_dependency(Threads)
+find_dependency(yaml-cpp)
 
 set(cppload_HAVE_PROMETHEUS @CPLOAD_HAVE_PROMETHEUS@)
 if(cppload_HAVE_PROMETHEUS)

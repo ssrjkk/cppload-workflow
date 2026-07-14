@@ -74,6 +74,8 @@ public:
 
     void report_metrics() {
         ClientContext context;
+        context.set_deadline(std::chrono::system_clock::now() +
+            std::chrono::seconds(10));
         Ack ack;
         auto writer = stub_->ReportMetrics(&context, &ack);
 
@@ -129,9 +131,30 @@ void run_load_test(const AssignTaskResponse& task) {
     while (running && std::chrono::steady_clock::now() < end_time) {
         cppload::net::Request req;
         req.method = "GET";
-        req.path = task.task().target_url();
-        req.host = task.task().target_url();
+        std::string url = task.task().target_url();
+        req.path = "/";
+        req.host = url;
         req.port = 80;
+
+        // Parse URL to extract host, port and path
+        auto proto_end = url.find("://");
+        auto start = (proto_end != std::string::npos) ? proto_end + 3 : 0;
+        auto path_start = url.find("/", start);
+        auto host_port_end = (path_start != std::string::npos) ? path_start : url.size();
+        std::string host_port = url.substr(start, host_port_end - start);
+        auto colon = host_port.find(":");
+        if (colon != std::string::npos) {
+            req.host = host_port.substr(0, colon);
+            try {
+                auto p = std::stoul(host_port.substr(colon + 1));
+                if (p > 0 && p <= 65535) req.port = static_cast<uint16_t>(p);
+            } catch (...) {}
+        } else {
+            req.host = host_port;
+        }
+        if (path_start != std::string::npos) {
+            req.path = url.substr(path_start);
+        }
 
         for (const auto& [key, val] : task.task().headers()) {
             req.headers[key] = val;
@@ -171,7 +194,10 @@ int main(int argc, char** argv) {
         std::string arg = argv[i];
         if (arg == "--controller" && i + 1 < argc) controller_addr = argv[++i];
         else if (arg == "--worker-id" && i + 1 < argc) worker_id = argv[++i];
-        else if (arg == "--max-rps" && i + 1 < argc) max_rps = std::stoi(argv[++i]);
+        else if (arg == "--max-rps" && i + 1 < argc) {
+            try { max_rps = std::stoi(argv[++i]); }
+            catch (...) { std::cerr << "Invalid --max-rps value\n"; return 1; }
+        }
         else if (arg == "--help") {
             std::cout << "Usage: grpc_worker --controller=HOST:PORT --worker-id=ID --max-rps=N\n";
             return 0;

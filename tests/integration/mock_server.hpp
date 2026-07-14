@@ -8,6 +8,7 @@
 #include <functional>
 #include <string>
 #include <memory>
+#include <vector>
 
 namespace beast = boost::beast;
 namespace http = beast::http;
@@ -27,6 +28,9 @@ public:
     }
 
     ~MockHttpServer() { stop(); }
+
+    MockHttpServer(const MockHttpServer&) = delete;
+    MockHttpServer& operator=(const MockHttpServer&) = delete;
 
     bool start() {
         try {
@@ -50,6 +54,10 @@ public:
         beast::error_code ec;
         acceptor_.close(ec);
         if (thread_.joinable()) thread_.join();
+        for (auto& t : sessions_) {
+            if (t.joinable()) t.join();
+        }
+        sessions_.clear();
     }
 
     uint16_t port() const { return port_; }
@@ -63,9 +71,12 @@ private:
             tcp::socket socket(ioc_);
             acceptor_.accept(socket, ec);
             if (ec || !running_) break;
-            std::thread([this, s = std::move(socket)]() mutable {
-                handle_session(std::move(s));
-            }).detach();
+            {
+                std::lock_guard<std::mutex> lock(sessions_mutex_);
+                sessions_.emplace_back([this, s = std::move(socket)]() mutable {
+                    handle_session(std::move(s));
+                });
+            }
         }
     }
 
@@ -98,4 +109,6 @@ private:
     std::thread thread_;
     std::atomic<bool> running_;
     Handler handler_;
+    std::vector<std::thread> sessions_;
+    std::mutex sessions_mutex_;
 };
