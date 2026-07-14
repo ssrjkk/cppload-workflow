@@ -124,7 +124,7 @@ void SslConnection::async_handshake(
 
 void SslConnection::close() {
     beast::error_code ec;
-    ssl_stream_.async_shutdown([](beast::error_code) {});
+    ssl_stream_.shutdown(ec);
     beast::get_lowest_layer(ssl_stream_).socket().close(ec);
 }
 

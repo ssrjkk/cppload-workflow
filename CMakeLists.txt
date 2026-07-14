@@ -36,6 +36,7 @@ if(NOT nlohmann_json_FOUND)
         https://github.com/nlohmann/json/releases/download/v3.11.2/json.hpp
         "${NLOHMANN_JSON_DOWNLOAD_DIR}/nlohmann/json.hpp"
         TLS_VERIFY ON
+        EXPECTED_HASH SHA256=665FA14B8AF3837966949E8EB0052D583E2AC105D3438BABA9951785512CF921
         INACTIVITY_TIMEOUT 30
         STATUS NLOHMANN_DL_STATUS
     )

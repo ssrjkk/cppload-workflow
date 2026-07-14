@@ -15,3 +15,9 @@ target_link_libraries(_cppload
 install(TARGETS _cppload
     DESTINATION ${CMAKE_INSTALL_LIBDIR}/cppload
 )
+
+install(FILES
+    ${CMAKE_CURRENT_SOURCE_DIR}/cppload/__init__.py
+    ${CMAKE_CURRENT_SOURCE_DIR}/cppload/core.py
+    DESTINATION ${CMAKE_INSTALL_LIBDIR}/cppload
+)

@@ -22,8 +22,9 @@ IoContextPool::~IoContextPool() {
 }
 
 void IoContextPool::start() {
-    if (started_) return;
-    started_ = true;
+    bool expected = false;
+    if (!started_.compare_exchange_strong(expected, true))
+        return;
     threads_.reserve(contexts_.size());
     for (auto& ctx : contexts_) {
         threads_.emplace_back([ctx = ctx.get()]() {

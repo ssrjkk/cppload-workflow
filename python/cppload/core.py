@@ -225,7 +225,8 @@ class HttpClient:
         import urllib.request
         import urllib.error
 
-        url = f"http://{req.host}:{req.port}{req.target}"
+        scheme = "https" if req.port == 443 else "http"
+        url = f"{scheme}://{req.host}:{req.port}{req.target}"
         data = req.body.encode() if req.body else None
         headers = req.headers.copy()
 
@@ -318,7 +319,7 @@ class AuthProvider:
             headers={"Content-Type": "application/x-www-form-urlencoded"}
         )
 
-        with urllib.request.urlopen(req) as resp:
+        with urllib.request.urlopen(req, timeout=10) as resp:
             body = json.loads(resp.read())
             self._current_token = body.get("access_token", "")
             expires_in = body.get("expires_in", 3600)
@@ -465,7 +466,9 @@ class ScenarioEngine:
         print(f"Running test: {self._config.get('test_id', 'unknown')}")
         cli = _find_cli()
         cmd = [cli, "--config", self._config_path]
-        subprocess.run(cmd, check=True)
+        result = subprocess.run(cmd, check=True, capture_output=True, text=True)
+        if callback:
+            callback(result)
 
 
 class LoadTest:
@@ -482,6 +485,7 @@ class LoadTest:
         self.vault: Optional[VaultClient] = None
         self.tracer = Tracer()
         self.token_bucket: Optional[TokenBucket] = None
+        self.pool = ConnectionPool()
 
         self._setup_integrations()
 
@@ -508,10 +512,10 @@ class LoadTest:
             self.token_bucket = TokenBucket(target_rps)
 
     def _worker(self, scenarios: list, base_url: str):
-        http_client = HttpClient()
         from urllib.parse import urlparse
         parsed = urlparse(base_url)
         host = parsed.hostname or "localhost"
+        port = str(parsed.port or 80)
 
         for scenario in scenarios:
             for step in scenario.get("steps", []):
@@ -520,12 +524,15 @@ class LoadTest:
                     method=http_step.get("method", "GET"),
                     target=http_step.get("path", "/"),
                     host=host,
+                    port=port,
                 )
 
                 if self.token_bucket:
                     self.token_bucket.consume()
 
-                resp = http_client.request(req)
+                client = self.pool.acquire(host, port)
+                resp = client.request(req)
+                self.pool.release(client, host, port)
                 self.metrics.record_request(
                     resp["status_code"],
                     resp.get("latency_us", 0),
