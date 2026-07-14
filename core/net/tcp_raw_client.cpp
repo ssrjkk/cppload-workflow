@@ -122,7 +122,7 @@ private:
 
                 if (!SSL_set_tlsext_host_name(
                         ssl_stream->native_handle(), req.host.c_str())) {
-                    response->ec = boost::asio::error::invalid_argument;
+                    response->ec = Err::tls_handshake_failed;
                     handler(response->ec, *response);
                     return;
                 }
