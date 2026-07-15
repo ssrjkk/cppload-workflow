@@ -3,15 +3,15 @@
 #include <thread>
 
 TEST(TokenBucketTest, ConsumeBlocksAtRate) {
-    cppload::TokenBucket bucket(100.0); // 100 RPS
+    cppload::TokenBucket bucket(100.0, 1.0); // 100 RPS, burst=1
     auto start = std::chrono::steady_clock::now();
     for (int i = 0; i < 10; ++i) {
         bucket.consume();
     }
     auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
         std::chrono::steady_clock::now() - start);
-    // 10 tokens at 100 RPS = ~100ms (10 * 10ms = 100ms)
-    EXPECT_GE(elapsed.count(), 50); // Allow some tolerance
+    // 10 tokens at 100 RPS, burst=1 = ~90ms (9 intervals * 10ms)
+    EXPECT_GE(elapsed.count(), 50);
 }
 
 TEST(TokenBucketTest, TryConsumeNonBlocking) {

@@ -47,13 +47,11 @@ target_link_libraries(test_yaml_parser
     PRIVATE yaml-cpp::yaml-cpp
 )
 
-if(prometheus-cpp_FOUND)
-    add_executable(test_prometheus test_prometheus.cpp)
-    target_link_libraries(test_prometheus
-        PRIVATE cppload_core GTest::gtest_main
-    )
-    add_test(NAME PrometheusTest COMMAND test_prometheus)
-endif()
+add_executable(test_prometheus test_prometheus.cpp)
+target_link_libraries(test_prometheus
+    PRIVATE cppload_core GTest::gtest_main
+)
+add_test(NAME PrometheusTest COMMAND test_prometheus)
 
 add_test(NAME HttpClientTest COMMAND test_http_client)
 add_test(NAME MetricsTest COMMAND test_metrics)

@@ -82,19 +82,19 @@ jobs:
           all_passed=true
           for t in test_http_client test_metrics test_token_bucket test_auth test_vault test_otlp test_yaml_parser test_prometheus; do
             if [ -x "./$t" ]; then
-              echo "::group::$t"
+              printf "::group::%s\n" "$t"
               ./$t 2>&1
               rc=$?
               if [ $rc -eq 0 ]; then
-                echo "::notice::$t PASSED"
+                printf "::notice::%s PASSED\n" "$t"
               else
-                echo "::error::$t FAILED (exit=$rc)"
+                printf "::notice::%s FAILED (exit=%d) — see test output above\n" "$t" "$rc"
                 all_passed=false
               fi
-              echo "::endgroup::"
+              printf "::endgroup::\n"
             fi
           done
-          if [ "$all_passed" = "false" ]; then exit 1; fi
+          if [ "$all_passed" = "false" ]; then printf "Test failures detected\n"; exit 1; fi
 
   coverage:
     name: Coverage
