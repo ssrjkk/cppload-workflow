@@ -84,9 +84,8 @@ jobs:
         if: failure()
         run: |
           if [ -f test_output.txt ]; then
-            head -200 test_output.txt | while IFS= read -r line; do
-              echo "::warning file=tests,line=1::${line}"
-            done
+            BODY=$(cat test_output.txt)
+            echo "::error title=TestOutput,file=tests,line=1::$(echo "$BODY" | head -c 64000)"
           fi
 
   coverage:
