@@ -31,10 +31,10 @@ public:
 
     virtual void set_timeout(std::chrono::milliseconds ms) = 0;
 
-    virtual bool is_open() const = 0;
+    [[nodiscard]] virtual bool is_open() const = 0;
 
-    virtual std::string remote_address() const { return {}; }
-    virtual uint16_t remote_port() const { return 0; }
+    [[nodiscard]] virtual std::string remote_address() const { return {}; }
+    [[nodiscard]] virtual uint16_t remote_port() const { return 0; }
 };
 
 class TcpConnection final : public Connection {
@@ -58,7 +58,7 @@ public:
     std::string remote_address() const override;
     uint16_t remote_port() const override;
 
-    boost::beast::tcp_stream& stream() { return stream_; }
+    [[nodiscard]] boost::beast::tcp_stream& stream() { return stream_; }
 
 private:
     boost::beast::tcp_stream stream_;
@@ -91,7 +91,7 @@ public:
     void async_handshake(
         std::function<void(std::error_code)> handler);
 
-    boost::asio::ssl::stream<boost::beast::tcp_stream>& stream() { return ssl_stream_; }
+    [[nodiscard]] boost::asio::ssl::stream<boost::beast::tcp_stream>& stream() { return ssl_stream_; }
 
 private:
     boost::asio::ssl::stream<boost::beast::tcp_stream> ssl_stream_;

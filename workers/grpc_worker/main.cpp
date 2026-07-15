@@ -74,10 +74,9 @@ public:
 
     void report_metrics() {
         ClientContext context;
-        context.set_deadline(std::chrono::system_clock::now() +
-            std::chrono::seconds(10));
         Ack ack;
         auto writer = stub_->ReportMetrics(&context, &ack);
+        if (!writer) return;
 
         while (running) {
             std::this_thread::sleep_for(std::chrono::seconds(5));
@@ -164,23 +163,19 @@ void run_load_test(const AssignTaskResponse& task) {
         std::atomic<bool> done{false};
         size_t req_body_size = req.body.size();
 
-        client.async_request(req, [start, &metrics, req_body_size, &done](std::error_code, cppload::net::Response resp) {
+        client.async_request(req, [start, &metrics, req_body_size, &done](std::error_code ec, cppload::net::Response resp) {
             auto latency = std::chrono::duration_cast<std::chrono::microseconds>(
                 std::chrono::steady_clock::now() - start);
-            metrics.record_request(static_cast<uint16_t>(resp.status_code), latency, req_body_size, resp.body.size());
-            total_requests.fetch_add(1);
-            if (resp.status_code >= 200 && resp.status_code < 400) {
-                successful_requests.fetch_add(1);
-            } else {
+            if (ec) {
                 failed_requests.fetch_add(1);
-            }
-            done = true;
-        });
-            total_requests.fetch_add(1);
-            if (resp.status_code >= 200 && resp.status_code < 400) {
-                successful_requests.fetch_add(1);
             } else {
-                failed_requests.fetch_add(1);
+                metrics.record_request(static_cast<uint16_t>(resp.status_code), latency, req_body_size, resp.body.size());
+                total_requests.fetch_add(1);
+                if (resp.status_code >= 200 && resp.status_code < 400) {
+                    successful_requests.fetch_add(1);
+                } else {
+                    failed_requests.fetch_add(1);
+                }
             }
             done = true;
         });

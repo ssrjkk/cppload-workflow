@@ -6,6 +6,7 @@
 #include <boost/asio/write.hpp>
 #include <memory>
 #include <chrono>
+#include <atomic>
 
 namespace beast = boost::beast;
 namespace asio = boost::asio;
@@ -15,7 +16,7 @@ namespace cppload::net {
 class TcpRawClient::Impl : public std::enable_shared_from_this<Impl> {
 public:
     Impl(asio::io_context& ioc, const security::TlsConfig& tls_config)
-        : ioc_(ioc), timeout_(5000)
+        : ioc_(ioc)
     {
         if (tls_config.verify_peer) {
             tls_ctx_ = std::make_unique<security::TlsContext>(tls_config);
@@ -61,7 +62,7 @@ public:
     }
 
     void set_timeout(std::chrono::milliseconds ms) {
-        timeout_ = ms;
+        timeout_ms_.store(ms.count(), std::memory_order_relaxed);
     }
 
 private:
@@ -75,7 +76,7 @@ private:
     {
         auto self = shared_from_this();
         auto stream = std::make_shared<beast::tcp_stream>(ioc_);
-        stream->expires_after(timeout_);
+        stream->expires_after(get_timeout(timeout_ms_));
 
         stream->async_connect(results,
             [self, stream, response, handler, start_time, buffer, req](
@@ -102,7 +103,7 @@ private:
     {
         auto self = shared_from_this();
         auto tcp_stream = std::make_shared<beast::tcp_stream>(ioc_);
-        tcp_stream->expires_after(timeout_);
+        tcp_stream->expires_after(get_timeout(timeout_ms_));
 
         tcp_stream->async_connect(results,
             [self, tcp_stream, response, handler, start_time, buffer, req](
@@ -127,7 +128,7 @@ private:
                     return;
                 }
 
-                beast::get_lowest_layer(*ssl_stream).expires_after(self->timeout_);
+                beast::get_lowest_layer(*ssl_stream).expires_after(self->get_timeout(self->timeout_ms_));
                 ssl_stream->async_handshake(asio::ssl::stream_base::client,
                     [self, ssl_stream, response, handler, start_time, buffer, req](
                         beast::error_code ec)
@@ -159,7 +160,7 @@ private:
             boost::asio::buffer(body));
         send_buf->commit(body.size());
 
-        stream->expires_after(timeout_);
+        stream->expires_after(get_timeout(timeout_ms_));
         boost::asio::async_write(*stream, send_buf->data(),
             [self, stream, send_buf, response, handler, start_time, buffer](
                 beast::error_code ec, std::size_t)
@@ -170,7 +171,7 @@ private:
                     return;
                 }
 
-                stream->expires_after(self->timeout_);
+                stream->expires_after(self->get_timeout(self->timeout_ms_));
                 boost::asio::async_read(*stream, *buffer,
                     boost::asio::transfer_at_least(1),
                     [self, stream, buffer, response, handler, start_time](
@@ -181,8 +182,9 @@ private:
                             std::chrono::duration_cast<std::chrono::microseconds>(
                                 end_time - start_time);
 
-                        if (ec && ec != beast::error::timeout) {
-                            response->ec = Err::read_error;
+                        if (ec) {
+                            response->ec = (ec == beast::error::timeout)
+                                ? Err::timeout : Err::read_error;
                         } else {
                             response->body.assign(
                                 reinterpret_cast<const char*>(buffer->data().data()),
@@ -210,7 +212,7 @@ private:
             boost::asio::buffer(body));
         send_buf->commit(body.size());
 
-        beast::get_lowest_layer(*ssl_stream).expires_after(timeout_);
+        beast::get_lowest_layer(*ssl_stream).expires_after(get_timeout(timeout_ms_));
         boost::asio::async_write(*ssl_stream, send_buf->data(),
             [self, ssl_stream, send_buf, response, handler, start_time, buffer](
                 beast::error_code ec, std::size_t)
@@ -221,7 +223,7 @@ private:
                     return;
                 }
 
-                beast::get_lowest_layer(*ssl_stream).expires_after(self->timeout_);
+                beast::get_lowest_layer(*ssl_stream).expires_after(self->get_timeout(self->timeout_ms_));
                 boost::asio::async_read(*ssl_stream, *buffer,
                     boost::asio::transfer_at_least(1),
                     [self, ssl_stream, buffer, response, handler, start_time](
@@ -232,8 +234,9 @@ private:
                             std::chrono::duration_cast<std::chrono::microseconds>(
                                 end_time - start_time);
 
-                        if (ec && ec != beast::error::timeout) {
-                            response->ec = Err::read_error;
+                        if (ec) {
+                            response->ec = (ec == beast::error::timeout)
+                                ? Err::timeout : Err::read_error;
                         } else {
                             response->body.assign(
                                 reinterpret_cast<const char*>(buffer->data().data()),
@@ -246,8 +249,12 @@ private:
             });
     }
 
+    static std::chrono::milliseconds get_timeout(const std::atomic<int64_t>& ms) {
+        return std::chrono::milliseconds(ms.load(std::memory_order_relaxed));
+    }
+
     asio::io_context& ioc_;
-    std::chrono::milliseconds timeout_;
+    std::atomic<int64_t> timeout_ms_{5000};
     std::unique_ptr<security::TlsContext> tls_ctx_;
 };
 

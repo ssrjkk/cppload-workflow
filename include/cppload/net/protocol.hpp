@@ -41,7 +41,7 @@ public:
 
     virtual void set_timeout(std::chrono::milliseconds ms) = 0;
 
-    virtual std::string_view name() const = 0;
+    [[nodiscard]] virtual std::string_view name() const = 0;
 };
 
 } // namespace cppload::net

@@ -34,7 +34,7 @@ public:
     void apply_headers(std::unordered_map<std::string, std::string>& headers);
     [[nodiscard]] std::string get_auth_header() const;
     
-    bool refresh_token();
+    [[nodiscard]] bool refresh_token();
     [[nodiscard]] bool is_expired() const;
     
 private:

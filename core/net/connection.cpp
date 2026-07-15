@@ -48,7 +48,7 @@ void TcpConnection::async_read_some(
 void TcpConnection::close() {
     beast::error_code ec;
     stream_.socket().shutdown(tcp::socket::shutdown_both, ec);
-    stream_.close();
+    stream_.close(ec);
 }
 
 void TcpConnection::set_timeout(std::chrono::milliseconds ms) {
@@ -163,13 +163,9 @@ void TcpConnector::async_connect(
     std::function<void(std::error_code, std::unique_ptr<Connection>)> handler)
 {
     auto resolver = std::make_shared<tcp::resolver>(ioc_);
-    auto conn = std::make_unique<TcpConnection>(ioc_);
-    auto& stream = conn->stream();
-
-    stream.expires_after(timeout_);
 
     resolver->async_resolve(host, std::to_string(port),
-        [resolver, conn = std::move(conn), &stream, handler, this](
+        [resolver, timeout = timeout_, handler, &ioc = ioc_](
             beast::error_code ec, tcp::resolver::results_type results) mutable
         {
             if (ec) {
@@ -179,7 +175,9 @@ void TcpConnector::async_connect(
                 return;
             }
 
-            stream.expires_after(timeout_);
+            auto conn = std::make_unique<TcpConnection>(ioc);
+            auto& stream = conn->stream();
+            stream.expires_after(timeout);
             stream.async_connect(results,
                 [conn = std::move(conn), handler](
                     beast::error_code ec, const tcp::endpoint& ep) mutable
@@ -218,7 +216,7 @@ void SslConnector::async_connect(
     auto resolver = std::make_shared<tcp::resolver>(ioc_);
 
     resolver->async_resolve(host, std::to_string(port),
-        [resolver, handler, host, timeout = timeout_, this](
+        [resolver, handler, host, timeout = timeout_, &ioc = ioc_, &ssl_ctx = ssl_ctx_](
             beast::error_code ec, tcp::resolver::results_type results) mutable
         {
             if (ec) {
@@ -228,7 +226,7 @@ void SslConnector::async_connect(
                 return;
             }
 
-            auto conn = std::make_unique<SslConnection>(ioc_, ssl_ctx_);
+            auto conn = std::make_unique<SslConnection>(ioc, ssl_ctx);
             auto& ssl_stream = conn->stream();
             auto& tcp_stream = beast::get_lowest_layer(ssl_stream);
             tcp_stream.expires_after(timeout);

@@ -31,13 +31,16 @@ public:
     bool load_config();
 
     bool validate() const {
-        if (config_.test_id.empty()) {
-            last_error_ = "test_id is required";
-            return false;
-        }
-        if (config_.target.base_url.empty()) {
-            last_error_ = "target.base_url is required";
-            return false;
+        {
+            std::lock_guard<std::mutex> lock(last_error_mtx_);
+            if (config_.test_id.empty()) {
+                last_error_ = "test_id is required";
+                return false;
+            }
+            if (config_.target.base_url.empty()) {
+                last_error_ = "target.base_url is required";
+                return false;
+            }
         }
         return true;
     }
@@ -72,7 +75,10 @@ public:
             workers.emplace_back([this, ioc, &metrics, &callback, &proto_name]() {
                 auto client = net::ProtocolFactory::create(proto_name, *ioc);
                 if (!client) {
-                    last_error_ = "unsupported protocol: " + proto_name;
+                    {
+                        std::lock_guard<std::mutex> lock(last_error_mtx_);
+                        last_error_ = "unsupported protocol: " + proto_name;
+                    }
                     return;
                 }
 
@@ -131,7 +137,10 @@ public:
         return true;
     }
 
-    std::string last_error() const { return last_error_; }
+    std::string last_error() const {
+        std::lock_guard<std::mutex> lock(last_error_mtx_);
+        return last_error_;
+    }
 
 private:
     void parse_url(const std::string& url, std::string& host,
@@ -157,13 +166,19 @@ private:
             try {
                 auto p = std::stoul(port_str);
                 if (p == 0 || p > 65535) {
-                    last_error_ = "port out of range: " + port_str;
+                    {
+                        std::lock_guard<std::mutex> lock(last_error_mtx_);
+                        last_error_ = "port out of range: " + port_str;
+                    }
                     port = use_tls ? 443 : 80;
                 } else {
                     port = static_cast<uint16_t>(p);
                 }
             } catch (const std::exception&) {
-                last_error_ = "invalid port: " + port_str;
+                {
+                    std::lock_guard<std::mutex> lock(last_error_mtx_);
+                    last_error_ = "invalid port: " + port_str;
+                }
                 port = use_tls ? 443 : 80;
             }
         } else {
@@ -177,6 +192,7 @@ private:
     std::atomic<bool> stopped_{false};
     std::string config_path_;
     ScenarioConfig config_;
+    mutable std::mutex last_error_mtx_;
     mutable std::string last_error_;
     TokenBucket bucket_;
     uint32_t target_rps_{100};
@@ -186,7 +202,13 @@ private:
 bool parse_config_file(const std::string& path, ScenarioConfig& config, std::string& error);
 
 bool ScenarioEngine::Impl::load_config() {
-    return parse_config_file(config_path_, config_, last_error_);
+    std::string error;
+    if (!parse_config_file(config_path_, config_, error)) {
+        std::lock_guard<std::mutex> lock(last_error_mtx_);
+        last_error_ = error;
+        return false;
+    }
+    return true;
 }
 
 ScenarioEngine::ScenarioEngine(const std::string& config_path)

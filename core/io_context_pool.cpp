@@ -1,4 +1,5 @@
 #include "cppload/core/io_context_pool.hpp"
+#include <mutex>
 
 namespace cppload {
 
@@ -7,6 +8,7 @@ IoContextPool::IoContextPool(std::size_t pool_size) {
         pool_size = std::thread::hardware_concurrency();
         if (pool_size == 0) pool_size = 2;
     }
+    std::lock_guard<std::mutex> lock(mtx_);
     contexts_.reserve(pool_size);
     work_guards_.reserve(pool_size);
     for (std::size_t i = 0; i < pool_size; ++i) {
@@ -25,6 +27,14 @@ void IoContextPool::start() {
     bool expected = false;
     if (!started_.compare_exchange_strong(expected, true))
         return;
+    std::lock_guard<std::mutex> lock(mtx_);
+    if (work_guards_.empty()) {
+        work_guards_.reserve(contexts_.size());
+        for (auto& ctx : contexts_) {
+            work_guards_.emplace_back(
+                boost::asio::make_work_guard(*ctx));
+        }
+    }
     threads_.reserve(contexts_.size());
     for (auto& ctx : contexts_) {
         threads_.emplace_back([ctx = ctx.get()]() {
@@ -34,14 +44,20 @@ void IoContextPool::start() {
 }
 
 void IoContextPool::stop() {
-    work_guards_.clear();
+    {
+        std::lock_guard<std::mutex> lock(mtx_);
+        work_guards_.clear();
+    }
     for (auto& ctx : contexts_) {
         ctx->stop();
     }
-    for (auto& t : threads_) {
-        if (t.joinable()) t.join();
+    {
+        std::lock_guard<std::mutex> lock(mtx_);
+        for (auto& t : threads_) {
+            if (t.joinable()) t.join();
+        }
+        threads_.clear();
     }
-    threads_.clear();
     started_ = false;
 }
 

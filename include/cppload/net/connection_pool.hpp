@@ -26,7 +26,7 @@ public:
     ConnectionPool& operator=(const ConnectionPool&) = delete;
 
     // Get a connection from pool (creates new if needed)
-    std::unique_ptr<Http11Client> acquire(const std::string& host,
+    [[nodiscard]] std::unique_ptr<Http11Client> acquire(const std::string& host,
                                           uint16_t port);
 
     // Return connection to pool

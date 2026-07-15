@@ -1,6 +1,7 @@
 #pragma once
 
 #include <chrono>
+#include <condition_variable>
 #include <mutex>
 #include <stdexcept>
 
@@ -16,11 +17,12 @@ public:
     void set_rate(double rate);
     void set_burst(double burst);
     void consume();
-    bool try_consume();
+    [[nodiscard]] bool try_consume();
 
 private:
     void refill();
     std::mutex mtx_;
+    std::condition_variable cv_;
     double rate_;
     double burst_;
     double tokens_;

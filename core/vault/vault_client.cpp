@@ -125,6 +125,13 @@ http::response<http::string_body> do_post(
     return res;
 }
 
+bool is_https_url(const std::string& url) {
+    auto proto_end = url.find("://");
+    if (proto_end == std::string::npos) return false;
+    auto scheme = url.substr(0, proto_end);
+    return scheme == "https" || scheme == "HTTPS";
+}
+
 std::string sanitise_path(const std::string& path) {
     std::string result;
     result.reserve(path.size());
@@ -155,8 +162,17 @@ public:
 
     bool is_connected() const { return connected_; }
 
+    bool require_tls() {
+        if (!config_.token.empty() && !is_https_url(config_.address)) {
+            last_error_ = "Vault: token authentication requires HTTPS";
+            return false;
+        }
+        return true;
+    }
+
     std::string get_secret(const std::string& path, const std::string& key) {
         if (path.empty()) { last_error_ = "Vault: path is empty"; return {}; }
+        if (!require_tls()) return {};
         auto url = parse_url(config_.address);
         std::string api_path = "/v1/" + config_.engine_path + "/data/" + sanitise_path(path);
 
@@ -193,6 +209,7 @@ public:
 
     std::unordered_map<std::string, std::string> get_secret_map(const std::string& path) {
         if (path.empty()) return {};
+        if (!require_tls()) return {};
         auto url = parse_url(config_.address);
         std::string api_path = "/v1/" + config_.engine_path + "/data/" + sanitise_path(path);
 
@@ -231,6 +248,7 @@ public:
     bool put_secret(const std::string& path,
                    const std::unordered_map<std::string, std::string>& data) {
         if (path.empty()) { last_error_ = "Vault: path is empty"; return false; }
+        if (!require_tls()) return false;
         auto url = parse_url(config_.address);
         std::string api_path = "/v1/" + config_.engine_path + "/data/" + sanitise_path(path);
 
@@ -260,6 +278,7 @@ public:
 
     std::string get_database_creds(const std::string& role_name) {
         if (role_name.empty()) { last_error_ = "Vault: role_name is empty"; return {}; }
+        if (!require_tls()) return {};
         auto url = parse_url(config_.address);
         std::string safe_role = sanitise_path(role_name);
         std::string api_path = "/v1/database/creds/" + safe_role;
@@ -298,6 +317,7 @@ public:
             last_error_ = "Vault: role_id and secret_id required";
             return {};
         }
+        if (!require_tls()) return {};
         auto url = parse_url(config_.address);
         std::string api_path = "/v1/auth/approle/login";
 

@@ -1,4 +1,5 @@
 #include "cppload/core/token_bucket.hpp"
+#include <condition_variable>
 #include <thread>
 
 namespace cppload {
@@ -17,6 +18,7 @@ void TokenBucket::set_rate(double rate) {
     std::lock_guard<std::mutex> lock(mtx_);
     refill();
     rate_ = rate;
+    cv_.notify_one();
 }
 
 void TokenBucket::set_burst(double burst) {
@@ -25,6 +27,7 @@ void TokenBucket::set_burst(double burst) {
     refill();
     burst_ = burst;
     if (tokens_ > burst_) tokens_ = burst_;
+    cv_.notify_one();
 }
 
 void TokenBucket::consume() {
@@ -34,15 +37,11 @@ void TokenBucket::consume() {
         double deficit = 1.0 - tokens_;
         double wait_sec = deficit / rate_;
         if (wait_sec > 1.0) wait_sec = 1.0;
-        auto wait_us = std::chrono::microseconds(
-            static_cast<int64_t>(wait_sec * 1'000'000));
-        lock.unlock();
-        if (wait_us.count() > 0) {
-            std::this_thread::sleep_for(wait_us);
-        } else {
-            std::this_thread::yield();
+        auto wait_ns = std::chrono::nanoseconds(
+            static_cast<int64_t>(wait_sec * 1'000'000'000));
+        if (wait_ns.count() > 0) {
+            cv_.wait_for(lock, wait_ns, [this] { return tokens_ >= 1.0; });
         }
-        lock.lock();
         refill();
     }
     tokens_ -= 1.0;

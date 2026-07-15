@@ -5,6 +5,7 @@
 #include <boost/asio/ip/tcp.hpp>
 #include <memory>
 #include <algorithm>
+#include <atomic>
 #include <cctype>
 #include <chrono>
 #include <iomanip>
@@ -35,7 +36,7 @@ static std::string url_encode_path(const std::string& raw) {
 class Http11Client::Impl : public std::enable_shared_from_this<Impl> {
 public:
     Impl(asio::io_context& ioc, const security::TlsConfig& tls_config)
-        : ioc_(ioc), timeout_(5000)
+        : ioc_(ioc)
     {
         if (tls_config.verify_peer) {
             tls_ctx_ = std::make_unique<security::TlsContext>(tls_config);
@@ -115,11 +116,10 @@ public:
     }
 
     void set_timeout(std::chrono::milliseconds timeout) {
-        timeout_ = timeout;
+        timeout_ms_.store(timeout.count(), std::memory_order_relaxed);
     }
 
-    void set_keep_alive(bool keep_alive) {
-        keep_alive_ = keep_alive;
+    void set_keep_alive(bool) {
     }
 
 private:
@@ -134,7 +134,8 @@ private:
     {
         auto self = shared_from_this();
         auto stream = std::make_shared<beast::tcp_stream>(ioc_);
-        stream->expires_after(timeout_);
+        auto ms = std::chrono::milliseconds(timeout_ms_.load(std::memory_order_relaxed));
+        stream->expires_after(ms);
 
         stream->async_connect(results,
             [self, stream, req_msg, response, handler, start_time, buffer, res](
@@ -164,7 +165,8 @@ private:
     {
         auto self = shared_from_this();
         auto tcp_stream = std::make_shared<beast::tcp_stream>(ioc_);
-        tcp_stream->expires_after(timeout_);
+        auto ms = std::chrono::milliseconds(timeout_ms_.load(std::memory_order_relaxed));
+        tcp_stream->expires_after(ms);
 
         tcp_stream->async_connect(results,
             [self, tcp_stream, req_msg, response, handler, start_time,
@@ -192,7 +194,8 @@ private:
                     return;
                 }
 
-                beast::get_lowest_layer(*ssl_stream).expires_after(self->timeout_);
+                beast::get_lowest_layer(*ssl_stream).expires_after(
+                    std::chrono::milliseconds(self->timeout_ms_.load(std::memory_order_relaxed)));
                 ssl_stream->async_handshake(asio::ssl::stream_base::client,
                     [self, ssl_stream, req_msg, response, handler,
                      start_time, buffer, res](
@@ -221,7 +224,8 @@ private:
     {
         auto self = shared_from_this();
 
-        stream->expires_after(timeout_);
+        stream->expires_after(std::chrono::milliseconds(
+            timeout_ms_.load(std::memory_order_relaxed)));
         http::async_write(*stream, *req_msg,
             [self, stream, req_msg, response, handler, start_time, buffer, res](
                 beast::error_code ec, std::size_t)
@@ -232,19 +236,19 @@ private:
                     return;
                 }
 
-                stream->expires_after(self->timeout_);
+                stream->expires_after(std::chrono::milliseconds(
+                    self->timeout_ms_.load(std::memory_order_relaxed)));
                 http::async_read(*stream, *buffer, *res,
                     [self, stream, buffer, res, response, handler, start_time](
                         beast::error_code ec, std::size_t)
                     {
-                        auto end_time = std::chrono::steady_clock::now();
-                        response->latency =
-                            std::chrono::duration_cast<std::chrono::microseconds>(
-                                end_time - start_time);
+                    auto end_time = std::chrono::steady_clock::now();
+                    response->latency =
+                        std::chrono::duration_cast<std::chrono::microseconds>(
+                            end_time - start_time);
 
-                        if (ec && ec != http::error::end_of_stream) {
-                            response->ec = Err::read_error;
-                        } else {
+                    if (ec) {
+                        if (ec == http::error::end_of_stream) {
                             response->status_code = res->result_int();
                             response->body = res->body();
                             for (const auto& field : *res) {
@@ -252,9 +256,20 @@ private:
                                     std::string(field.name_string())] =
                                     std::string(field.value());
                             }
+                        } else {
+                            response->ec = Err::read_error;
                         }
+                    } else {
+                        response->status_code = res->result_int();
+                        response->body = res->body();
+                        for (const auto& field : *res) {
+                            response->headers[
+                                std::string(field.name_string())] =
+                                std::string(field.value());
+                        }
+                    }
 
-                        handler(response->ec, *response);
+                    handler(response->ec, *response);
                     });
             });
     }
@@ -270,7 +285,8 @@ private:
     {
         auto self = shared_from_this();
 
-        beast::get_lowest_layer(*ssl_stream).expires_after(timeout_);
+        beast::get_lowest_layer(*ssl_stream).expires_after(std::chrono::milliseconds(
+            timeout_ms_.load(std::memory_order_relaxed)));
         http::async_write(*ssl_stream, *req_msg,
             [self, ssl_stream, req_msg, response, handler, start_time, buffer, res](
                 beast::error_code ec, std::size_t)
@@ -281,19 +297,19 @@ private:
                     return;
                 }
 
-                beast::get_lowest_layer(*ssl_stream).expires_after(self->timeout_);
+                beast::get_lowest_layer(*ssl_stream).expires_after(std::chrono::milliseconds(
+                    self->timeout_ms_.load(std::memory_order_relaxed)));
                 http::async_read(*ssl_stream, *buffer, *res,
                     [self, ssl_stream, buffer, res, response, handler, start_time](
                         beast::error_code ec, std::size_t)
                     {
-                        auto end_time = std::chrono::steady_clock::now();
-                        response->latency =
-                            std::chrono::duration_cast<std::chrono::microseconds>(
-                                end_time - start_time);
+                    auto end_time = std::chrono::steady_clock::now();
+                    response->latency =
+                        std::chrono::duration_cast<std::chrono::microseconds>(
+                            end_time - start_time);
 
-                        if (ec && ec != http::error::end_of_stream) {
-                            response->ec = Err::read_error;
-                        } else {
+                    if (ec) {
+                        if (ec == http::error::end_of_stream) {
                             response->status_code = res->result_int();
                             response->body = res->body();
                             for (const auto& field : *res) {
@@ -301,16 +317,26 @@ private:
                                     std::string(field.name_string())] =
                                     std::string(field.value());
                             }
+                        } else {
+                            response->ec = Err::read_error;
                         }
+                    } else {
+                        response->status_code = res->result_int();
+                        response->body = res->body();
+                        for (const auto& field : *res) {
+                            response->headers[
+                                std::string(field.name_string())] =
+                                std::string(field.value());
+                        }
+                    }
 
-                        handler(response->ec, *response);
+                    handler(response->ec, *response);
                     });
             });
     }
 
     asio::io_context& ioc_;
-    std::chrono::milliseconds timeout_;
-    bool keep_alive_{true};
+    std::atomic<int64_t> timeout_ms_{5000};
     std::unique_ptr<security::TlsContext> tls_ctx_;
 };
 

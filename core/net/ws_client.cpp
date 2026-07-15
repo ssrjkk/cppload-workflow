@@ -3,6 +3,7 @@
 #include <boost/beast/websocket/ssl.hpp>
 #include <boost/asio/ip/tcp.hpp>
 #include <boost/asio/ssl.hpp>
+#include <atomic>
 #include <memory>
 #include <chrono>
 
@@ -15,7 +16,7 @@ namespace cppload::net {
 class WsClient::Impl : public std::enable_shared_from_this<Impl> {
 public:
     Impl(asio::io_context& ioc, const security::TlsConfig& tls_config)
-        : ioc_(ioc), timeout_(5000)
+        : ioc_(ioc), timeout_ms_(5000)
     {
         if (tls_config.verify_peer) {
             tls_ctx_ = std::make_unique<security::TlsContext>(tls_config);
@@ -60,7 +61,7 @@ public:
     }
 
     void set_timeout(std::chrono::milliseconds ms) {
-        timeout_ = ms;
+        timeout_ms_.store(ms.count(), std::memory_order_relaxed);
     }
 
 private:
@@ -74,7 +75,7 @@ private:
         auto self = shared_from_this();
         auto ws = std::make_shared<websocket::stream<beast::tcp_stream>>(ioc_);
 
-        beast::get_lowest_layer(*ws).expires_after(timeout_);
+        beast::get_lowest_layer(*ws).expires_after(std::chrono::milliseconds(timeout_ms_.load(std::memory_order_relaxed)));
         beast::get_lowest_layer(*ws).async_connect(results,
             [self, ws, response, handler, start_time, req](
                 beast::error_code ec, const asio::ip::tcp::endpoint&)
@@ -86,7 +87,7 @@ private:
                     return;
                 }
 
-                beast::get_lowest_layer(*ws).expires_after(self->timeout_);
+                beast::get_lowest_layer(*ws).expires_after(std::chrono::milliseconds(self->timeout_ms_.load(std::memory_order_relaxed)));
                 std::string target = req.path.empty() ? "/" : req.path;
                 ws->async_handshake(req.host, target,
                     [self, ws, response, handler, start_time, req](
@@ -115,7 +116,7 @@ private:
             websocket::stream<asio::ssl::stream<beast::tcp_stream>>>(
                 ioc_, self->tls_ctx_->get_native_context());
 
-        beast::get_lowest_layer(*ws).expires_after(timeout_);
+        beast::get_lowest_layer(*ws).expires_after(std::chrono::milliseconds(timeout_ms_.load(std::memory_order_relaxed)));
         beast::get_lowest_layer(*ws).async_connect(results,
             [self, ws, response, handler, start_time, req](
                 beast::error_code ec, const asio::ip::tcp::endpoint&)
@@ -134,7 +135,7 @@ private:
                     return;
                 }
 
-                beast::get_lowest_layer(*ws).expires_after(self->timeout_);
+                beast::get_lowest_layer(*ws).expires_after(std::chrono::milliseconds(self->timeout_ms_.load(std::memory_order_relaxed)));
                 ws->next_layer().async_handshake(asio::ssl::stream_base::client,
                     [self, ws, response, handler, start_time, req](
                         beast::error_code ec)
@@ -173,7 +174,7 @@ private:
         auto self = shared_from_this();
         auto send_buf = std::make_shared<std::string>(body);
 
-        beast::get_lowest_layer(*ws).expires_after(timeout_);
+        beast::get_lowest_layer(*ws).expires_after(std::chrono::milliseconds(timeout_ms_.load(std::memory_order_relaxed)));
         ws->async_write(asio::buffer(*send_buf),
             [self, ws, send_buf, response, handler, start_time](
                 beast::error_code ec, std::size_t)
@@ -185,7 +186,7 @@ private:
                 }
 
                 auto recv_buf = std::make_shared<beast::flat_buffer>();
-                beast::get_lowest_layer(*ws).expires_after(self->timeout_);
+                beast::get_lowest_layer(*ws).expires_after(std::chrono::milliseconds(self->timeout_ms_.load(std::memory_order_relaxed)));
                 ws->async_read(*recv_buf,
                     [self, ws, recv_buf, response, handler, start_time](
                         beast::error_code ec, std::size_t)
@@ -219,7 +220,7 @@ private:
         auto self = shared_from_this();
         auto send_buf = std::make_shared<std::string>(body);
 
-        beast::get_lowest_layer(*ws).expires_after(timeout_);
+        beast::get_lowest_layer(*ws).expires_after(std::chrono::milliseconds(timeout_ms_.load(std::memory_order_relaxed)));
         ws->async_write(asio::buffer(*send_buf),
             [self, ws, send_buf, response, handler, start_time](
                 beast::error_code ec, std::size_t)
@@ -231,7 +232,7 @@ private:
                 }
 
                 auto recv_buf = std::make_shared<beast::flat_buffer>();
-                beast::get_lowest_layer(*ws).expires_after(self->timeout_);
+                beast::get_lowest_layer(*ws).expires_after(std::chrono::milliseconds(self->timeout_ms_.load(std::memory_order_relaxed)));
                 ws->async_read(*recv_buf,
                     [self, ws, recv_buf, response, handler, start_time](
                         beast::error_code ec, std::size_t)
@@ -256,7 +257,7 @@ private:
     }
 
     asio::io_context& ioc_;
-    std::chrono::milliseconds timeout_;
+    std::atomic<int64_t> timeout_ms_;
     std::unique_ptr<security::TlsContext> tls_ctx_;
 };
 

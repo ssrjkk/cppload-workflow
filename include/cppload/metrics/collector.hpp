@@ -58,7 +58,7 @@ private:
 
     struct Cell {
         std::atomic<uint64_t> seq{0};
-        int64_t value{0};
+        std::atomic<int64_t> value{0};
     };
 
     static constexpr size_t kRingCapacity = 1 << 20;

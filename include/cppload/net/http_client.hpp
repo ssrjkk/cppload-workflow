@@ -3,8 +3,11 @@
 #include "cppload/net/protocol.hpp"
 #include "cppload/security/tls_context.hpp"
 #include <boost/asio/io_context.hpp>
+#include <chrono>
+#include <functional>
 #include <memory>
 #include <string>
+#include <string_view>
 
 namespace cppload::net {
 

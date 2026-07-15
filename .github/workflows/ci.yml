@@ -77,7 +77,7 @@ jobs:
       - name: Run tests
         if: success()
         run: |
-          cd build && ctest --output-on-failure --timeout 60 -j$(nproc) || echo "Tests completed with warnings"
+          cd build && ctest --output-on-failure --timeout 60 -j$(nproc)
 
   coverage:
     name: Coverage
@@ -241,7 +241,7 @@ jobs:
       - name: Run tests
         if: success()
         run: |
-          cd build-asan && ctest --output-on-failure --timeout 60 -j$(nproc) || echo "ASan tests completed with warnings"
+          cd build-asan && ctest --output-on-failure --timeout 60 -j$(nproc)
 
   benchmark:
     name: Performance Regression
@@ -295,7 +295,7 @@ jobs:
 
       - name: Run benchmarks
         run: |
-          cd build-bench && ctest --output-on-failure --timeout 120 -R Bench -j$(nproc) || echo "Benchmarks completed"
+          cd build-bench && ctest --output-on-failure --timeout 120 -R Bench -j$(nproc)
 
       - name: Upload benchmark results
         if: success()
@@ -357,7 +357,7 @@ jobs:
 
       - name: Run integration tests
         run: |
-          cd build-int && ctest --output-on-failure --timeout 30 -R Integration -j$(nproc) || echo "Integration tests completed"
+          cd build-int && ctest --output-on-failure --timeout 30 -R Integration -j$(nproc)
 
   lint:
     name: Lint

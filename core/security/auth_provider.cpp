@@ -8,6 +8,7 @@
 #include <nlohmann/json.hpp>
 #include <chrono>
 #include <iomanip>
+#include <mutex>
 #include <string>
 #include <sstream>
 #include <algorithm>
@@ -118,8 +119,8 @@ public:
         } else if (config_.type == AuthType::BEARER_TOKEN) {
             headers["Authorization"] = "Bearer " + config_.token;
         } else if (config_.type == AuthType::OAUTH2) {
-            if (is_expired()) refresh_token();
-            headers["Authorization"] = "Bearer " + current_token_;
+            auto token = get_token();
+            headers["Authorization"] = "Bearer " + token;
         } else if (config_.type == AuthType::MTLS) {
             headers["X-SSL-Cert"] = "mtls";
         }
@@ -128,7 +129,10 @@ public:
     std::string get_auth_header() const {
         if (config_.type == AuthType::API_KEY) {
             return "X-API-Key: " + config_.api_key;
-        } else if (config_.type == AuthType::BEARER_TOKEN || config_.type == AuthType::OAUTH2) {
+        } else if (config_.type == AuthType::BEARER_TOKEN) {
+            return "Authorization: Bearer " + config_.token;
+        } else if (config_.type == AuthType::OAUTH2) {
+            std::lock_guard<std::mutex> lock(mtx_);
             return "Authorization: Bearer " + current_token_;
         } else if (config_.type == AuthType::MTLS) {
             return "X-SSL-Cert: mtls";
@@ -149,10 +153,21 @@ public:
 
     bool is_expired() const {
         if (config_.type != AuthType::OAUTH2) return false;
+        std::lock_guard<std::mutex> lock(mtx_);
         return std::chrono::system_clock::now() >= token_expiry_;
     }
 
 private:
+    std::string get_token() {
+        std::unique_lock<std::mutex> lock(mtx_);
+        if (std::chrono::system_clock::now() >= token_expiry_) {
+            lock.unlock();
+            fetch_token();
+            lock.lock();
+        }
+        return current_token_;
+    }
+
     void fetch_token() {
         std::string host, port, path;
         parse_url(config_.token_endpoint, host, port, path);
@@ -171,12 +186,16 @@ private:
         }
 
         auto j = json::parse(res.body());
-        current_token_ = j.value("access_token", "");
-        auto expires_in = j.value("expires_in", 3600);
-        token_expiry_ = std::chrono::system_clock::now() +
-            std::chrono::seconds(std::max(expires_in - 60, 1));
+        {
+            std::lock_guard<std::mutex> lock(mtx_);
+            current_token_ = j.value("access_token", "");
+            auto expires_in = j.value("expires_in", 3600);
+            token_expiry_ = std::chrono::system_clock::now() +
+                std::chrono::seconds(std::max(expires_in - 60, 1));
+        }
     }
 
+    mutable std::mutex mtx_;
     AuthConfig config_;
     std::string current_token_;
     std::chrono::system_clock::time_point token_expiry_;

@@ -23,21 +23,21 @@ public:
     
     [[nodiscard]] bool is_connected() const;
     
-    std::string get_secret(const std::string& path, 
+    [[nodiscard]] std::string get_secret(const std::string& path, 
                          const std::string& key);
     
-    std::unordered_map<std::string, std::string> get_secret_map(
+    [[nodiscard]] std::unordered_map<std::string, std::string> get_secret_map(
         const std::string& path);
     
-    bool put_secret(const std::string& path,
+    [[nodiscard]] bool put_secret(const std::string& path,
                    const std::unordered_map<std::string, std::string>& data);
     
-    std::string get_kv_secret(const std::string& path, 
+    [[nodiscard]] std::string get_kv_secret(const std::string& path, 
                              const std::string& key);
     
-    std::string get_database_creds(const std::string& role_name);
+    [[nodiscard]] std::string get_database_creds(const std::string& role_name);
     
-    std::string get_approle_token(const std::string& role_id,
+    [[nodiscard]] std::string get_approle_token(const std::string& role_id,
                                  const std::string& secret_id);
     
     [[nodiscard]] std::string last_error() const;

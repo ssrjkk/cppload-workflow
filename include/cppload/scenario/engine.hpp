@@ -8,6 +8,7 @@
 #include <unordered_map>
 #include <variant>
 #include <chrono>
+#include <cstdint>
 
 namespace cppload::scenario {
 
@@ -98,7 +99,7 @@ public:
     ScenarioEngine(const ScenarioEngine&) = delete;
     ScenarioEngine& operator=(const ScenarioEngine&) = delete;
 
-    bool load_config();
+    [[nodiscard]] bool load_config();
     [[nodiscard]] bool validate() const;
 
     [[nodiscard]] const ScenarioConfig& config() const;
@@ -113,7 +114,7 @@ public:
     void stop();
 
     void set_target_rps(uint32_t rps);
-    uint32_t target_rps() const;
+    [[nodiscard]] uint32_t target_rps() const;
 
     [[nodiscard]] bool check_sla(const metrics::MetricsCollector& metrics) const;
 

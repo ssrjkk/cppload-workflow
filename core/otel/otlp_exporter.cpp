@@ -146,14 +146,22 @@ public:
         span.ended = true;
 
         last_span_id_ = current_span_id_;
+        attributes_.clear();
+        span_active_ = false;
+
+        // Apply sampling: skip this span if random sample says drop
+        if (config_.sample_rate < 1.0) {
+            static thread_local std::mt19937 rng(std::random_device{}());
+            std::uniform_real_distribution<> dist(0.0, 1.0);
+            if (dist(rng) > config_.sample_rate) {
+                return;
+            }
+        }
 
         {
             std::lock_guard<std::mutex> lock(spans_mutex_);
             completed_spans_.push_back(std::move(span));
         }
-
-        attributes_.clear();
-        span_active_ = false;
 
         maybe_export();
     }
@@ -246,16 +254,6 @@ private:
     }
 
     void maybe_export() {
-        if (config_.sample_rate < 1.0) {
-            static thread_local std::mt19937 rng(std::random_device{}());
-            std::uniform_real_distribution<> dist(0.0, 1.0);
-            if (dist(rng) > config_.sample_rate) {
-                std::lock_guard<std::mutex> lock(spans_mutex_);
-                completed_spans_.clear();
-                return;
-            }
-        }
-
         std::vector<SpanData> spans_to_export;
         {
             std::lock_guard<std::mutex> lock(spans_mutex_);

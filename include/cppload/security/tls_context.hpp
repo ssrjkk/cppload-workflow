@@ -24,8 +24,8 @@ public:
     TlsContext(const TlsContext&) = delete;
     TlsContext& operator=(const TlsContext&) = delete;
     
-    boost::asio::ssl::context& get_native_context();
-    bool is_mtls_enabled() const;
+    [[nodiscard]] boost::asio::ssl::context& get_native_context();
+    [[nodiscard]] bool is_mtls_enabled() const;
     
 private:
     class Impl;

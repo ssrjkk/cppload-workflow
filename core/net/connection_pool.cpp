@@ -14,13 +14,6 @@ class ConnectionPool::Impl {
 public:
     Impl(boost::asio::io_context& ioc, const PoolConfig& config)
         : ioc_(ioc), config_(config), total_created_(0) {
-        auto now = std::chrono::steady_clock::now();
-        for (size_t i = 0; i < config_.min_connections; ++i) {
-            total_created_++;
-            auto client = std::make_unique<Http11Client>(ioc_);
-            pools_["__warmup__"].push({std::move(client), now});
-        }
-        pools_.erase("__warmup__");
     }
 
     std::unique_ptr<Http11Client> acquire(const std::string& host,
@@ -56,6 +49,8 @@ public:
             client->set_keep_alive(config_.keep_alive);
             auto now = std::chrono::steady_clock::now();
             pool.push({std::move(client), now});
+        } else if (total_created_ > 0) {
+            total_created_--;
         }
     }
 
@@ -92,7 +87,8 @@ public:
             s.idle_connections += pool.size();
         }
 
-        s.active_connections = total_created_ - s.idle_connections;
+        s.active_connections = total_created_ > s.idle_connections
+            ? total_created_ - s.idle_connections : 0;
         return s;
     }
 

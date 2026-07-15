@@ -10,7 +10,7 @@
 namespace cppload::net {
 
 security::TlsConfig ProtocolFactory::global_tls_config_;
-std::unique_ptr<security::TlsContext> ProtocolFactory::global_tls_ctx_;
+std::shared_ptr<security::TlsContext> ProtocolFactory::global_tls_ctx_;
 std::mutex ProtocolFactory::global_mutex_;
 
 std::unordered_map<std::string, ProtocolFactory::FactoryFunc>& ProtocolFactory::registry() {
@@ -76,7 +76,7 @@ std::vector<std::string> ProtocolFactory::available_protocols() {
 void ProtocolFactory::set_tls_config(const security::TlsConfig& tls_config) {
     std::lock_guard<std::mutex> lock(global_mutex_);
     global_tls_config_ = tls_config;
-    global_tls_ctx_ = std::make_unique<security::TlsContext>(tls_config);
+    global_tls_ctx_ = std::make_shared<security::TlsContext>(tls_config);
 }
 
 const security::TlsConfig& ProtocolFactory::tls_config() {
@@ -84,18 +84,18 @@ const security::TlsConfig& ProtocolFactory::tls_config() {
     return global_tls_config_;
 }
 
-boost::asio::ssl::context* ProtocolFactory::ssl_context() {
+boost::asio::ssl::context& ProtocolFactory::ssl_context() {
     std::lock_guard<std::mutex> lock(global_mutex_);
-    if (global_tls_ctx_) {
-        return &global_tls_ctx_->get_native_context();
+    if (!global_tls_ctx_) {
+        global_tls_ctx_ = std::make_shared<security::TlsContext>(global_tls_config_);
     }
-    return nullptr;
+    return global_tls_ctx_->get_native_context();
 }
 
 bool ProtocolFactory::ensure_tls_context() {
     std::lock_guard<std::mutex> lock(global_mutex_);
     if (!global_tls_ctx_) {
-        global_tls_ctx_ = std::make_unique<security::TlsContext>(global_tls_config_);
+        global_tls_ctx_ = std::make_shared<security::TlsContext>(global_tls_config_);
     }
     return true;
 }

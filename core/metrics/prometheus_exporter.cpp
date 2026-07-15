@@ -77,6 +77,14 @@ public:
     }
 
     void stop() {
+        total_requests_ = nullptr;
+        successful_requests_ = nullptr;
+        failed_requests_ = nullptr;
+        bytes_sent_ = nullptr;
+        bytes_received_ = nullptr;
+        latency_histogram_ = nullptr;
+        rps_gauge_ = nullptr;
+        error_rate_gauge_ = nullptr;
         exposer_.reset();
         registry_.reset();
     }

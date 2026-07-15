@@ -4,6 +4,7 @@
 #include <boost/asio/io_context.hpp>
 #include <atomic>
 #include <memory>
+#include <mutex>
 #include <thread>
 #include <vector>
 
@@ -20,7 +21,7 @@ public:
     void start();
     void stop();
 
-    boost::asio::io_context& get_context();
+    [[nodiscard]] boost::asio::io_context& get_context();
 
 private:
     using IoContext = boost::asio::io_context;
@@ -31,6 +32,7 @@ private:
     std::vector<std::thread> threads_;
     std::atomic<std::size_t> next_{0};
     std::atomic<bool> started_{false};
+    mutable std::mutex mtx_;
 };
 
 } // namespace cppload

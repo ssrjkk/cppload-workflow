@@ -62,7 +62,7 @@ public:
     }
 };
 
-inline const std::error_category& err_category() {
+[[nodiscard]] inline const std::error_category& err_category() {
     static ErrCategory category;
     return category;
 }
