@@ -164,8 +164,9 @@ void TcpConnector::async_connect(
 {
     auto resolver = std::make_shared<tcp::resolver>(ioc_);
 
+    auto ioc_ptr = &ioc_;
     resolver->async_resolve(host, std::to_string(port),
-        [resolver, timeout = timeout_, handler, &ioc = ioc_](
+        [resolver, timeout = timeout_, handler, ioc_ptr](
             beast::error_code ec, tcp::resolver::results_type results) mutable
         {
             if (ec) {
@@ -175,7 +176,7 @@ void TcpConnector::async_connect(
                 return;
             }
 
-            auto conn = std::make_unique<TcpConnection>(ioc);
+            auto conn = std::make_unique<TcpConnection>(*ioc_ptr);
             auto& stream = conn->stream();
             stream.expires_after(timeout);
             stream.async_connect(results,
@@ -215,8 +216,10 @@ void SslConnector::async_connect(
 {
     auto resolver = std::make_shared<tcp::resolver>(ioc_);
 
+    auto ioc_ptr = &ioc_;
+    auto ssl_ctx_ptr = &ssl_ctx_;
     resolver->async_resolve(host, std::to_string(port),
-        [resolver, handler, host, timeout = timeout_, &ioc = ioc_, &ssl_ctx = ssl_ctx_](
+        [resolver, handler, host, timeout = timeout_, ioc_ptr, ssl_ctx_ptr](
             beast::error_code ec, tcp::resolver::results_type results) mutable
         {
             if (ec) {
@@ -226,7 +229,7 @@ void SslConnector::async_connect(
                 return;
             }
 
-            auto conn = std::make_unique<SslConnection>(ioc, ssl_ctx);
+            auto conn = std::make_unique<SslConnection>(*ioc_ptr, *ssl_ctx_ptr);
             auto& ssl_stream = conn->stream();
             auto& tcp_stream = beast::get_lowest_layer(ssl_stream);
             tcp_stream.expires_after(timeout);

@@ -97,11 +97,12 @@ public:
                         parse_url(config_.target.base_url, req.host, req.port,
                                   req.use_tls, step.use_tls);
 
+                        auto capture_req = std::make_shared<net::Request>(std::move(req));
                         std::atomic<bool> done{false};
-                        client->async_request(req,
-                            [&, step](std::error_code ec, net::Response resp) mutable {
+                        client->async_request(*capture_req,
+                            [capture_req, &metrics, &callback, &done, step](std::error_code ec, net::Response resp) mutable {
                                 metrics.record_request(static_cast<uint16_t>(resp.status_code), resp.latency,
-                                                       req.body.size(), resp.body.size());
+                                                       capture_req->body.size(), resp.body.size());
                                 if (callback) {
                                     callback(step, resp, metrics);
                                 }

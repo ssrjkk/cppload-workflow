@@ -164,17 +164,17 @@ public:
 
     bool require_tls() {
         if (!config_.token.empty() && !is_https_url(config_.address)) {
-            last_error_ = "Vault: token authentication requires HTTPS";
+            set_last_error("Vault: token authentication requires HTTPS");
             return false;
         }
         return true;
     }
 
     std::string get_secret(const std::string& path, const std::string& key) {
-        if (path.empty()) { last_error_ = "Vault: path is empty"; return {}; }
+        if (path.empty()) { set_last_error("Vault: path is empty"); return {}; }
         if (!require_tls()) return {};
         auto url = parse_url(config_.address);
-        std::string api_path = "/v1/" + config_.engine_path + "/data/" + sanitise_path(path);
+        std::string api_path = "/v1/" + sanitise_path(config_.engine_path) + "/data/" + sanitise_path(path);
 
         std::unordered_map<std::string, std::string> headers;
         headers["X-Vault-Token"] = config_.token;
@@ -183,12 +183,12 @@ public:
         try {
             res = do_get(url.host, url.port, api_path, headers, config_.timeout_seconds);
         } catch (const std::runtime_error& e) {
-            last_error_ = e.what();
+            set_last_error(e.what());
             return {};
         }
 
         if (res.result_int() < 200 || res.result_int() >= 300) {
-            last_error_ = "Vault request failed: " + std::to_string(res.result_int());
+            set_last_error("Vault request failed: " + std::to_string(res.result_int()));
             return {};
         }
 
@@ -199,10 +199,10 @@ public:
             if (data.is_object() && data.contains(key)) {
                 return data[key].get<std::string>();
             }
-            last_error_ = "Key not found: " + key;
+            set_last_error("Key not found: " + key);
             return {};
         } catch (const json::exception& e) {
-            last_error_ = std::string("JSON parse error: ") + e.what();
+            set_last_error(std::string("JSON parse error: ") + e.what());
             return {};
         }
     }
@@ -211,7 +211,7 @@ public:
         if (path.empty()) return {};
         if (!require_tls()) return {};
         auto url = parse_url(config_.address);
-        std::string api_path = "/v1/" + config_.engine_path + "/data/" + sanitise_path(path);
+        std::string api_path = "/v1/" + sanitise_path(config_.engine_path) + "/data/" + sanitise_path(path);
 
         std::unordered_map<std::string, std::string> headers;
         headers["X-Vault-Token"] = config_.token;
@@ -220,12 +220,12 @@ public:
         try {
             res = do_get(url.host, url.port, api_path, headers, config_.timeout_seconds);
         } catch (const std::runtime_error& e) {
-            last_error_ = e.what();
+            set_last_error(e.what());
             return {};
         }
 
         if (res.result_int() < 200 || res.result_int() >= 300) {
-            last_error_ = "Vault request failed: " + std::to_string(res.result_int());
+            set_last_error("Vault request failed: " + std::to_string(res.result_int()));
             return {};
         }
 
@@ -240,17 +240,17 @@ public:
             }
             return result;
         } catch (const json::exception& e) {
-            last_error_ = std::string("JSON parse error: ") + e.what();
+            set_last_error(std::string("JSON parse error: ") + e.what());
             return {};
         }
     }
 
     bool put_secret(const std::string& path,
                    const std::unordered_map<std::string, std::string>& data) {
-        if (path.empty()) { last_error_ = "Vault: path is empty"; return false; }
+        if (path.empty()) { set_last_error("Vault: path is empty"); return false; }
         if (!require_tls()) return false;
         auto url = parse_url(config_.address);
-        std::string api_path = "/v1/" + config_.engine_path + "/data/" + sanitise_path(path);
+        std::string api_path = "/v1/" + sanitise_path(config_.engine_path) + "/data/" + sanitise_path(path);
 
         json body;
         json data_obj;
@@ -265,7 +265,7 @@ public:
             res = do_post(url.host, url.port, api_path,
                 body.dump(), headers, config_.timeout_seconds);
         } catch (const std::runtime_error& e) {
-            last_error_ = e.what();
+            set_last_error(e.what());
             return false;
         }
 
@@ -277,7 +277,7 @@ public:
     }
 
     std::string get_database_creds(const std::string& role_name) {
-        if (role_name.empty()) { last_error_ = "Vault: role_name is empty"; return {}; }
+        if (role_name.empty()) { set_last_error("Vault: role_name is empty"); return {}; }
         if (!require_tls()) return {};
         auto url = parse_url(config_.address);
         std::string safe_role = sanitise_path(role_name);
@@ -290,12 +290,12 @@ public:
         try {
             res = do_get(url.host, url.port, api_path, headers, config_.timeout_seconds);
         } catch (const std::runtime_error& e) {
-            last_error_ = e.what();
+            set_last_error(e.what());
             return {};
         }
 
         if (res.result_int() < 200 || res.result_int() >= 300) {
-            last_error_ = "Vault DB creds failed: " + std::to_string(res.result_int());
+            set_last_error("Vault DB creds failed: " + std::to_string(res.result_int()));
             return {};
         }
 
@@ -306,7 +306,7 @@ public:
             std::string password = data.value("password", "");
             return username + ":" + password;
         } catch (const json::exception& e) {
-            last_error_ = std::string("JSON parse error: ") + e.what();
+            set_last_error(std::string("JSON parse error: ") + e.what());
             return {};
         }
     }
@@ -314,7 +314,7 @@ public:
     std::string get_approle_token(const std::string& role_id,
                                  const std::string& secret_id) {
         if (role_id.empty() || secret_id.empty()) {
-            last_error_ = "Vault: role_id and secret_id required";
+            set_last_error("Vault: role_id and secret_id required");
             return {};
         }
         if (!require_tls()) return {};
@@ -332,12 +332,12 @@ public:
             res = do_post(url.host, url.port, api_path,
                 body.dump(), headers, config_.timeout_seconds);
         } catch (const std::runtime_error& e) {
-            last_error_ = e.what();
+            set_last_error(e.what());
             return {};
         }
 
         if (res.result_int() < 200 || res.result_int() >= 300) {
-            last_error_ = "Vault AppRole login failed: " + std::to_string(res.result_int());
+            set_last_error("Vault AppRole login failed: " + std::to_string(res.result_int()));
             return {};
         }
 
@@ -345,14 +345,22 @@ public:
             auto j = json::parse(res.body());
             return j["auth"]["client_token"].get<std::string>();
         } catch (const json::exception& e) {
-            last_error_ = std::string("JSON parse error: ") + e.what();
+            set_last_error(std::string("JSON parse error: ") + e.what());
             return {};
         }
     }
 
-    std::string last_error() const { return last_error_; }
+    std::string last_error() const {
+        std::lock_guard<std::mutex> lock(last_error_mtx_);
+        return last_error_;
+    }
 
 private:
+    void set_last_error(const std::string& msg) {
+        std::lock_guard<std::mutex> lock(last_error_mtx_);
+        last_error_ = msg;
+    }
+
     void health_check() {
         auto url = parse_url(config_.address);
         std::string api_path = "/v1/sys/health";
@@ -370,6 +378,7 @@ private:
 
     VaultConfig config_;
     bool connected_;
+    mutable std::mutex last_error_mtx_;
     std::string last_error_;
 };
 

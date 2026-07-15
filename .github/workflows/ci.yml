@@ -19,6 +19,7 @@ jobs:
   build:
     name: Build & Test
     runs-on: ubuntu-24.04
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
 
@@ -83,6 +84,7 @@ jobs:
     name: Coverage
     runs-on: ubuntu-24.04
     needs: build
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
 
@@ -142,7 +144,7 @@ jobs:
 
       - name: Run tests
         run: |
-          cd build-cov && ctest --output-on-failure --timeout 60 -j$(nproc) || true
+          cd build-cov && ctest --output-on-failure --timeout 60 -j$(nproc)
         continue-on-error: true
 
       - name: Capture coverage info
@@ -181,6 +183,7 @@ jobs:
     name: AddressSanitizer
     runs-on: ubuntu-24.04
     needs: build
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
 
@@ -247,6 +250,7 @@ jobs:
     name: Performance Regression
     runs-on: ubuntu-24.04
     needs: build
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
 
@@ -309,6 +313,7 @@ jobs:
     name: Integration Tests
     runs-on: ubuntu-24.04
     needs: build
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
 
@@ -363,6 +368,7 @@ jobs:
     name: Lint
     runs-on: ubuntu-24.04
     needs: build
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
 

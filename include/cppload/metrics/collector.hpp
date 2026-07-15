@@ -4,6 +4,7 @@
 #include <chrono>
 #include <cstdint>
 #include <memory>
+#include <mutex>
 #include <string>
 
 
@@ -67,6 +68,7 @@ private:
     std::unique_ptr<Cell[]> ring_;
     mutable std::atomic<uint64_t> head_{0};
     mutable std::atomic<uint64_t> tail_{0};
+    mutable std::mutex snapshot_mtx_;
 };
 
 } // namespace cppload::metrics

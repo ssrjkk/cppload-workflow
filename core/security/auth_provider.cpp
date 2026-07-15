@@ -164,6 +164,8 @@ private:
             lock.unlock();
             fetch_token();
             lock.lock();
+            // Double-check: if another thread also refreshed concurrently,
+            // the most recent refresh wins
         }
         return current_token_;
     }

@@ -122,32 +122,35 @@ public:
     void start_span(const std::string& name) {
         if (span_active_) end_span();
 
+        std::lock_guard<std::mutex> lock(span_mtx_);
         span_name_ = name;
         span_active_ = true;
         span_start_ = std::chrono::system_clock::now();
         current_span_id_ = random_hex(16);
         parent_span_id_ = last_span_id_;
 
-        add_attribute("service.name", config_.service_name);
-        add_attribute("service.version", config_.service_version);
+        attributes_["service.name"] = config_.service_name;
+        attributes_["service.version"] = config_.service_version;
     }
 
     void end_span() {
-        if (!span_active_) return;
-
         SpanData span;
-        span.name = span_name_;
-        span.trace_id = trace_id_;
-        span.span_id = current_span_id_;
-        span.parent_span_id = parent_span_id_;
-        span.start_time = span_start_;
-        span.end_time = std::chrono::system_clock::now();
-        span.attributes = attributes_;
-        span.ended = true;
+        {
+            std::lock_guard<std::mutex> lock(span_mtx_);
+            if (!span_active_) return;
 
-        last_span_id_ = current_span_id_;
-        attributes_.clear();
-        span_active_ = false;
+            span.name = span_name_;
+            span.trace_id = trace_id_;
+            span.span_id = current_span_id_;
+            span.parent_span_id = parent_span_id_;
+            span.start_time = span_start_;
+            span.end_time = std::chrono::system_clock::now();
+            span.attributes = std::move(attributes_);
+
+            last_span_id_ = current_span_id_;
+            attributes_.clear();
+            span_active_ = false;
+        }
 
         // Apply sampling: skip this span if random sample says drop
         if (config_.sample_rate < 1.0) {
@@ -167,6 +170,7 @@ public:
     }
 
     void add_attribute(const std::string& key, const std::string& value) {
+        std::lock_guard<std::mutex> lock(span_mtx_);
         attributes_[key] = value;
     }
 
@@ -274,6 +278,7 @@ private:
     std::string last_span_id_;
     std::chrono::system_clock::time_point span_start_;
 
+    std::mutex span_mtx_;
     std::vector<SpanData> completed_spans_;
     std::mutex spans_mutex_;
 

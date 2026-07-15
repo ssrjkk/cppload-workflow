@@ -81,18 +81,21 @@ RequestMetrics MetricsCollector::snapshot() const {
     m.max_latency = std::chrono::microseconds(
         max_latency_us_.load(std::memory_order_relaxed));
 
-    // Drain lock-free ring buffer
+    // Drain ring buffer under mutex
     std::vector<int64_t> sorted;
-    uint64_t h = head_.load(std::memory_order_relaxed);
-    while (true) {
-        size_t idx = h & kRingMask;
-        uint64_t seq = ring_[idx].seq.load(std::memory_order_acquire);
-        if (seq != h + 1) break;
-        sorted.push_back(ring_[idx].value);
-        ring_[idx].seq.store(h + kRingCapacity, std::memory_order_release);
-        h++;
+    {
+        std::lock_guard<std::mutex> lock(snapshot_mtx_);
+        uint64_t h = head_.load(std::memory_order_relaxed);
+        while (true) {
+            size_t idx = h & kRingMask;
+            uint64_t seq = ring_[idx].seq.load(std::memory_order_acquire);
+            if (seq != h + 1) break;
+            sorted.push_back(ring_[idx].value);
+            ring_[idx].seq.store(h + kRingCapacity, std::memory_order_release);
+            h++;
+        }
+        head_.store(h, std::memory_order_release);
     }
-    head_.store(h, std::memory_order_release);
 
     if (!sorted.empty()) {
         std::sort(sorted.begin(), sorted.end());
