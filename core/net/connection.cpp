@@ -48,7 +48,7 @@ void TcpConnection::async_read_some(
 void TcpConnection::close() {
     beast::error_code ec;
     stream_.socket().shutdown(tcp::socket::shutdown_both, ec);
-    stream_.close(ec);
+    stream_.socket().close(ec);
 }
 
 void TcpConnection::set_timeout(std::chrono::milliseconds ms) {
