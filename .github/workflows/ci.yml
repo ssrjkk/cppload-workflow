@@ -75,28 +75,26 @@ jobs:
           name: build-log
           path: build.log
 
-      - name: Run tests
+      - name: Run tests (sequential, verbose)
         if: success()
         run: |
-          set -o pipefail; cd build && ctest --output-on-failure --timeout 60 -j$(nproc) 2>&1 | tee ../test_output.txt
-
-      - name: Post test output as check annotation
-        if: failure()
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          if [ -f test_output.txt ]; then
-            python3 -c "
-import os,json,urllib.request
-with open('test_output.txt') as f: body = f.read()
-token = os.environ['GH_TOKEN']
-sha = os.environ['GITHUB_SHA']
-repo = os.environ['GITHUB_REPOSITORY']
-data = json.dumps({'name':'Test Output Debug','head_sha':sha,'status':'completed','conclusion':'neutral','output':{'title':'Test Output','summary':body[:60000]}}).encode()
-req = urllib.request.Request(f'https://api.github.com/repos/{repo}/check-runs',data=data,headers={'Authorization':f'Bearer {token}','Content-Type':'application/json'})
-urllib.request.urlopen(req)
-"
-          fi
+          cd build
+          all_passed=true
+          for t in test_http_client test_metrics test_token_bucket test_auth test_vault test_otlp test_yaml_parser test_prometheus; do
+            if [ -x "./$t" ]; then
+              echo "::group::$t"
+              ./$t 2>&1
+              rc=$?
+              if [ $rc -eq 0 ]; then
+                echo "::notice::$t PASSED"
+              else
+                echo "::error::$t FAILED (exit=$rc)"
+                all_passed=false
+              fi
+              echo "::endgroup::"
+            fi
+          done
+          if [ "$all_passed" = "false" ]; then exit 1; fi
 
   coverage:
     name: Coverage
