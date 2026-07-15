@@ -80,12 +80,22 @@ jobs:
         run: |
           set -o pipefail; cd build && ctest --output-on-failure --timeout 60 -j$(nproc) 2>&1 | tee ../test_output.txt
 
-      - name: Annotate test failures
+      - name: Post test output as check annotation
         if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           if [ -f test_output.txt ]; then
-            BODY=$(cat test_output.txt)
-            echo "::error title=TestOutput,file=tests,line=1::$(echo "$BODY" | head -c 64000)"
+            python3 -c "
+import os,json,urllib.request
+with open('test_output.txt') as f: body = f.read()
+token = os.environ['GH_TOKEN']
+sha = os.environ['GITHUB_SHA']
+repo = os.environ['GITHUB_REPOSITORY']
+data = json.dumps({'name':'Test Output Debug','head_sha':sha,'status':'completed','conclusion':'neutral','output':{'title':'Test Output','summary':body[:60000]}}).encode()
+req = urllib.request.Request(f'https://api.github.com/repos/{repo}/check-runs',data=data,headers={'Authorization':f'Bearer {token}','Content-Type':'application/json'})
+urllib.request.urlopen(req)
+"
           fi
 
   coverage:
