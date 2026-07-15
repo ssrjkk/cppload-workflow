@@ -362,6 +362,11 @@ private:
     }
 
     void health_check() {
+        if (!config_.token.empty() && !is_https_url(config_.address)) {
+            set_last_error("Vault: token authentication requires HTTPS");
+            connected_ = false;
+            return;
+        }
         auto url = parse_url(config_.address);
         std::string api_path = "/v1/sys/health";
 
