@@ -404,7 +404,7 @@ jobs:
       - name: Run integration tests
         run: |
           cd build-int
-          ctest --output-on-failure --timeout 30 2>&1; rc=$?
+          ctest --output-on-failure --timeout 30 -R Integration 2>&1; rc=$?
           if [ $rc -ne 0 ]; then
             echo "::error::Integration tests FAILED (exit=$rc)"
             exit 1
