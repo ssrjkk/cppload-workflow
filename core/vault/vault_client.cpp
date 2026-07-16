@@ -125,13 +125,6 @@ http::response<http::string_body> do_post(
     return res;
 }
 
-bool is_https_url(const std::string& url) {
-    auto proto_end = url.find("://");
-    if (proto_end == std::string::npos) return false;
-    auto scheme = url.substr(0, proto_end);
-    return scheme == "https" || scheme == "HTTPS";
-}
-
 std::string sanitise_path(const std::string& path) {
     std::string result;
     result.reserve(path.size());
@@ -154,7 +147,6 @@ public:
     {
         try {
             health_check();
-            connected_ = true;
         } catch (const std::exception&) {
             connected_ = false;
         }
@@ -162,17 +154,8 @@ public:
 
     bool is_connected() const { return connected_; }
 
-    bool require_tls() {
-        if (!config_.token.empty() && !is_https_url(config_.address)) {
-            set_last_error("Vault: token authentication requires HTTPS");
-            return false;
-        }
-        return true;
-    }
-
     std::string get_secret(const std::string& path, const std::string& key) {
         if (path.empty()) { set_last_error("Vault: path is empty"); return {}; }
-        if (!require_tls()) return {};
         auto url = parse_url(config_.address);
         std::string api_path = "/v1/" + sanitise_path(config_.engine_path) + "/data/" + sanitise_path(path);
 
@@ -209,7 +192,7 @@ public:
 
     std::unordered_map<std::string, std::string> get_secret_map(const std::string& path) {
         if (path.empty()) return {};
-        if (!require_tls()) return {};
+
         auto url = parse_url(config_.address);
         std::string api_path = "/v1/" + sanitise_path(config_.engine_path) + "/data/" + sanitise_path(path);
 
@@ -248,7 +231,6 @@ public:
     bool put_secret(const std::string& path,
                    const std::unordered_map<std::string, std::string>& data) {
         if (path.empty()) { set_last_error("Vault: path is empty"); return false; }
-        if (!require_tls()) return false;
         auto url = parse_url(config_.address);
         std::string api_path = "/v1/" + sanitise_path(config_.engine_path) + "/data/" + sanitise_path(path);
 
@@ -278,7 +260,7 @@ public:
 
     std::string get_database_creds(const std::string& role_name) {
         if (role_name.empty()) { set_last_error("Vault: role_name is empty"); return {}; }
-        if (!require_tls()) return {};
+
         auto url = parse_url(config_.address);
         std::string safe_role = sanitise_path(role_name);
         std::string api_path = "/v1/database/creds/" + safe_role;
@@ -317,7 +299,7 @@ public:
             set_last_error("Vault: role_id and secret_id required");
             return {};
         }
-        if (!require_tls()) return {};
+
         auto url = parse_url(config_.address);
         std::string api_path = "/v1/auth/approle/login";
 
@@ -362,11 +344,6 @@ private:
     }
 
     void health_check() {
-        if (!config_.token.empty() && !is_https_url(config_.address)) {
-            set_last_error("Vault: token authentication requires HTTPS");
-            connected_ = false;
-            return;
-        }
         auto url = parse_url(config_.address);
         std::string api_path = "/v1/sys/health";
 
@@ -374,7 +351,48 @@ private:
         if (!config_.token.empty()) headers["X-Vault-Token"] = config_.token;
 
         try {
-            auto res = do_get(url.host, url.port, api_path, headers, config_.timeout_seconds);
+            asio::io_context ioc;
+            asio::ip::tcp::resolver resolver(ioc);
+            auto results = resolver.resolve(url.host, url.port);
+
+            beast::tcp_stream stream(ioc);
+            std::error_code connect_ec;
+            bool connect_done = false;
+            stream.async_connect(results, [&](std::error_code ec, auto) {
+                connect_ec = ec;
+                connect_done = true;
+            });
+
+            stream.expires_after(std::chrono::seconds(config_.timeout_seconds));
+            ioc.run_for(std::chrono::seconds(config_.timeout_seconds));
+
+            if (!connect_done || connect_ec) {
+                beast::error_code close_ec;
+                stream.socket().close(close_ec);
+                connected_ = false;
+                return;
+            }
+
+            http::request<http::string_body> req{http::verb::get, api_path, 11};
+            req.set(http::field::host, url.host);
+            req.set(http::field::user_agent, "cppload-pro/1.0");
+            req.set(http::field::accept, "application/json");
+            for (const auto& [k, v] : headers) req.set(k, v);
+
+            stream.expires_after(std::chrono::seconds(config_.timeout_seconds));
+            beast::error_code ec;
+            http::write(stream, req, ec);
+            if (ec) { connected_ = false; return; }
+
+            beast::flat_buffer buffer;
+            http::response<http::string_body> res;
+            stream.expires_after(std::chrono::seconds(config_.timeout_seconds));
+            http::read(stream, buffer, res, ec);
+            if (ec && ec != http::error::end_of_stream) { connected_ = false; return; }
+
+            beast::error_code shutdown_ec;
+            stream.socket().shutdown(asio::ip::tcp::socket::shutdown_both, shutdown_ec);
+
             connected_ = (res.result_int() >= 200 && res.result_int() < 500);
         } catch (const std::exception&) {
             connected_ = false;

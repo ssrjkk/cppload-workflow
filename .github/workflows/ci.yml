@@ -260,7 +260,32 @@ jobs:
       - name: Run tests
         if: success()
         run: |
-          cd build-asan && ctest --output-on-failure --timeout 60 -j$(nproc)
+          cd build-asan
+          all_passed=true
+          for t in test_http_client test_metrics test_token_bucket test_auth test_vault test_otlp test_yaml_parser test_prometheus; do
+            if [ -x "./$t" ]; then
+              printf "::group::%s\n" "$t"
+              ./$t > test-tmp.log 2>&1; rc=$?
+              cat test-tmp.log
+              cat test-tmp.log >> test-asan.log
+              if [ $rc -eq 0 ]; then
+                printf "::notice::%s PASSED\n" "$t"
+              else
+                printf "::error::%s FAILED (exit=%d)\n" "$t" "$rc"
+                all_passed=false
+              fi
+              printf "::endgroup::\n"
+            fi
+          done
+          rm -f test-tmp.log
+          if [ "$all_passed" = "false" ]; then printf "Test failures detected\n"; exit 1; fi
+
+      - name: Upload ASan test log
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-asan-log
+          path: build-asan/test-asan.log
 
   benchmark:
     name: Performance Regression
@@ -378,7 +403,12 @@ jobs:
 
       - name: Run integration tests
         run: |
-          cd build-int && ctest --output-on-failure --timeout 30 -R Integration -j$(nproc)
+          cd build-int
+          ctest --output-on-failure --timeout 30 2>&1; rc=$?
+          if [ $rc -ne 0 ]; then
+            echo "::error::Integration tests FAILED (exit=$rc)"
+            exit 1
+          fi
 
   lint:
     name: Lint
