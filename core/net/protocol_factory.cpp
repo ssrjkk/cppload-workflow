@@ -14,22 +14,23 @@ std::shared_ptr<security::TlsContext> ProtocolFactory::global_tls_ctx_;
 std::mutex ProtocolFactory::global_mutex_;
 
 std::unordered_map<std::string, ProtocolFactory::FactoryFunc>& ProtocolFactory::registry() {
-    static auto reg = new std::unordered_map<std::string, FactoryFunc>();
-    if (reg->empty()) {
-        (*reg)["http1.1"] = [](boost::asio::io_context& ioc,
+    static auto map = new std::unordered_map<std::string, FactoryFunc>();
+    static std::once_flag init_flag;
+    std::call_once(init_flag, [&]() {
+        (*map)["http1.1"] = [](boost::asio::io_context& ioc,
                                const security::TlsConfig& tls) {
             return std::make_unique<Http11Client>(ioc, tls);
         };
-        (*reg)["tcp_raw"] = [](boost::asio::io_context& ioc,
+        (*map)["tcp_raw"] = [](boost::asio::io_context& ioc,
                                const security::TlsConfig& tls) {
             return std::make_unique<TcpRawClient>(ioc, tls);
         };
-        (*reg)["ws"] = [](boost::asio::io_context& ioc,
+        (*map)["ws"] = [](boost::asio::io_context& ioc,
                           const security::TlsConfig& tls) {
             return std::make_unique<WsClient>(ioc, tls);
         };
-    }
-    return *reg;
+    });
+    return *map;
 }
 
 std::mutex& ProtocolFactory::registry_mutex() {
