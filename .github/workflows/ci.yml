@@ -404,11 +404,18 @@ jobs:
       - name: Run integration tests
         run: |
           cd build-int
-          ctest --output-on-failure --timeout 30 -R Integration 2>&1; rc=$?
+          ctest --output-on-failure --timeout 30 -R Integration -V 2>&1 | tee test-int.log; rc=$?
           if [ $rc -ne 0 ]; then
             echo "::error::Integration tests FAILED (exit=$rc)"
             exit 1
           fi
+
+      - name: Upload integration test log
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-int-log
+          path: build-int/test-int.log
 
   lint:
     name: Lint
