@@ -88,12 +88,19 @@ private:
         if (ec) return;
 
         http::response<http::string_body> res;
-        if (handler_) {
-            res = handler_(req);
-        } else {
-            res.result(http::status::ok);
+        try {
+            if (handler_) {
+                res = handler_(req);
+            } else {
+                res.result(http::status::ok);
+                res.set(http::field::content_type, "text/plain");
+                res.body() = "OK";
+                res.prepare_payload();
+            }
+        } catch (const std::exception&) {
+            res.result(http::status::internal_server_error);
             res.set(http::field::content_type, "text/plain");
-            res.body() = "OK";
+            res.body() = "handler error";
             res.prepare_payload();
         }
 

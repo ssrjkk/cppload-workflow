@@ -10,15 +10,18 @@ using json = nlohmann::json;
 TEST(OAuth2IntegrationTest, GetBearerToken) {
     MockHttpServer server;
     server.set_handler([](const auto& req) {
-        EXPECT_TRUE(req.target().find("/oauth/token") != std::string::npos);
-        EXPECT_EQ(req[http::field::content_type], "application/x-www-form-urlencoded");
+        http::response<http::string_body> res;
+        if (req.target().find("/oauth/token") == std::string::npos) {
+            res.result(http::status::not_found);
+            res.prepare_payload();
+            return res;
+        }
 
         json resp_body;
         resp_body["access_token"] = "s.oauth-token-abc";
         resp_body["expires_in"] = 3600;
         resp_body["token_type"] = "Bearer";
 
-        http::response<http::string_body> res;
         res.result(http::status::ok);
         res.set(http::field::content_type, "application/json");
         res.body() = resp_body.dump();

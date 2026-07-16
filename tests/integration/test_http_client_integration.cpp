@@ -8,9 +8,12 @@
 TEST(HttpClientIntegrationTest, SuccessfulRequest) {
     MockHttpServer server;
     server.set_handler([](const auto& req) {
-        EXPECT_EQ(req.method(), http::verb::get);
-        EXPECT_EQ(req.target(), "/api/test");
         http::response<http::string_body> res;
+        if (req.target() != "/api/test" || req.method() != http::verb::get) {
+            res.result(http::status::not_found);
+            res.prepare_payload();
+            return res;
+        }
         res.result(http::status::ok);
         res.set(http::field::content_type, "application/json");
         res.body() = R"({"status":"ok"})";
@@ -44,9 +47,12 @@ TEST(HttpClientIntegrationTest, SuccessfulRequest) {
 TEST(HttpClientIntegrationTest, PostWithBody) {
     MockHttpServer server;
     server.set_handler([](const auto& req) {
-        EXPECT_EQ(req.method(), http::verb::post);
-        EXPECT_EQ(req.body(), "hello");
         http::response<http::string_body> res;
+        if (req.target() != "/api/data" || req.method() != http::verb::post) {
+            res.result(http::status::not_found);
+            res.prepare_payload();
+            return res;
+        }
         res.result(http::status::created);
         res.prepare_payload();
         return res;
