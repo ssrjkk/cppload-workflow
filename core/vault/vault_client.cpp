@@ -4,6 +4,7 @@
 #include <boost/beast/http.hpp>
 #include <boost/asio/ip/tcp.hpp>
 #include <boost/asio/connect.hpp>
+#include <boost/asio/ssl.hpp>
 #include <nlohmann/json.hpp>
 #include <string>
 #include <sstream>
@@ -17,7 +18,7 @@ namespace cppload::vault {
 
 namespace {
 
-struct UrlParts { std::string host, port, path; };
+struct UrlParts { std::string host, port, path; bool tls{false}; };
 
 UrlParts parse_url(const std::string& url) {
     UrlParts p;
@@ -36,99 +37,100 @@ UrlParts parse_url(const std::string& url) {
         p.host = host_port;
         p.port = (url.find("https:") == 0) ? "443" : "80";
     }
+    p.tls = (url.find("https:") == 0);
     return p;
 }
 
-Result<http::response<http::string_body>, Err> do_get(
-    const std::string& host,
-    const std::string& port,
-    const std::string& target,
-    const std::unordered_map<std::string, std::string>& headers,
-    int timeout_sec)
-{
-    beast::error_code ec;
-    asio::io_context ioc;
-    asio::ip::tcp::resolver resolver(ioc);
-    beast::tcp_stream stream(ioc);
-
-    auto results = resolver.resolve(host, port, ec);
-    if (ec) return Result<http::response<http::string_body>, Err>::err(Err::dns_failure);
-
-    stream.expires_after(std::chrono::seconds(timeout_sec));
-    stream.connect(results, ec);
-    if (ec == beast::error::timeout)
-        return Result<http::response<http::string_body>, Err>::err(Err::connection_timeout);
-    if (ec)
-        return Result<http::response<http::string_body>, Err>::err(Err::connection_refused);
-
-    http::request<http::string_body> req{http::verb::get, target, 11};
-    req.set(http::field::host, host);
-    req.set(http::field::user_agent, "cppload-pro/1.0");
-    req.set(http::field::accept, "application/json");
-    for (const auto& [k, v] : headers) req.set(k, v);
-
-    stream.expires_after(std::chrono::seconds(timeout_sec));
-    http::write(stream, req, ec);
-    if (ec) return Result<http::response<http::string_body>, Err>::err(Err::write_error);
-
-    beast::flat_buffer buffer;
-    http::response<http::string_body> res;
-    stream.expires_after(std::chrono::seconds(timeout_sec));
-    http::read(stream, buffer, res, ec);
-    if (ec && ec != http::error::end_of_stream)
-        return Result<http::response<http::string_body>, Err>::err(Err::read_error);
-
-    beast::error_code shutdown_ec;
-    stream.socket().shutdown(asio::ip::tcp::socket::shutdown_both, shutdown_ec);
-    return Result<http::response<http::string_body>, Err>::ok(std::move(res));
-}
-
-Result<http::response<http::string_body>, Err> do_post(
+Result<http::response<http::string_body>, Err> do_request(
+    http::verb method,
     const std::string& host,
     const std::string& port,
     const std::string& target,
     const std::string& body,
     const std::unordered_map<std::string, std::string>& headers,
-    int timeout_sec)
+    int timeout_sec,
+    bool use_tls)
 {
     beast::error_code ec;
     asio::io_context ioc;
     asio::ip::tcp::resolver resolver(ioc);
-    beast::tcp_stream stream(ioc);
 
     auto results = resolver.resolve(host, port, ec);
     if (ec) return Result<http::response<http::string_body>, Err>::err(Err::dns_failure);
 
-    stream.expires_after(std::chrono::seconds(timeout_sec));
-    stream.connect(results, ec);
-    if (ec == beast::error::timeout)
-        return Result<http::response<http::string_body>, Err>::err(Err::connection_timeout);
-    if (ec)
-        return Result<http::response<http::string_body>, Err>::err(Err::connection_refused);
+    auto sec = std::chrono::seconds(timeout_sec);
 
-    http::request<http::string_body> req{http::verb::post, target, 11};
-    req.set(http::field::host, host);
-    req.set(http::field::user_agent, "cppload-pro/1.0");
-    req.set(http::field::content_type, "application/json");
-    req.set(http::field::accept, "application/json");
-    for (const auto& [k, v] : headers) req.set(k, v);
-    req.body() = body;
-    req.prepare_payload();
+    auto build_request = [&](http::verb m, const std::string& tgt,
+                             const std::string& body_data) {
+        http::request<http::string_body> req{m, tgt, 11};
+        req.set(http::field::host, host);
+        req.set(http::field::user_agent, "cppload-pro/1.0");
+        req.set(http::field::accept, "application/json");
+        for (const auto& [k, v] : headers) req.set(k, v);
+        if (!body_data.empty()) { req.body() = body_data; req.prepare_payload(); }
+        return req;
+    };
 
-    stream.expires_after(std::chrono::seconds(timeout_sec));
-    http::write(stream, req, ec);
-    if (ec) return Result<http::response<http::string_body>, Err>::err(Err::write_error);
+    if (use_tls) {
+        asio::ssl::context ssl_ctx(asio::ssl::context::tlsv12_client);
+        ssl_ctx.set_default_verify_paths();
+        asio::ssl::stream<beast::tcp_stream> stream(ioc, ssl_ctx);
 
-    beast::flat_buffer buffer;
-    http::response<http::string_body> res;
-    stream.expires_after(std::chrono::seconds(timeout_sec));
-    http::read(stream, buffer, res, ec);
-    if (ec && ec != http::error::end_of_stream)
-        return Result<http::response<http::string_body>, Err>::err(Err::read_error);
+        beast::get_lowest_layer(stream).expires_after(sec);
+        beast::get_lowest_layer(stream).connect(results, ec);
+        if (ec == beast::error::timeout)
+            return Result<http::response<http::string_body>, Err>::err(Err::connection_timeout);
+        if (ec)
+            return Result<http::response<http::string_body>, Err>::err(Err::connection_refused);
 
-    beast::error_code shutdown_ec;
-    stream.socket().shutdown(asio::ip::tcp::socket::shutdown_both, shutdown_ec);
-    return Result<http::response<http::string_body>, Err>::ok(std::move(res));
+        if (!SSL_set_tlsext_host_name(stream.native_handle(), host.c_str()))
+            return Result<http::response<http::string_body>, Err>::err(Err::tls_handshake_failed);
+
+        stream.next_layer().expires_after(sec);
+        stream.handshake(asio::ssl::stream_base::client, ec);
+        if (ec)
+            return Result<http::response<http::string_body>, Err>::err(Err::tls_handshake_failed);
+
+        auto req = build_request(method, target, body);
+        stream.next_layer().expires_after(sec);
+        http::write(stream, req, ec);
+        if (ec) return Result<http::response<http::string_body>, Err>::err(Err::write_error);
+
+        beast::flat_buffer buffer;
+        http::response<http::string_body> res;
+        stream.next_layer().expires_after(sec);
+        http::read(stream, buffer, res, ec);
+        if (ec && ec != http::error::end_of_stream)
+            return Result<http::response<http::string_body>, Err>::err(Err::read_error);
+
+        stream.shutdown(ec);
+        return Result<http::response<http::string_body>, Err>::ok(std::move(res));
+    } else {
+        beast::tcp_stream stream(ioc);
+
+        stream.expires_after(sec);
+        stream.connect(results, ec);
+        if (ec == beast::error::timeout)
+            return Result<http::response<http::string_body>, Err>::err(Err::connection_timeout);
+        if (ec)
+            return Result<http::response<http::string_body>, Err>::err(Err::connection_refused);
+
+        auto req = build_request(method, target, body);
+        stream.expires_after(sec);
+        http::write(stream, req, ec);
+        if (ec) return Result<http::response<http::string_body>, Err>::err(Err::write_error);
+
+        beast::flat_buffer buffer;
+        http::response<http::string_body> res;
+        stream.expires_after(sec);
+        http::read(stream, buffer, res, ec);
+        if (ec && ec != http::error::end_of_stream)
+            return Result<http::response<http::string_body>, Err>::err(Err::read_error);
+
+        beast::error_code shutdown_ec;
+        stream.socket().shutdown(asio::ip::tcp::socket::shutdown_both, shutdown_ec);
+        return Result<http::response<http::string_body>, Err>::ok(std::move(res));
+    }
 }
 
 std::string sanitise_path(const std::string& path) {
@@ -175,7 +177,8 @@ public:
         std::unordered_map<std::string, std::string> hdrs;
         hdrs["X-Vault-Token"] = config_.token;
 
-        auto res = do_get(url.host, url.port, api_path, hdrs, config_.timeout_seconds);
+        auto res = do_request(http::verb::get, url.host, url.port, api_path,
+            "", hdrs, config_.timeout_seconds, url.tls);
         if (!res) return Result<std::string, Err>::err(res.error());
 
         auto status = check_response(res.value());
@@ -205,7 +208,8 @@ public:
         std::unordered_map<std::string, std::string> hdrs;
         hdrs["X-Vault-Token"] = config_.token;
 
-        auto res = do_get(url.host, url.port, api_path, hdrs, config_.timeout_seconds);
+        auto res = do_request(http::verb::get, url.host, url.port, api_path,
+            "", hdrs, config_.timeout_seconds, url.tls);
         if (!res) return Result<std::unordered_map<std::string, std::string>, Err>::err(res.error());
 
         auto status = check_response(res.value());
@@ -241,8 +245,8 @@ public:
         std::unordered_map<std::string, std::string> hdrs;
         hdrs["X-Vault-Token"] = config_.token;
 
-        auto res = do_post(url.host, url.port, api_path,
-            body.dump(), hdrs, config_.timeout_seconds);
+        auto res = do_request(http::verb::post, url.host, url.port, api_path,
+            body.dump(), hdrs, config_.timeout_seconds, url.tls);
         if (!res) return Result<bool, Err>::err(res.error());
 
         auto status = check_response(res.value());
@@ -264,7 +268,8 @@ public:
         std::unordered_map<std::string, std::string> hdrs;
         hdrs["X-Vault-Token"] = config_.token;
 
-        auto res = do_get(url.host, url.port, api_path, hdrs, config_.timeout_seconds);
+        auto res = do_request(http::verb::get, url.host, url.port, api_path,
+            "", hdrs, config_.timeout_seconds, url.tls);
         if (!res) return Result<std::string, Err>::err(res.error());
 
         auto status = check_response(res.value());
@@ -295,8 +300,8 @@ public:
 
         std::unordered_map<std::string, std::string> hdrs;
 
-        auto res = do_post(url.host, url.port, api_path,
-            body.dump(), hdrs, config_.timeout_seconds);
+        auto res = do_request(http::verb::post, url.host, url.port, api_path,
+            body.dump(), hdrs, config_.timeout_seconds, url.tls);
         if (!res) return Result<std::string, Err>::err(res.error());
 
         auto status = check_response(res.value());
@@ -318,51 +323,89 @@ private:
         std::unordered_map<std::string, std::string> hdrs;
         if (!config_.token.empty()) hdrs["X-Vault-Token"] = config_.token;
 
+        beast::error_code ec;
         asio::io_context ioc;
         asio::ip::tcp::resolver resolver(ioc);
-        beast::error_code resolve_ec;
-        auto results = resolver.resolve(url.host, url.port, resolve_ec);
-        if (resolve_ec) { connected_ = false; return; }
-
-        beast::tcp_stream stream(ioc);
-        std::error_code connect_ec;
-        bool connect_done = false;
-        stream.async_connect(results, [&](std::error_code ec, auto) {
-            connect_ec = ec;
-            connect_done = true;
-        });
-
-        stream.expires_after(std::chrono::seconds(config_.timeout_seconds));
-        ioc.run_for(std::chrono::seconds(config_.timeout_seconds));
-
-        if (!connect_done || connect_ec) {
-            beast::error_code close_ec;
-            stream.socket().close(close_ec);
-            connected_ = false;
-            return;
-        }
-
-        http::request<http::string_body> req{http::verb::get, api_path, 11};
-        req.set(http::field::host, url.host);
-        req.set(http::field::user_agent, "cppload-pro/1.0");
-        req.set(http::field::accept, "application/json");
-        for (const auto& [k, v] : hdrs) req.set(k, v);
-
-        stream.expires_after(std::chrono::seconds(config_.timeout_seconds));
-        beast::error_code ec;
-        http::write(stream, req, ec);
+        auto results = resolver.resolve(url.host, url.port, ec);
         if (ec) { connected_ = false; return; }
 
-        beast::flat_buffer buffer;
-        http::response<http::string_body> res;
-        stream.expires_after(std::chrono::seconds(config_.timeout_seconds));
-        http::read(stream, buffer, res, ec);
-        if (ec && ec != http::error::end_of_stream) { connected_ = false; return; }
+        auto sec = std::chrono::seconds(config_.timeout_seconds);
 
-        beast::error_code shutdown_ec;
-        stream.socket().shutdown(asio::ip::tcp::socket::shutdown_both, shutdown_ec);
+        if (url.tls) {
+            asio::ssl::context ssl_ctx(asio::ssl::context::tlsv12_client);
+            ssl_ctx.set_default_verify_paths();
+            asio::ssl::stream<beast::tcp_stream> stream(ioc, ssl_ctx);
 
-        connected_ = (res.result_int() >= 200 && res.result_int() < 500);
+            beast::get_lowest_layer(stream).expires_after(sec);
+            beast::get_lowest_layer(stream).connect(results, ec);
+            if (ec) { connected_ = false; return; }
+
+            if (!SSL_set_tlsext_host_name(stream.native_handle(), url.host.c_str())) {
+                connected_ = false; return;
+            }
+
+            stream.next_layer().expires_after(sec);
+            stream.handshake(asio::ssl::stream_base::client, ec);
+            if (ec) { connected_ = false; return; }
+
+            http::request<http::string_body> req{http::verb::get, api_path, 11};
+            req.set(http::field::host, url.host);
+            req.set(http::field::user_agent, "cppload-pro/1.0");
+            req.set(http::field::accept, "application/json");
+            for (const auto& [k, v] : hdrs) req.set(k, v);
+
+            stream.next_layer().expires_after(sec);
+            http::write(stream, req, ec);
+            if (ec) { connected_ = false; return; }
+
+            beast::flat_buffer buffer;
+            http::response<http::string_body> res;
+            stream.next_layer().expires_after(sec);
+            http::read(stream, buffer, res, ec);
+            if (ec && ec != http::error::end_of_stream) { connected_ = false; return; }
+
+            connected_ = (res.result_int() >= 200 && res.result_int() < 500);
+        } else {
+            beast::tcp_stream stream(ioc);
+
+            std::error_code connect_ec;
+            bool connect_done = false;
+            stream.async_connect(results, [&](std::error_code ec, auto) {
+                connect_ec = ec;
+                connect_done = true;
+            });
+
+            stream.expires_after(sec);
+            ioc.run_for(sec);
+
+            if (!connect_done || connect_ec) {
+                beast::error_code close_ec;
+                stream.socket().close(close_ec);
+                connected_ = false;
+                return;
+            }
+
+            http::request<http::string_body> req{http::verb::get, api_path, 11};
+            req.set(http::field::host, url.host);
+            req.set(http::field::user_agent, "cppload-pro/1.0");
+            req.set(http::field::accept, "application/json");
+            for (const auto& [k, v] : hdrs) req.set(k, v);
+
+            stream.expires_after(sec);
+            http::write(stream, req, ec);
+            if (ec) { connected_ = false; return; }
+
+            beast::flat_buffer buffer;
+            http::response<http::string_body> res;
+            stream.expires_after(sec);
+            http::read(stream, buffer, res, ec);
+            if (ec && ec != http::error::end_of_stream) { connected_ = false; return; }
+
+            beast::error_code shutdown_ec;
+            stream.socket().shutdown(asio::ip::tcp::socket::shutdown_both, shutdown_ec);
+
+            connected_ = (res.result_int() >= 200 && res.result_int() < 500);
+        }
     }
 
     VaultConfig config_;

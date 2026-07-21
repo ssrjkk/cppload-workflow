@@ -28,13 +28,6 @@ void IoContextPool::start() {
     if (!started_.compare_exchange_strong(expected, true))
         return;
     std::lock_guard<std::mutex> lock(mtx_);
-    if (work_guards_.empty()) {
-        work_guards_.reserve(contexts_.size());
-        for (auto& ctx : contexts_) {
-            work_guards_.emplace_back(
-                boost::asio::make_work_guard(*ctx));
-        }
-    }
     threads_.reserve(contexts_.size());
     for (auto& ctx : contexts_) {
         threads_.emplace_back([ctx = ctx.get()]() {

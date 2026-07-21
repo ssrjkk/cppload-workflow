@@ -80,7 +80,7 @@ jobs:
         run: |
           cd build
           all_passed=true
-          for t in test_http_client test_metrics test_token_bucket test_auth test_vault test_otlp test_yaml_parser test_prometheus; do
+          for t in test_http_client test_metrics test_token_bucket test_auth test_vault test_otlp test_yaml_parser test_prometheus test_sharded_metrics test_metrics_stress; do
             if [ -x "./$t" ]; then
               printf "::group::%s\n" "$t"
               ./$t 2>&1
@@ -262,7 +262,7 @@ jobs:
         run: |
           cd build-asan
           all_passed=true
-          for t in test_http_client test_metrics test_token_bucket test_auth test_vault test_otlp test_yaml_parser test_prometheus; do
+          for t in test_http_client test_metrics test_token_bucket test_auth test_vault test_otlp test_yaml_parser test_prometheus test_sharded_metrics test_metrics_stress; do
             if [ -x "./$t" ]; then
               printf "::group::%s\n" "$t"
               ./$t > test-tmp.log 2>&1; rc=$?

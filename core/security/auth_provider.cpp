@@ -161,12 +161,14 @@ public:
 
 private:
     std::string get_token() {
-        std::unique_lock<std::mutex> lock(mtx_);
-        if (std::chrono::system_clock::now() >= token_expiry_) {
-            lock.unlock();
-            fetch_token();
-            lock.lock();
+        {
+            std::lock_guard<std::mutex> lock(mtx_);
+            if (std::chrono::system_clock::now() < token_expiry_) {
+                return current_token_;
+            }
         }
+        fetch_token();
+        std::lock_guard<std::mutex> lock(mtx_);
         return current_token_;
     }
 

@@ -2,6 +2,7 @@
 
 #include <atomic>
 #include <chrono>
+#include <climits>
 #include <cstddef>
 #include <cstdint>
 #include <memory>

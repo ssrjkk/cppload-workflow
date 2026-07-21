@@ -19,8 +19,8 @@ public:
     static Result ok(T value) { return Result(std::move(value)); }
     static Result err(E error) { return Result(std::move(error)); }
 
-    [[nodiscard]] bool has_value() const { return storage_.index() == 0; }
-    explicit operator bool() const { return has_value(); }
+    [[nodiscard]] constexpr bool has_value() const noexcept { return storage_.index() == 0; }
+    constexpr explicit operator bool() const noexcept { return has_value(); }
 
     T& value() & { assert(has_value()); return std::get<0>(storage_); }
     const T& value() const& { assert(has_value()); return std::get<0>(storage_); }
@@ -62,10 +62,19 @@ public:
         return *this;
     }
 
+    void swap(Result& other) noexcept {
+        storage_.swap(other.storage_);
+    }
+
 private:
     explicit Result(std::variant<T, E> v) : storage_(std::move(v)) {}
     std::variant<T, E> storage_;
 };
+
+template <typename T, typename E>
+void swap(Result<T, E>& a, Result<T, E>& b) noexcept {
+    a.swap(b);
+}
 
 template <typename E>
 class [[nodiscard]] Result<void, E> {
@@ -77,8 +86,8 @@ public:
     static Result ok() { return Result(); }
     static Result err(E error) { return Result(std::move(error)); }
 
-    [[nodiscard]] bool has_value() const { return storage_.index() == 0; }
-    explicit operator bool() const { return has_value(); }
+    [[nodiscard]] constexpr bool has_value() const noexcept { return storage_.index() == 0; }
+    constexpr explicit operator bool() const noexcept { return has_value(); }
 
     E& error() & { assert(!has_value()); return std::get<1>(storage_); }
     const E& error() const& { assert(!has_value()); return std::get<1>(storage_); }
@@ -90,8 +99,17 @@ public:
         return *this;
     }
 
+    void swap(Result& other) noexcept {
+        storage_.swap(other.storage_);
+    }
+
 private:
     std::variant<std::monostate, E> storage_;
 };
+
+template <typename E>
+void swap(Result<void, E>& a, Result<void, E>& b) noexcept {
+    a.swap(b);
+}
 
 } // namespace cppload
