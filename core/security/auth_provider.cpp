@@ -1,5 +1,6 @@
 #include "cppload/security/auth_provider.hpp"
 #include "cppload/security/tls_context.hpp"
+#include "cppload/result.hpp"
 #include <boost/beast/core.hpp>
 #include <boost/beast/http.hpp>
 #include <boost/asio/ip/tcp.hpp>
@@ -12,7 +13,6 @@
 #include <string>
 #include <sstream>
 #include <algorithm>
-#include <stdexcept>
 #include <cstdint>
 
 namespace beast = boost::beast;
@@ -41,13 +41,12 @@ std::string url_encode(const std::string& value) {
     return escaped.str();
 }
 
-beast::error_code do_sync_post(
+Result<http::response<http::string_body>, Err> do_sync_post(
     const std::string& host,
     const std::string& port,
     const std::string& target,
     const std::string& body,
     const std::string& content_type,
-    http::response<http::string_body>& res,
     std::chrono::seconds timeout = std::chrono::seconds(10))
 {
     beast::error_code ec;
@@ -56,11 +55,14 @@ beast::error_code do_sync_post(
     beast::tcp_stream stream(ioc);
 
     auto const results = resolver.resolve(host, port, ec);
-    if (ec) return ec;
+    if (ec) return Result<http::response<http::string_body>, Err>::err(Err::dns_failure);
 
     stream.expires_after(timeout);
     stream.connect(results, ec);
-    if (ec) return ec;
+    if (ec == beast::error::timeout)
+        return Result<http::response<http::string_body>, Err>::err(Err::connection_timeout);
+    if (ec)
+        return Result<http::response<http::string_body>, Err>::err(Err::connection_refused);
 
     http::request<http::string_body> req{http::verb::post, target, 11};
     req.set(http::field::host, host);
@@ -72,16 +74,18 @@ beast::error_code do_sync_post(
 
     stream.expires_after(timeout);
     http::write(stream, req, ec);
-    if (ec) return ec;
+    if (ec) return Result<http::response<http::string_body>, Err>::err(Err::write_error);
 
     beast::flat_buffer buffer;
+    http::response<http::string_body> res;
     stream.expires_after(timeout);
     http::read(stream, buffer, res, ec);
-    if (ec && ec != http::error::end_of_stream) return ec;
+    if (ec && ec != http::error::end_of_stream)
+        return Result<http::response<http::string_body>, Err>::err(Err::read_error);
 
     beast::error_code shutdown_ec;
     stream.socket().shutdown(asio::ip::tcp::socket::shutdown_both, shutdown_ec);
-    return {};
+    return Result<http::response<http::string_body>, Err>::ok(std::move(res));
 }
 
 void parse_url(const std::string& url, std::string& host, std::string& port, std::string& path) {
@@ -109,7 +113,10 @@ class AuthProvider::Impl {
 public:
     explicit Impl(const AuthConfig& config) : config_(config), token_expiry_() {
         if (config_.type == AuthType::OAUTH2 && !config_.token_endpoint.empty()) {
-            fetch_token();
+            auto res = fetch_token();
+            if (!res) {
+                throw std::runtime_error(make_error_code(res.error()).message());
+            }
         }
     }
 
@@ -140,15 +147,10 @@ public:
         return "";
     }
 
-    bool refresh_token() {
-        if (config_.type == AuthType::MTLS) return true;
-        if (config_.type != AuthType::OAUTH2) return true;
-        try {
-            fetch_token();
-            return true;
-        } catch (const std::exception&) {
-            return false;
-        }
+    Result<bool, Err> refresh_token() {
+        if (config_.type == AuthType::MTLS) return Result<bool, Err>::ok(true);
+        if (config_.type != AuthType::OAUTH2) return Result<bool, Err>::ok(true);
+        return fetch_token();
     }
 
     bool is_expired() const {
@@ -164,13 +166,11 @@ private:
             lock.unlock();
             fetch_token();
             lock.lock();
-            // Double-check: if another thread also refreshed concurrently,
-            // the most recent refresh wins
         }
         return current_token_;
     }
 
-    void fetch_token() {
+    Result<bool, Err> fetch_token() {
         std::string host, port, path;
         parse_url(config_.token_endpoint, host, port, path);
 
@@ -178,22 +178,31 @@ private:
             "&client_id=" + url_encode(config_.client_id) +
             "&client_secret=" + url_encode(config_.client_secret);
 
-        http::response<http::string_body> res;
-        auto ec = do_sync_post(host, port, path, body,
-            "application/x-www-form-urlencoded", res);
+        auto res = do_sync_post(host, port, path, body,
+            "application/x-www-form-urlencoded");
 
-        if (ec || res.result_int() < 200 || res.result_int() >= 300) {
-            throw std::runtime_error("OAuth2 token request failed: " +
-                std::to_string(res.result_int()));
+        if (!res) return Result<bool, Err>::err(res.error());
+
+        auto& http_res = res.value();
+        auto code = http_res.result_int();
+        if (code < 200 || code >= 300) {
+            if (code == 401) return Result<bool, Err>::err(Err::auth_invalid_client);
+            if (code == 400) return Result<bool, Err>::err(Err::auth_invalid_grant);
+            return Result<bool, Err>::err(Err::auth_server_error);
         }
 
-        auto j = json::parse(res.body());
-        {
-            std::lock_guard<std::mutex> lock(mtx_);
-            current_token_ = j.value("access_token", "");
-            auto expires_in = j.value("expires_in", 3600);
-            token_expiry_ = std::chrono::system_clock::now() +
-                std::chrono::seconds(std::max(expires_in - 60, 1));
+        try {
+            auto j = json::parse(http_res.body());
+            {
+                std::lock_guard<std::mutex> lock(mtx_);
+                current_token_ = j.value("access_token", "");
+                auto expires_in = j.value("expires_in", 3600);
+                token_expiry_ = std::chrono::system_clock::now() +
+                    std::chrono::seconds(std::max(expires_in - 60, 1));
+            }
+            return Result<bool, Err>::ok(true);
+        } catch (const json::exception&) {
+            return Result<bool, Err>::err(Err::auth_parse_error);
         }
     }
 
@@ -216,7 +225,7 @@ std::string AuthProvider::get_auth_header() const {
     return impl_->get_auth_header();
 }
 
-bool AuthProvider::refresh_token() {
+Result<bool, Err> AuthProvider::refresh_token() {
     return impl_->refresh_token();
 }
 

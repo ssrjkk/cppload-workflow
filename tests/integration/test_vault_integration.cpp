@@ -36,10 +36,12 @@ TEST(VaultIntegrationTest, GetSecret) {
     ASSERT_TRUE(client.is_connected());
 
     auto password = client.get_secret("db/creds", "password");
-    EXPECT_EQ(password, "my-secret-pass");
+    ASSERT_TRUE(password);
+    EXPECT_EQ(password.value(), "my-secret-pass");
 
     auto username = client.get_kv_secret("db/creds", "username");
-    EXPECT_EQ(username, "admin");
+    ASSERT_TRUE(username);
+    EXPECT_EQ(username.value(), "admin");
 }
 
 TEST(VaultIntegrationTest, GetSecretMap) {
@@ -70,10 +72,11 @@ TEST(VaultIntegrationTest, GetSecretMap) {
     cfg.timeout_seconds = 5;
 
     cppload::vault::VaultClient client(cfg);
-    auto map = client.get_secret_map("myapp/config");
-    ASSERT_EQ(map.size(), 2);
-    EXPECT_EQ(map["key1"], "val1");
-    EXPECT_EQ(map["key2"], "val2");
+    auto result = client.get_secret_map("myapp/config");
+    ASSERT_TRUE(result);
+    ASSERT_EQ(result.value().size(), 2);
+    EXPECT_EQ(result.value()["key1"], "val1");
+    EXPECT_EQ(result.value()["key2"], "val2");
 }
 
 TEST(VaultIntegrationTest, PutSecret) {
@@ -104,7 +107,9 @@ TEST(VaultIntegrationTest, PutSecret) {
 
     cppload::vault::VaultClient client(cfg);
     std::unordered_map<std::string, std::string> data = {{"apikey", "abc123"}};
-    EXPECT_TRUE(client.put_secret("api/keys", data));
+    auto result = client.put_secret("api/keys", data);
+    ASSERT_TRUE(result);
+    EXPECT_TRUE(result.value());
 }
 
 TEST(VaultIntegrationTest, GetAppRoleToken) {
@@ -134,8 +139,9 @@ TEST(VaultIntegrationTest, GetAppRoleToken) {
     cfg.timeout_seconds = 5;
 
     cppload::vault::VaultClient client(cfg);
-    auto token = client.get_approle_token("role-123", "secret-456");
-    EXPECT_EQ(token, "s.approle-token-789");
+    auto result = client.get_approle_token("role-123", "secret-456");
+    ASSERT_TRUE(result);
+    EXPECT_EQ(result.value(), "s.approle-token-789");
 }
 
 TEST(VaultIntegrationTest, GetDatabaseCreds) {
@@ -166,6 +172,7 @@ TEST(VaultIntegrationTest, GetDatabaseCreds) {
     cfg.timeout_seconds = 5;
 
     cppload::vault::VaultClient client(cfg);
-    auto creds = client.get_database_creds("my-db-role");
-    EXPECT_EQ(creds, "vault-user-db1:vault-pass-db1");
+    auto result = client.get_database_creds("my-db-role");
+    ASSERT_TRUE(result);
+    EXPECT_EQ(result.value(), "vault-user-db1:vault-pass-db1");
 }

@@ -41,5 +41,16 @@ TEST(AuthProviderTest, RefreshNonOAuth) {
     cfg.type = cppload::security::AuthType::BEARER_TOKEN;
     cfg.token = "static";
     cppload::security::AuthProvider auth(cfg);
-    EXPECT_TRUE(auth.refresh_token()); // Non-OAuth always succeeds
+    auto result = auth.refresh_token();
+    ASSERT_TRUE(result);
+    EXPECT_TRUE(result.value());
+}
+
+TEST(AuthProviderTest, RefreshMtls) {
+    cppload::security::AuthConfig cfg;
+    cfg.type = cppload::security::AuthType::MTLS;
+    cppload::security::AuthProvider auth(cfg);
+    auto result = auth.refresh_token();
+    ASSERT_TRUE(result);
+    EXPECT_TRUE(result.value());
 }

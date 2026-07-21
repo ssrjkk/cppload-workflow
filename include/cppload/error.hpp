@@ -27,6 +27,18 @@ enum class Err {
     auth_failed,
     not_implemented,
     unknown,
+    // Vault-specific
+    vault_not_found,
+    vault_permission_denied,
+    vault_token_invalid,
+    vault_server_error,
+    vault_unreachable,
+    // Auth-specific
+    auth_token_expired,
+    auth_invalid_grant,
+    auth_invalid_client,
+    auth_server_error,
+    auth_parse_error,
 };
 
 class ErrCategory : public std::error_category {
@@ -57,6 +69,16 @@ public:
             case Err::auth_failed: return "authentication failed";
             case Err::not_implemented: return "not implemented";
             case Err::unknown: return "unknown error";
+            case Err::vault_not_found: return "vault: secret not found";
+            case Err::vault_permission_denied: return "vault: permission denied";
+            case Err::vault_token_invalid: return "vault: invalid token";
+            case Err::vault_server_error: return "vault: server error";
+            case Err::vault_unreachable: return "vault: server unreachable";
+            case Err::auth_token_expired: return "auth: token expired";
+            case Err::auth_invalid_grant: return "auth: invalid grant";
+            case Err::auth_invalid_client: return "auth: invalid client";
+            case Err::auth_server_error: return "auth: server error";
+            case Err::auth_parse_error: return "auth: response parse error";
         }
         return "unrecognized error";
     }

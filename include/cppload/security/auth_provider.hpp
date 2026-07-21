@@ -1,5 +1,7 @@
 #pragma once
 
+#include "cppload/result.hpp"
+#include "cppload/error.hpp"
 #include <string>
 #include <memory>
 #include <unordered_map>
@@ -30,13 +32,13 @@ class AuthProvider {
 public:
     explicit AuthProvider(const AuthConfig& config = {});
     ~AuthProvider();
-    
+
     void apply_headers(std::unordered_map<std::string, std::string>& headers);
     [[nodiscard]] std::string get_auth_header() const;
-    
-    [[nodiscard]] bool refresh_token();
+
+    [[nodiscard]] Result<bool, Err> refresh_token();
     [[nodiscard]] bool is_expired() const;
-    
+
 private:
     class Impl;
     std::unique_ptr<Impl> impl_;

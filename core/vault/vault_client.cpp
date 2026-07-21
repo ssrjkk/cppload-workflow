@@ -1,4 +1,5 @@
 #include "cppload/vault/vault_client.hpp"
+#include "cppload/result.hpp"
 #include <boost/beast/core.hpp>
 #include <boost/beast/http.hpp>
 #include <boost/asio/ip/tcp.hpp>
@@ -6,7 +7,6 @@
 #include <nlohmann/json.hpp>
 #include <string>
 #include <sstream>
-#include <stdexcept>
 
 namespace beast = boost::beast;
 namespace http = beast::http;
@@ -39,7 +39,7 @@ UrlParts parse_url(const std::string& url) {
     return p;
 }
 
-http::response<http::string_body> do_get(
+Result<http::response<http::string_body>, Err> do_get(
     const std::string& host,
     const std::string& port,
     const std::string& target,
@@ -52,11 +52,14 @@ http::response<http::string_body> do_get(
     beast::tcp_stream stream(ioc);
 
     auto results = resolver.resolve(host, port, ec);
-    if (ec) throw std::runtime_error("Vault DNS resolve failed");
+    if (ec) return Result<http::response<http::string_body>, Err>::err(Err::dns_failure);
 
     stream.expires_after(std::chrono::seconds(timeout_sec));
     stream.connect(results, ec);
-    if (ec) throw std::runtime_error("Vault connect failed");
+    if (ec == beast::error::timeout)
+        return Result<http::response<http::string_body>, Err>::err(Err::connection_timeout);
+    if (ec)
+        return Result<http::response<http::string_body>, Err>::err(Err::connection_refused);
 
     http::request<http::string_body> req{http::verb::get, target, 11};
     req.set(http::field::host, host);
@@ -66,21 +69,21 @@ http::response<http::string_body> do_get(
 
     stream.expires_after(std::chrono::seconds(timeout_sec));
     http::write(stream, req, ec);
-    if (ec) throw std::runtime_error("Vault write failed");
+    if (ec) return Result<http::response<http::string_body>, Err>::err(Err::write_error);
 
     beast::flat_buffer buffer;
     http::response<http::string_body> res;
     stream.expires_after(std::chrono::seconds(timeout_sec));
     http::read(stream, buffer, res, ec);
     if (ec && ec != http::error::end_of_stream)
-        throw std::runtime_error("Vault read failed");
+        return Result<http::response<http::string_body>, Err>::err(Err::read_error);
 
     beast::error_code shutdown_ec;
     stream.socket().shutdown(asio::ip::tcp::socket::shutdown_both, shutdown_ec);
-    return res;
+    return Result<http::response<http::string_body>, Err>::ok(std::move(res));
 }
 
-http::response<http::string_body> do_post(
+Result<http::response<http::string_body>, Err> do_post(
     const std::string& host,
     const std::string& port,
     const std::string& target,
@@ -94,11 +97,14 @@ http::response<http::string_body> do_post(
     beast::tcp_stream stream(ioc);
 
     auto results = resolver.resolve(host, port, ec);
-    if (ec) throw std::runtime_error("Vault DNS resolve failed");
+    if (ec) return Result<http::response<http::string_body>, Err>::err(Err::dns_failure);
 
     stream.expires_after(std::chrono::seconds(timeout_sec));
     stream.connect(results, ec);
-    if (ec) throw std::runtime_error("Vault connect failed");
+    if (ec == beast::error::timeout)
+        return Result<http::response<http::string_body>, Err>::err(Err::connection_timeout);
+    if (ec)
+        return Result<http::response<http::string_body>, Err>::err(Err::connection_refused);
 
     http::request<http::string_body> req{http::verb::post, target, 11};
     req.set(http::field::host, host);
@@ -111,18 +117,18 @@ http::response<http::string_body> do_post(
 
     stream.expires_after(std::chrono::seconds(timeout_sec));
     http::write(stream, req, ec);
-    if (ec) throw std::runtime_error("Vault write failed");
+    if (ec) return Result<http::response<http::string_body>, Err>::err(Err::write_error);
 
     beast::flat_buffer buffer;
     http::response<http::string_body> res;
     stream.expires_after(std::chrono::seconds(timeout_sec));
     http::read(stream, buffer, res, ec);
     if (ec && ec != http::error::end_of_stream)
-        throw std::runtime_error("Vault read failed");
+        return Result<http::response<http::string_body>, Err>::err(Err::read_error);
 
     beast::error_code shutdown_ec;
     stream.socket().shutdown(asio::ip::tcp::socket::shutdown_both, shutdown_ec);
-    return res;
+    return Result<http::response<http::string_body>, Err>::ok(std::move(res));
 }
 
 std::string sanitise_path(const std::string& path) {
@@ -138,6 +144,16 @@ std::string sanitise_path(const std::string& path) {
     return result;
 }
 
+Result<int, Err> check_response(const http::response<http::string_body>& res) {
+    auto code = res.result_int();
+    if (code >= 200 && code < 300) return Result<int, Err>::ok(code);
+    if (code == 404) return Result<int, Err>::err(Err::vault_not_found);
+    if (code == 403) return Result<int, Err>::err(Err::vault_permission_denied);
+    if (code == 401) return Result<int, Err>::err(Err::vault_token_invalid);
+    if (code >= 500) return Result<int, Err>::err(Err::vault_server_error);
+    return Result<int, Err>::err(Err::unknown);
+}
+
 } // anonymous namespace
 
 class VaultClient::Impl {
@@ -145,75 +161,58 @@ public:
     explicit Impl(const VaultConfig& config)
         : config_(config), connected_(false)
     {
-        try {
-            health_check();
-        } catch (const std::exception&) {
-            connected_ = false;
-        }
+        health_check();
     }
 
     bool is_connected() const { return connected_; }
 
-    std::string get_secret(const std::string& path, const std::string& key) {
-        if (path.empty()) { set_last_error("Vault: path is empty"); return {}; }
+    Result<std::string, Err> get_secret(const std::string& path, const std::string& key) {
+        if (path.empty()) return Result<std::string, Err>::err(Err::invalid_config);
         auto url = parse_url(config_.address);
-        std::string api_path = "/v1/" + sanitise_path(config_.engine_path) + "/data/" + sanitise_path(path);
+        std::string api_path = "/v1/" + sanitise_path(config_.engine_path)
+            + "/data/" + sanitise_path(path);
 
-        std::unordered_map<std::string, std::string> headers;
-        headers["X-Vault-Token"] = config_.token;
+        std::unordered_map<std::string, std::string> hdrs;
+        hdrs["X-Vault-Token"] = config_.token;
 
-        http::response<http::string_body> res;
-        try {
-            res = do_get(url.host, url.port, api_path, headers, config_.timeout_seconds);
-        } catch (const std::runtime_error& e) {
-            set_last_error(e.what());
-            return {};
-        }
+        auto res = do_get(url.host, url.port, api_path, hdrs, config_.timeout_seconds);
+        if (!res) return Result<std::string, Err>::err(res.error());
 
-        if (res.result_int() < 200 || res.result_int() >= 300) {
-            set_last_error("Vault request failed: " + std::to_string(res.result_int()));
-            return {};
-        }
+        auto status = check_response(res.value());
+        if (!status) return Result<std::string, Err>::err(status.error());
 
         try {
-            auto j = json::parse(res.body());
-            // KV v2 wrapper: { data: { data: { key: value }, metadata: {...} } }
+            auto j = json::parse(res.value().body());
             auto data = j["data"]["data"];
             if (data.is_object() && data.contains(key)) {
-                return data[key].get<std::string>();
+                return Result<std::string, Err>::ok(data[key].get<std::string>());
             }
-            set_last_error("Key not found: " + key);
-            return {};
-        } catch (const json::exception& e) {
-            set_last_error(std::string("JSON parse error: ") + e.what());
-            return {};
+            return Result<std::string, Err>::err(Err::vault_not_found);
+        } catch (const json::exception&) {
+            return Result<std::string, Err>::err(Err::parse_error);
         }
     }
 
-    std::unordered_map<std::string, std::string> get_secret_map(const std::string& path) {
-        if (path.empty()) return {};
+    Result<std::unordered_map<std::string, std::string>, Err>
+    get_secret_map(const std::string& path) {
+        if (path.empty())
+            return Result<std::unordered_map<std::string, std::string>, Err>::err(Err::invalid_config);
 
         auto url = parse_url(config_.address);
-        std::string api_path = "/v1/" + sanitise_path(config_.engine_path) + "/data/" + sanitise_path(path);
+        std::string api_path = "/v1/" + sanitise_path(config_.engine_path)
+            + "/data/" + sanitise_path(path);
 
-        std::unordered_map<std::string, std::string> headers;
-        headers["X-Vault-Token"] = config_.token;
+        std::unordered_map<std::string, std::string> hdrs;
+        hdrs["X-Vault-Token"] = config_.token;
 
-        http::response<http::string_body> res;
-        try {
-            res = do_get(url.host, url.port, api_path, headers, config_.timeout_seconds);
-        } catch (const std::runtime_error& e) {
-            set_last_error(e.what());
-            return {};
-        }
+        auto res = do_get(url.host, url.port, api_path, hdrs, config_.timeout_seconds);
+        if (!res) return Result<std::unordered_map<std::string, std::string>, Err>::err(res.error());
 
-        if (res.result_int() < 200 || res.result_int() >= 300) {
-            set_last_error("Vault request failed: " + std::to_string(res.result_int()));
-            return {};
-        }
+        auto status = check_response(res.value());
+        if (!status) return Result<std::unordered_map<std::string, std::string>, Err>::err(status.error());
 
         try {
-            auto j = json::parse(res.body());
+            auto j = json::parse(res.value().body());
             auto data = j["data"]["data"];
             std::unordered_map<std::string, std::string> result;
             if (data.is_object()) {
@@ -221,84 +220,71 @@ public:
                     result[it.key()] = it.value().get<std::string>();
                 }
             }
-            return result;
-        } catch (const json::exception& e) {
-            set_last_error(std::string("JSON parse error: ") + e.what());
-            return {};
+            return Result<std::unordered_map<std::string, std::string>, Err>::ok(std::move(result));
+        } catch (const json::exception&) {
+            return Result<std::unordered_map<std::string, std::string>, Err>::err(Err::parse_error);
         }
     }
 
-    bool put_secret(const std::string& path,
-                   const std::unordered_map<std::string, std::string>& data) {
-        if (path.empty()) { set_last_error("Vault: path is empty"); return false; }
+    Result<bool, Err> put_secret(const std::string& path,
+                                  const std::unordered_map<std::string, std::string>& data) {
+        if (path.empty()) return Result<bool, Err>::err(Err::invalid_config);
         auto url = parse_url(config_.address);
-        std::string api_path = "/v1/" + sanitise_path(config_.engine_path) + "/data/" + sanitise_path(path);
+        std::string api_path = "/v1/" + sanitise_path(config_.engine_path)
+            + "/data/" + sanitise_path(path);
 
         json body;
         json data_obj;
         for (const auto& [k, v] : data) data_obj[k] = v;
         body["data"] = data_obj;
 
-        std::unordered_map<std::string, std::string> headers;
-        headers["X-Vault-Token"] = config_.token;
+        std::unordered_map<std::string, std::string> hdrs;
+        hdrs["X-Vault-Token"] = config_.token;
 
-        http::response<http::string_body> res;
-        try {
-            res = do_post(url.host, url.port, api_path,
-                body.dump(), headers, config_.timeout_seconds);
-        } catch (const std::runtime_error& e) {
-            set_last_error(e.what());
-            return false;
-        }
+        auto res = do_post(url.host, url.port, api_path,
+            body.dump(), hdrs, config_.timeout_seconds);
+        if (!res) return Result<bool, Err>::err(res.error());
 
-        return res.result_int() >= 200 && res.result_int() < 300;
+        auto status = check_response(res.value());
+        if (!status) return Result<bool, Err>::err(status.error());
+        return Result<bool, Err>::ok(true);
     }
 
-    std::string get_kv_secret(const std::string& path, const std::string& key) {
+    Result<std::string, Err> get_kv_secret(const std::string& path, const std::string& key) {
         return get_secret(path, key);
     }
 
-    std::string get_database_creds(const std::string& role_name) {
-        if (role_name.empty()) { set_last_error("Vault: role_name is empty"); return {}; }
+    Result<std::string, Err> get_database_creds(const std::string& role_name) {
+        if (role_name.empty()) return Result<std::string, Err>::err(Err::invalid_config);
 
         auto url = parse_url(config_.address);
         std::string safe_role = sanitise_path(role_name);
         std::string api_path = "/v1/database/creds/" + safe_role;
 
-        std::unordered_map<std::string, std::string> headers;
-        headers["X-Vault-Token"] = config_.token;
+        std::unordered_map<std::string, std::string> hdrs;
+        hdrs["X-Vault-Token"] = config_.token;
 
-        http::response<http::string_body> res;
-        try {
-            res = do_get(url.host, url.port, api_path, headers, config_.timeout_seconds);
-        } catch (const std::runtime_error& e) {
-            set_last_error(e.what());
-            return {};
-        }
+        auto res = do_get(url.host, url.port, api_path, hdrs, config_.timeout_seconds);
+        if (!res) return Result<std::string, Err>::err(res.error());
 
-        if (res.result_int() < 200 || res.result_int() >= 300) {
-            set_last_error("Vault DB creds failed: " + std::to_string(res.result_int()));
-            return {};
-        }
+        auto status = check_response(res.value());
+        if (!status) return Result<std::string, Err>::err(status.error());
 
         try {
-            auto j = json::parse(res.body());
-            auto data = j["data"];
-            std::string username = data.value("username", "");
-            std::string password = data.value("password", "");
-            return username + ":" + password;
-        } catch (const json::exception& e) {
-            set_last_error(std::string("JSON parse error: ") + e.what());
-            return {};
+            auto j = json::parse(res.value().body());
+            auto d = j["data"];
+            std::string username = d.value("username", "");
+            std::string password = d.value("password", "");
+            return Result<std::string, Err>::ok(username + ":" + password);
+        } catch (const json::exception&) {
+            return Result<std::string, Err>::err(Err::parse_error);
         }
     }
 
-    std::string get_approle_token(const std::string& role_id,
-                                 const std::string& secret_id) {
-        if (role_id.empty() || secret_id.empty()) {
-            set_last_error("Vault: role_id and secret_id required");
-            return {};
-        }
+    Result<std::string, Err> get_approle_token(const std::string& role_id,
+                                                const std::string& secret_id) {
+        if (role_id.empty() || secret_id.empty())
+            return Result<std::string, Err>::err(Err::invalid_config);
 
         auto url = parse_url(config_.address);
         std::string api_path = "/v1/auth/approle/login";
@@ -307,102 +293,80 @@ public:
         body["role_id"] = role_id;
         body["secret_id"] = secret_id;
 
-        std::unordered_map<std::string, std::string> headers;
+        std::unordered_map<std::string, std::string> hdrs;
 
-        http::response<http::string_body> res;
-        try {
-            res = do_post(url.host, url.port, api_path,
-                body.dump(), headers, config_.timeout_seconds);
-        } catch (const std::runtime_error& e) {
-            set_last_error(e.what());
-            return {};
-        }
+        auto res = do_post(url.host, url.port, api_path,
+            body.dump(), hdrs, config_.timeout_seconds);
+        if (!res) return Result<std::string, Err>::err(res.error());
 
-        if (res.result_int() < 200 || res.result_int() >= 300) {
-            set_last_error("Vault AppRole login failed: " + std::to_string(res.result_int()));
-            return {};
-        }
+        auto status = check_response(res.value());
+        if (!status) return Result<std::string, Err>::err(status.error());
 
         try {
-            auto j = json::parse(res.body());
-            return j["auth"]["client_token"].get<std::string>();
-        } catch (const json::exception& e) {
-            set_last_error(std::string("JSON parse error: ") + e.what());
-            return {};
+            auto j = json::parse(res.value().body());
+            return Result<std::string, Err>::ok(j["auth"]["client_token"].get<std::string>());
+        } catch (const json::exception&) {
+            return Result<std::string, Err>::err(Err::parse_error);
         }
-    }
-
-    std::string last_error() const {
-        std::lock_guard<std::mutex> lock(last_error_mtx_);
-        return last_error_;
     }
 
 private:
-    void set_last_error(const std::string& msg) {
-        std::lock_guard<std::mutex> lock(last_error_mtx_);
-        last_error_ = msg;
-    }
-
     void health_check() {
         auto url = parse_url(config_.address);
         std::string api_path = "/v1/sys/health";
 
-        std::unordered_map<std::string, std::string> headers;
-        if (!config_.token.empty()) headers["X-Vault-Token"] = config_.token;
+        std::unordered_map<std::string, std::string> hdrs;
+        if (!config_.token.empty()) hdrs["X-Vault-Token"] = config_.token;
 
-        try {
-            asio::io_context ioc;
-            asio::ip::tcp::resolver resolver(ioc);
-            auto results = resolver.resolve(url.host, url.port);
+        asio::io_context ioc;
+        asio::ip::tcp::resolver resolver(ioc);
+        beast::error_code resolve_ec;
+        auto results = resolver.resolve(url.host, url.port, resolve_ec);
+        if (resolve_ec) { connected_ = false; return; }
 
-            beast::tcp_stream stream(ioc);
-            std::error_code connect_ec;
-            bool connect_done = false;
-            stream.async_connect(results, [&](std::error_code ec, auto) {
-                connect_ec = ec;
-                connect_done = true;
-            });
+        beast::tcp_stream stream(ioc);
+        std::error_code connect_ec;
+        bool connect_done = false;
+        stream.async_connect(results, [&](std::error_code ec, auto) {
+            connect_ec = ec;
+            connect_done = true;
+        });
 
-            stream.expires_after(std::chrono::seconds(config_.timeout_seconds));
-            ioc.run_for(std::chrono::seconds(config_.timeout_seconds));
+        stream.expires_after(std::chrono::seconds(config_.timeout_seconds));
+        ioc.run_for(std::chrono::seconds(config_.timeout_seconds));
 
-            if (!connect_done || connect_ec) {
-                beast::error_code close_ec;
-                stream.socket().close(close_ec);
-                connected_ = false;
-                return;
-            }
-
-            http::request<http::string_body> req{http::verb::get, api_path, 11};
-            req.set(http::field::host, url.host);
-            req.set(http::field::user_agent, "cppload-pro/1.0");
-            req.set(http::field::accept, "application/json");
-            for (const auto& [k, v] : headers) req.set(k, v);
-
-            stream.expires_after(std::chrono::seconds(config_.timeout_seconds));
-            beast::error_code ec;
-            http::write(stream, req, ec);
-            if (ec) { connected_ = false; return; }
-
-            beast::flat_buffer buffer;
-            http::response<http::string_body> res;
-            stream.expires_after(std::chrono::seconds(config_.timeout_seconds));
-            http::read(stream, buffer, res, ec);
-            if (ec && ec != http::error::end_of_stream) { connected_ = false; return; }
-
-            beast::error_code shutdown_ec;
-            stream.socket().shutdown(asio::ip::tcp::socket::shutdown_both, shutdown_ec);
-
-            connected_ = (res.result_int() >= 200 && res.result_int() < 500);
-        } catch (const std::exception&) {
+        if (!connect_done || connect_ec) {
+            beast::error_code close_ec;
+            stream.socket().close(close_ec);
             connected_ = false;
+            return;
         }
+
+        http::request<http::string_body> req{http::verb::get, api_path, 11};
+        req.set(http::field::host, url.host);
+        req.set(http::field::user_agent, "cppload-pro/1.0");
+        req.set(http::field::accept, "application/json");
+        for (const auto& [k, v] : hdrs) req.set(k, v);
+
+        stream.expires_after(std::chrono::seconds(config_.timeout_seconds));
+        beast::error_code ec;
+        http::write(stream, req, ec);
+        if (ec) { connected_ = false; return; }
+
+        beast::flat_buffer buffer;
+        http::response<http::string_body> res;
+        stream.expires_after(std::chrono::seconds(config_.timeout_seconds));
+        http::read(stream, buffer, res, ec);
+        if (ec && ec != http::error::end_of_stream) { connected_ = false; return; }
+
+        beast::error_code shutdown_ec;
+        stream.socket().shutdown(asio::ip::tcp::socket::shutdown_both, shutdown_ec);
+
+        connected_ = (res.result_int() >= 200 && res.result_int() < 500);
     }
 
     VaultConfig config_;
     bool connected_;
-    mutable std::mutex last_error_mtx_;
-    std::string last_error_;
 };
 
 VaultClient::VaultClient(const VaultConfig& config)
@@ -411,26 +375,32 @@ VaultClient::VaultClient(const VaultConfig& config)
 VaultClient::~VaultClient() = default;
 
 bool VaultClient::is_connected() const { return impl_->is_connected(); }
-std::string VaultClient::get_secret(const std::string& path, const std::string& key) {
+
+Result<std::string, Err> VaultClient::get_secret(const std::string& path, const std::string& key) {
     return impl_->get_secret(path, key);
 }
-std::unordered_map<std::string, std::string> VaultClient::get_secret_map(const std::string& path) {
+
+Result<std::unordered_map<std::string, std::string>, Err>
+VaultClient::get_secret_map(const std::string& path) {
     return impl_->get_secret_map(path);
 }
-bool VaultClient::put_secret(const std::string& path,
+
+Result<bool, Err> VaultClient::put_secret(const std::string& path,
     const std::unordered_map<std::string, std::string>& data) {
     return impl_->put_secret(path, data);
 }
-std::string VaultClient::get_kv_secret(const std::string& path, const std::string& key) {
+
+Result<std::string, Err> VaultClient::get_kv_secret(const std::string& path, const std::string& key) {
     return impl_->get_kv_secret(path, key);
 }
-std::string VaultClient::get_database_creds(const std::string& role_name) {
+
+Result<std::string, Err> VaultClient::get_database_creds(const std::string& role_name) {
     return impl_->get_database_creds(role_name);
 }
-std::string VaultClient::get_approle_token(const std::string& role_id,
+
+Result<std::string, Err> VaultClient::get_approle_token(const std::string& role_id,
     const std::string& secret_id) {
     return impl_->get_approle_token(role_id, secret_id);
 }
-std::string VaultClient::last_error() const { return impl_->last_error(); }
 
 } // namespace cppload::vault

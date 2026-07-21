@@ -7,6 +7,7 @@ set(CORE_SOURCES
     net/tcp_raw_client.cpp
     net/ws_client.cpp
     metrics/collector.cpp
+    metrics/sharded_collector.cpp
     scenario/engine.cpp
     scenario/yaml_parser.cpp
     otel/otlp_exporter.cpp
@@ -19,6 +20,7 @@ set(CORE_SOURCES
 
 set(CORE_HEADERS
     ${CMAKE_SOURCE_DIR}/include/cppload/error.hpp
+    ${CMAKE_SOURCE_DIR}/include/cppload/result.hpp
     ${CMAKE_SOURCE_DIR}/include/cppload/core/token_bucket.hpp
     ${CMAKE_SOURCE_DIR}/include/cppload/net/protocol.hpp
     ${CMAKE_SOURCE_DIR}/include/cppload/net/connection.hpp
@@ -28,6 +30,7 @@ set(CORE_HEADERS
     ${CMAKE_SOURCE_DIR}/include/cppload/net/ws_client.hpp
     ${CMAKE_SOURCE_DIR}/include/cppload/net/connection_pool.hpp
     ${CMAKE_SOURCE_DIR}/include/cppload/metrics/collector.hpp
+    ${CMAKE_SOURCE_DIR}/include/cppload/metrics/sharded_collector.hpp
     ${CMAKE_SOURCE_DIR}/include/cppload/metrics/prometheus_exporter.hpp
     ${CMAKE_SOURCE_DIR}/include/cppload/scenario/engine.hpp
     ${CMAKE_SOURCE_DIR}/include/cppload/otel/exporter.hpp

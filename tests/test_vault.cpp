@@ -1,7 +1,6 @@
 #include <gtest/gtest.h>
 #include "cppload/vault/vault_client.hpp"
 
-// Deterministic: uses unroutable address so connection always fails
 static const char* VAULT_TEST_ADDR = "http://192.0.2.1:8200";
 
 TEST(VaultClientTest, ConstructDefault) {
@@ -10,7 +9,6 @@ TEST(VaultClientTest, ConstructDefault) {
     cfg.token = "test";
     cfg.timeout_seconds = 1;
     cppload::vault::VaultClient client(cfg);
-    // Should not crash, connection will fail (no route to 192.0.2.1)
     EXPECT_NO_THROW(client.is_connected());
 }
 
@@ -20,9 +18,9 @@ TEST(VaultClientTest, GetSecretNoServer) {
     cfg.token = "test";
     cfg.timeout_seconds = 1;
     cppload::vault::VaultClient client(cfg);
-    auto secret = client.get_secret("test-path", "test-key");
-    // Should not crash, returns empty
-    EXPECT_TRUE(secret.empty());
+    auto result = client.get_secret("test-path", "test-key");
+    ASSERT_FALSE(result);
+    EXPECT_NE(result.error(), cppload::Err::success);
 }
 
 TEST(VaultClientTest, GetSecretMapNoServer) {
@@ -31,8 +29,9 @@ TEST(VaultClientTest, GetSecretMapNoServer) {
     cfg.token = "test";
     cfg.timeout_seconds = 1;
     cppload::vault::VaultClient client(cfg);
-    auto map = client.get_secret_map("test-path");
-    EXPECT_TRUE(map.empty());
+    auto result = client.get_secret_map("test-path");
+    ASSERT_FALSE(result);
+    EXPECT_NE(result.error(), cppload::Err::success);
 }
 
 TEST(VaultClientTest, PutSecretNoServer) {
@@ -42,7 +41,9 @@ TEST(VaultClientTest, PutSecretNoServer) {
     cfg.timeout_seconds = 1;
     cppload::vault::VaultClient client(cfg);
     std::unordered_map<std::string, std::string> data = {{"key", "value"}};
-    EXPECT_FALSE(client.put_secret("test", data));
+    auto result = client.put_secret("test", data);
+    ASSERT_FALSE(result);
+    EXPECT_NE(result.error(), cppload::Err::success);
 }
 
 TEST(VaultClientTest, GetDatabaseCredsNoServer) {
@@ -51,8 +52,9 @@ TEST(VaultClientTest, GetDatabaseCredsNoServer) {
     cfg.token = "test";
     cfg.timeout_seconds = 1;
     cppload::vault::VaultClient client(cfg);
-    auto creds = client.get_database_creds("test-role");
-    EXPECT_TRUE(creds.empty());
+    auto result = client.get_database_creds("test-role");
+    ASSERT_FALSE(result);
+    EXPECT_NE(result.error(), cppload::Err::success);
 }
 
 TEST(VaultClientTest, GetAppRoleTokenNoServer) {
@@ -61,6 +63,40 @@ TEST(VaultClientTest, GetAppRoleTokenNoServer) {
     cfg.token = "test";
     cfg.timeout_seconds = 1;
     cppload::vault::VaultClient client(cfg);
-    auto token = client.get_approle_token("role-id", "secret-id");
-    EXPECT_TRUE(token.empty());
+    auto result = client.get_approle_token("role-id", "secret-id");
+    ASSERT_FALSE(result);
+    EXPECT_NE(result.error(), cppload::Err::success);
+}
+
+TEST(VaultClientTest, GetSecretEmptyPath) {
+    cppload::vault::VaultConfig cfg;
+    cfg.address = VAULT_TEST_ADDR;
+    cfg.token = "test";
+    cfg.timeout_seconds = 1;
+    cppload::vault::VaultClient client(cfg);
+    auto result = client.get_secret("", "key");
+    ASSERT_FALSE(result);
+    EXPECT_EQ(result.error(), cppload::Err::invalid_config);
+}
+
+TEST(VaultClientTest, GetSecretEmptyRole) {
+    cppload::vault::VaultConfig cfg;
+    cfg.address = VAULT_TEST_ADDR;
+    cfg.token = "test";
+    cfg.timeout_seconds = 1;
+    cppload::vault::VaultClient client(cfg);
+    auto result = client.get_database_creds("");
+    ASSERT_FALSE(result);
+    EXPECT_EQ(result.error(), cppload::Err::invalid_config);
+}
+
+TEST(VaultClientTest, GetAppRoleTokenEmptyArgs) {
+    cppload::vault::VaultConfig cfg;
+    cfg.address = VAULT_TEST_ADDR;
+    cfg.token = "test";
+    cfg.timeout_seconds = 1;
+    cppload::vault::VaultClient client(cfg);
+    auto result = client.get_approle_token("", "");
+    ASSERT_FALSE(result);
+    EXPECT_EQ(result.error(), cppload::Err::invalid_config);
 }

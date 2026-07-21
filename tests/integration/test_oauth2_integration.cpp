@@ -79,7 +79,9 @@ TEST(OAuth2IntegrationTest, AutoRefreshOnExpiry) {
     std::this_thread::sleep_for(std::chrono::seconds(2));
 
     EXPECT_TRUE(auth.is_expired());
-    EXPECT_TRUE(auth.refresh_token());
+    auto result = auth.refresh_token();
+    ASSERT_TRUE(result);
+    EXPECT_TRUE(result.value());
 
     std::unordered_map<std::string, std::string> headers2;
     auth.apply_headers(headers2);
@@ -121,5 +123,7 @@ TEST(OAuth2IntegrationTest, BearerTokenStatic) {
     auth.apply_headers(headers);
     EXPECT_EQ(headers["Authorization"], "Bearer static-token");
     EXPECT_FALSE(auth.is_expired());
-    EXPECT_TRUE(auth.refresh_token());
+    auto result = auth.refresh_token();
+    ASSERT_TRUE(result);
+    EXPECT_TRUE(result.value());
 }

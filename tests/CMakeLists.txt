@@ -53,6 +53,18 @@ target_link_libraries(test_prometheus
 )
 add_test(NAME PrometheusTest COMMAND test_prometheus)
 
+add_executable(test_sharded_metrics test_sharded_metrics.cpp)
+target_link_libraries(test_sharded_metrics
+    PRIVATE cppload_core GTest::gtest_main
+)
+add_test(NAME ShardedMetricsTest COMMAND test_sharded_metrics)
+
+add_executable(test_metrics_stress test_metrics_stress.cpp)
+target_link_libraries(test_metrics_stress
+    PRIVATE cppload_core GTest::gtest_main
+)
+add_test(NAME MetricsStressTest COMMAND test_metrics_stress)
+
 add_test(NAME HttpClientTest COMMAND test_http_client)
 add_test(NAME MetricsTest COMMAND test_metrics)
 add_test(NAME TokenBucketTest COMMAND test_token_bucket)
