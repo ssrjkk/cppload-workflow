@@ -95,7 +95,10 @@ void substitute_env(YAML::Node node) {
             auto colon = expr.find(":-");
             std::string var_name = expr.substr(0, colon);
             std::string default_val = (colon != std::string::npos) ? expr.substr(colon + 2) : "";
-            const char* env_val = std::getenv(var_name.c_str());
+            bool valid_name = !var_name.empty() &&
+                std::all_of(var_name.begin(), var_name.end(),
+                    [](char c) { return std::isalnum(c) || c == '_'; });
+            const char* env_val = valid_name ? std::getenv(var_name.c_str()) : nullptr;
             result += env_val ? env_val : default_val;
             pos = end + 1;
         }

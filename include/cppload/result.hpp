@@ -62,6 +62,18 @@ public:
         return *this;
     }
 
+    template <typename F>
+    auto transform_error(F&& f) const& -> Result<T, std::invoke_result_t<F, const E&>> {
+        if (has_value()) return Result<T, std::invoke_result_t<F, const E&>>::ok(std::get<0>(storage_));
+        return Result<T, std::invoke_result_t<F, const E&>>::err(f(std::get<1>(storage_)));
+    }
+
+    template <typename F>
+    auto transform_error(F&& f) && -> Result<T, std::invoke_result_t<F, E&&>> {
+        if (has_value()) return Result<T, std::invoke_result_t<F, E&&>>::ok(std::get<0>(std::move(storage_)));
+        return Result<T, std::invoke_result_t<F, E&&>>::err(f(std::get<1>(std::move(storage_))));
+    }
+
     void swap(Result& other) noexcept {
         storage_.swap(other.storage_);
     }
@@ -97,6 +109,18 @@ public:
     Result or_else(F&& f) const& {
         if (!has_value()) return f(std::get<1>(storage_));
         return *this;
+    }
+
+    template <typename F>
+    auto transform_error(F&& f) const& -> Result<void, std::invoke_result_t<F, const E&>> {
+        if (has_value()) return Result<void, std::invoke_result_t<F, const E&>>::ok();
+        return Result<void, std::invoke_result_t<F, const E&>>::err(f(std::get<1>(storage_)));
+    }
+
+    template <typename F>
+    auto transform_error(F&& f) && -> Result<void, std::invoke_result_t<F, E&&>> {
+        if (has_value()) return Result<void, std::invoke_result_t<F, E&&>>::ok();
+        return Result<void, std::invoke_result_t<F, E&&>>::err(f(std::get<1>(std::move(storage_))));
     }
 
     void swap(Result& other) noexcept {

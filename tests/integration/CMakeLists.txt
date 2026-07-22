@@ -13,6 +13,12 @@ target_link_libraries(test_oauth2_integration
     PRIVATE cppload_core GTest::gtest_main nlohmann_json::nlohmann_json
 )
 
+add_executable(test_connection_pool_integration test_connection_pool_integration.cpp)
+target_link_libraries(test_connection_pool_integration
+    PRIVATE cppload_core GTest::gtest_main
+)
+
 add_test(NAME HttpClientIntegrationTest COMMAND test_http_client_integration)
 add_test(NAME VaultIntegrationTest COMMAND test_vault_integration)
 add_test(NAME OAuth2IntegrationTest COMMAND test_oauth2_integration)
+add_test(NAME ConnectionPoolIntegrationTest COMMAND test_connection_pool_integration)

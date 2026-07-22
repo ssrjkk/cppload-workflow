@@ -106,3 +106,35 @@ TEST(MetricsCollectorStressTest, MinMaxLatencyCorrectness) {
     EXPECT_LE(m.min_latency.count(), 0);
     EXPECT_GE(m.max_latency.count(), 99999);
 }
+
+TEST(MetricsCollectorStressTest, ResetUnderConcurrentWrites) {
+    cppload::metrics::MetricsCollector collector;
+    constexpr int kWriters = 8;
+    constexpr int kResets = 50;
+    std::atomic<bool> stop{false};
+
+    std::vector<std::thread> writers;
+    for (int t = 0; t < kWriters; ++t) {
+        writers.emplace_back([&collector, &stop]() {
+            while (!stop.load(std::memory_order_relaxed)) {
+                collector.record_request(200, std::chrono::microseconds(100), 100, 200);
+            }
+        });
+    }
+
+    std::thread reseter([&]() {
+        for (int i = 0; i < kResets; ++i) {
+            collector.reset();
+            std::this_thread::yield();
+        }
+    });
+
+    std::this_thread::sleep_for(std::chrono::milliseconds(200));
+    stop.store(true, std::memory_order_relaxed);
+
+    for (auto& w : writers) w.join();
+    reseter.join();
+
+    auto m = collector.snapshot();
+    EXPECT_LE(m.total_requests, static_cast<uint64_t>(kWriters) * 1000000);
+}
