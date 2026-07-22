@@ -46,6 +46,8 @@ void ShardedMetricsCollector::record_request(uint16_t status_code,
     }
 
     auto lat_val = static_cast<int64_t>(latency.count());
+    if (lat_val < 0) lat_val = 0;
+    if (lat_val >= kMaxLatencyUs) lat_val = kMaxLatencyUs - 1;
 
     auto min_curr = shard.min_latency_us.load(std::memory_order_relaxed);
     while (lat_val < min_curr &&
@@ -57,8 +59,6 @@ void ShardedMetricsCollector::record_request(uint16_t status_code,
            !shard.max_latency_us.compare_exchange_weak(max_curr, lat_val,
                std::memory_order_relaxed)) {}
 
-    if (lat_val < 0) lat_val = 0;
-    if (lat_val >= kMaxLatencyUs) lat_val = kMaxLatencyUs - 1;
     auto bucket_idx = static_cast<size_t>(lat_val / kBucketWidthUs);
     latency_buckets_[bucket_idx].count.fetch_add(1, std::memory_order_relaxed);
 }

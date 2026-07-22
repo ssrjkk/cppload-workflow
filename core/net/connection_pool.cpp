@@ -45,13 +45,9 @@ public:
         auto key = host + ":" + std::to_string(port);
         auto& pool = pools_[key];
 
-        if (pool.size() < config_.max_connections) {
-            client->set_keep_alive(config_.keep_alive);
-            auto now = std::chrono::steady_clock::now();
-            pool.push({std::move(client), now});
-        } else if (total_created_ > 0) {
-            total_created_--;
-        }
+        client->set_keep_alive(config_.keep_alive);
+        auto now = std::chrono::steady_clock::now();
+        pool.push({std::move(client), now});
     }
 
     void cleanup() {
