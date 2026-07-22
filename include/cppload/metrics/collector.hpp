@@ -39,6 +39,8 @@ public:
     [[nodiscard]] double requests_per_second() const;
     [[nodiscard]] double error_rate() const;
 
+    [[nodiscard]] uint64_t percentile(double p) const;
+
     void reset();
 
 private:

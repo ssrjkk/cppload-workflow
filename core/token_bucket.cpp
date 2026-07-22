@@ -57,6 +57,14 @@ bool TokenBucket::try_consume() {
     return true;
 }
 
+double TokenBucket::tokens_available() const {
+    std::lock_guard<std::mutex> lock(mtx_);
+    auto now = std::chrono::steady_clock::now();
+    auto elapsed = std::chrono::duration<double>(now - last_refill_).count();
+    double available = tokens_ + elapsed * rate_;
+    return available > burst_ ? burst_ : (available < 0.0 ? 0.0 : available);
+}
+
 void TokenBucket::refill() {
     auto now = std::chrono::steady_clock::now();
     auto elapsed = std::chrono::duration<double>(now - last_refill_).count();

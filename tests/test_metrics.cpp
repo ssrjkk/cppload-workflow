@@ -90,3 +90,28 @@ TEST(MetricsCollectorTest, ResetClearsCounters) {
     EXPECT_EQ(m.failed_requests, 0);
     EXPECT_EQ(m.p95_latency_us, 0);
 }
+
+TEST(MetricsCollectorTest, ArbitraryPercentile) {
+    cppload::metrics::MetricsCollector collector;
+    for (int i = 1; i <= 100; ++i) {
+        collector.record_request(200, std::chrono::microseconds(i), 100, 500);
+    }
+    EXPECT_EQ(collector.percentile(0.0), 1u);
+    EXPECT_EQ(collector.percentile(1.0), 100u);
+    EXPECT_GE(collector.percentile(0.5), 49u);
+    EXPECT_LE(collector.percentile(0.5), 51u);
+    EXPECT_GE(collector.percentile(0.95), 94u);
+    EXPECT_LE(collector.percentile(0.95), 96u);
+}
+
+TEST(MetricsCollectorTest, PercentileEmpty) {
+    cppload::metrics::MetricsCollector collector;
+    EXPECT_EQ(collector.percentile(0.5), 0u);
+}
+
+TEST(MetricsCollectorTest, PercentileOutOfBounds) {
+    cppload::metrics::MetricsCollector collector;
+    collector.record_request(200, std::chrono::microseconds(100), 100, 500);
+    EXPECT_EQ(collector.percentile(-0.1), 0u);
+    EXPECT_EQ(collector.percentile(1.1), 0u);
+}

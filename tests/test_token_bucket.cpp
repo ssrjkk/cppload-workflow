@@ -127,3 +127,29 @@ TEST(TokenBucketTest, SetBurstBelowTokens) {
     std::this_thread::sleep_for(std::chrono::milliseconds(120));
     EXPECT_TRUE(bucket.try_consume());
 }
+
+TEST(TokenBucketTest, TryConsumeForTimeout) {
+    cppload::TokenBucket bucket(10.0, 1.0);
+    EXPECT_TRUE(bucket.try_consume());
+    EXPECT_FALSE(bucket.try_consume_for(std::chrono::milliseconds(50)));
+}
+
+TEST(TokenBucketTest, TryConsumeForSuccess) {
+    cppload::TokenBucket bucket(100.0, 5.0);
+    EXPECT_TRUE(bucket.try_consume_for(std::chrono::milliseconds(100)));
+}
+
+TEST(TokenBucketTest, TokensAvailable) {
+    cppload::TokenBucket bucket(100.0, 10.0);
+    double tokens = bucket.tokens_available();
+    EXPECT_GE(tokens, 9.0);
+    EXPECT_LE(tokens, 10.0);
+}
+
+TEST(TokenBucketTest, TokensAvailableAfterConsume) {
+    cppload::TokenBucket bucket(100.0, 5.0);
+    bucket.try_consume();
+    double tokens = bucket.tokens_available();
+    EXPECT_GE(tokens, 3.0);
+    EXPECT_LE(tokens, 5.0);
+}
