@@ -14,6 +14,7 @@ struct TlsConfig {
     std::string ca_cert_file;
     std::string ca_cert_path;
     bool use_mtls{false};
+    int min_tls_version{12};  // 12 = TLSv1.2, 13 = TLSv1.3
 };
 
 class TlsContext {

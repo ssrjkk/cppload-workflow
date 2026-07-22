@@ -77,3 +77,53 @@ TEST(TokenBucketTest, InvalidRate) {
     EXPECT_THROW(bucket.set_rate(0.0), std::invalid_argument);
     EXPECT_THROW(bucket.set_rate(-5.0), std::invalid_argument);
 }
+
+TEST(TokenBucketTest, ConcurrentSetRateAndConsume) {
+    cppload::TokenBucket bucket(1000.0);
+    std::atomic<bool> stop{false};
+    std::atomic<int> total_consumed{0};
+
+    std::vector<std::thread> threads;
+    threads.emplace_back([&]() {
+        for (int i = 0; i < 100; ++i) {
+            bucket.set_rate(500.0 + (i % 500));
+            std::this_thread::yield();
+        }
+    });
+    for (int t = 0; t < 4; ++t) {
+        threads.emplace_back([&]() {
+            while (!stop.load(std::memory_order_relaxed)) {
+                if (bucket.try_consume()) {
+                    total_consumed.fetch_add(1, std::memory_order_relaxed);
+                }
+            }
+        });
+    }
+
+    std::this_thread::sleep_for(std::chrono::milliseconds(200));
+    stop.store(true, std::memory_order_relaxed);
+    for (auto& t : threads) t.join();
+
+    EXPECT_GT(total_consumed.load(), 0);
+}
+
+TEST(TokenBucketTest, BurstExhaustionAndRefill) {
+    cppload::TokenBucket bucket(100.0, 5.0);
+    for (int i = 0; i < 5; ++i) {
+        EXPECT_TRUE(bucket.try_consume());
+    }
+    EXPECT_FALSE(bucket.try_consume());
+    std::this_thread::sleep_for(std::chrono::milliseconds(60));
+    EXPECT_TRUE(bucket.try_consume());
+}
+
+TEST(TokenBucketTest, SetBurstBelowTokens) {
+    cppload::TokenBucket bucket(100.0, 100.0);
+    for (int i = 0; i < 100; ++i) {
+        EXPECT_TRUE(bucket.try_consume());
+    }
+    bucket.set_burst(10.0);
+    EXPECT_FALSE(bucket.try_consume());
+    std::this_thread::sleep_for(std::chrono::milliseconds(120));
+    EXPECT_TRUE(bucket.try_consume());
+}

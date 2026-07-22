@@ -7,7 +7,9 @@ namespace cppload::security {
 class TlsContext::Impl {
 public:
     explicit Impl(const TlsConfig& config) 
-        : ctx_(boost::asio::ssl::context::tlsv12_client)
+        : ctx_(config.min_tls_version >= 13
+            ? boost::asio::ssl::context::tlsv13_client
+            : boost::asio::ssl::context::tlsv12_client)
     {
         if (config.verify_peer) {
             ctx_.set_verify_mode(boost::asio::ssl::verify_peer);

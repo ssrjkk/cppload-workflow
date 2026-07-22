@@ -24,7 +24,7 @@ static std::string url_encode_path(const std::string& raw) {
         if (std::isalnum(c) || c == '-' || c == '_' || c == '.' || c == '~' ||
             c == '/' || c == '@' || c == '!' || c == '$' || c == '&' ||
             c == '\'' || c == '(' || c == ')' || c == '*' || c == '+' ||
-            c == ',' || c == ';' || c == '=' || c == ':' || c == '?' || c == '%') {
+            c == ',' || c == ';' || c == '=' || c == ':' || c == '?') {
             out << c;
         } else {
             out << '%' << std::setw(2) << std::setfill('0') << static_cast<int>(c);

@@ -69,6 +69,7 @@ ShardedMetrics ShardedMetricsCollector::snapshot() const {
 
     int64_t global_min = INT64_MAX;
     int64_t global_max = INT64_MIN;
+    int64_t total_latency_sum = 0;
 
     for (size_t i = 0; i < ns; ++i) {
         auto& shard = shards_[i];
@@ -77,16 +78,12 @@ ShardedMetrics ShardedMetricsCollector::snapshot() const {
         m.failed_requests += shard.failed.load(std::memory_order_relaxed);
         m.total_bytes_sent += shard.bytes_sent.load(std::memory_order_relaxed);
         m.total_bytes_received += shard.bytes_received.load(std::memory_order_relaxed);
+        total_latency_sum += shard.latency_sum_us.load(std::memory_order_relaxed);
 
         int64_t s_min = shard.min_latency_us.load(std::memory_order_relaxed);
         int64_t s_max = shard.max_latency_us.load(std::memory_order_relaxed);
         if (s_min < global_min) global_min = s_min;
         if (s_max > global_max) global_max = s_max;
-    }
-
-    int64_t total_latency_sum = 0;
-    for (size_t i = 0; i < ns; ++i) {
-        total_latency_sum += shards_[i].latency_sum_us.load(std::memory_order_relaxed);
     }
 
     if (m.total_requests > 0) {

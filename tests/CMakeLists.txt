@@ -47,6 +47,11 @@ target_link_libraries(test_yaml_parser
     PRIVATE yaml-cpp::yaml-cpp
 )
 
+add_executable(test_url_parse test_url_parse.cpp)
+target_link_libraries(test_url_parse
+    PRIVATE cppload_core GTest::gtest_main
+)
+
 add_executable(test_prometheus test_prometheus.cpp)
 target_link_libraries(test_prometheus
     PRIVATE cppload_core GTest::gtest_main
@@ -72,6 +77,7 @@ add_test(NAME AuthProviderTest COMMAND test_auth)
 add_test(NAME VaultClientTest COMMAND test_vault)
 add_test(NAME OtlpExporterTest COMMAND test_otlp)
 add_test(NAME YamlParserTest COMMAND test_yaml_parser)
+add_test(NAME UrlParseTest COMMAND test_url_parse)
 
 # Benchmarks (performance regression tests)
 if(CPLOAD_BUILD_BENCHMARKS)
