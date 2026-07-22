@@ -73,46 +73,51 @@ public:
 
         for (uint32_t w = 0; w < concurrency; ++w) {
             workers.emplace_back([this, ioc, &metrics, &callback, &proto_name]() {
-                auto client = net::ProtocolFactory::create(proto_name, *ioc);
-                if (!client) {
-                    {
-                        std::lock_guard<std::mutex> lock(last_error_mtx_);
-                        last_error_ = "unsupported protocol: " + proto_name;
+                try {
+                    auto client = net::ProtocolFactory::create(proto_name, *ioc);
+                    if (!client) {
+                        {
+                            std::lock_guard<std::mutex> lock(last_error_mtx_);
+                            last_error_ = "unsupported protocol: " + proto_name;
+                        }
+                        return;
                     }
-                    return;
-                }
 
-                for (const auto& scenario : config_.scenarios) {
-                    if (stopped_) break;
-                    for (const auto& step : scenario.steps) {
+                    for (const auto& scenario : config_.scenarios) {
                         if (stopped_) break;
+                        for (const auto& step : scenario.steps) {
+                            if (stopped_) break;
 
-                        bucket_.consume();
+                            bucket_.consume();
 
-                        net::Request req;
-                        req.method = step.method;
-                        req.path = step.path;
-                        req.body = step.body;
-                        req.headers = step.headers;
-                        parse_url(config_.target.base_url, req.host, req.port,
-                                  req.use_tls, step.use_tls);
+                            net::Request req;
+                            req.method = step.method;
+                            req.path = step.path;
+                            req.body = step.body;
+                            req.headers = step.headers;
+                            parse_url(config_.target.base_url, req.host, req.port,
+                                      req.use_tls, step.use_tls);
 
-                        auto capture_req = std::make_shared<net::Request>(std::move(req));
-                        std::atomic<bool> done{false};
-                        client->async_request(*capture_req,
-                            [capture_req, &metrics, &callback, &done, step](std::error_code ec, net::Response resp) mutable {
-                                metrics.record_request(static_cast<uint16_t>(resp.status_code), resp.latency,
-                                                       capture_req->body.size(), resp.body.size());
-                                if (callback) {
-                                    callback(step, resp, metrics);
-                                }
-                                done = true;
-                            });
+                            auto capture_req = std::make_shared<net::Request>(std::move(req));
+                            std::atomic<bool> done{false};
+                            client->async_request(*capture_req,
+                                [capture_req, &metrics, &callback, &done, step](std::error_code ec, net::Response resp) mutable {
+                                    metrics.record_request(static_cast<uint16_t>(resp.status_code), resp.latency,
+                                                           capture_req->body.size(), resp.body.size());
+                                    if (callback) {
+                                        callback(step, resp, metrics);
+                                    }
+                                    done = true;
+                                });
 
-                        while (!done && !stopped_) {
-                            ioc->run_one();
+                            while (!done && !stopped_) {
+                                ioc->run_one();
+                            }
                         }
                     }
+                } catch (const std::exception& e) {
+                    std::lock_guard<std::mutex> lock(last_error_mtx_);
+                    last_error_ = "worker thread error: " + std::string(e.what());
                 }
             });
         }

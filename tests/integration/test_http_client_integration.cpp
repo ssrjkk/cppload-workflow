@@ -34,6 +34,7 @@ TEST(HttpClientIntegrationTest, SuccessfulRequest) {
 
     std::atomic<bool> called{false};
     client.async_request(req, [&](std::error_code ec, cppload::net::Response resp) {
+        ASSERT_FALSE(ec) << "Unexpected error: " << ec.message();
         EXPECT_EQ(resp.status_code, 200);
         EXPECT_EQ(resp.body, R"({"status":"ok"})");
         EXPECT_GT(resp.latency.count(), 0);
@@ -72,6 +73,7 @@ TEST(HttpClientIntegrationTest, PostWithBody) {
 
     std::atomic<bool> called{false};
     client.async_request(req, [&](std::error_code ec, cppload::net::Response resp) {
+        ASSERT_FALSE(ec) << "Unexpected error: " << ec.message();
         EXPECT_EQ(resp.status_code, 201);
         called = true;
     });
@@ -103,6 +105,7 @@ TEST(HttpClientIntegrationTest, ServerError) {
 
     std::atomic<bool> called{false};
     client.async_request(req, [&](std::error_code ec, cppload::net::Response resp) {
+        ASSERT_FALSE(ec) << "Unexpected error: " << ec.message();
         EXPECT_EQ(resp.status_code, 500);
         called = true;
     });

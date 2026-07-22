@@ -59,7 +59,7 @@ private:
 
     struct alignas(64) LatencyBucket {
         std::atomic<uint64_t> count{0};
-        char padding[64 - sizeof(std::atomic<uint64_t>)]{};
+        char padding[64 > sizeof(std::atomic<uint64_t>) ? 64 - sizeof(std::atomic<uint64_t>) : 0]{};
     };
 
     static constexpr size_t kNumLatencyBuckets = 256;
@@ -70,9 +70,9 @@ private:
     static std::atomic<size_t> s_next_shard;
 
     size_t get_shard_index() const;
-    size_t num_shards() const { return s_num_shards_.load(std::memory_order_relaxed); }
+    size_t num_shards() const { return s_num_shards_; }
 
-    size_t s_num_shards_;
+    const size_t s_num_shards_;
     std::unique_ptr<Shard[]> shards_;
     std::unique_ptr<LatencyBucket[]> latency_buckets_;
     std::chrono::steady_clock::time_point start_time_;

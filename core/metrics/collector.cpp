@@ -126,6 +126,7 @@ double MetricsCollector::error_rate() const {
 }
 
 void MetricsCollector::reset() {
+    std::lock_guard<std::mutex> lock(snapshot_mtx_);
     total_requests_.store(0, std::memory_order_relaxed);
     successful_requests_.store(0, std::memory_order_relaxed);
     failed_requests_.store(0, std::memory_order_relaxed);

@@ -120,7 +120,34 @@ public:
     }
 
     void start_span(const std::string& name) {
-        if (span_active_) end_span();
+        {
+            std::lock_guard<std::mutex> lock(span_mtx_);
+            if (span_active_) {
+                // End previous span under lock before starting new one
+                SpanData span;
+                span.name = span_name_;
+                span.trace_id = trace_id_;
+                span.span_id = current_span_id_;
+                span.parent_span_id = parent_span_id_;
+                span.start_time = span_start_;
+                span.end_time = std::chrono::system_clock::now();
+                span.attributes = std::move(attributes_);
+
+                last_span_id_ = current_span_id_;
+                attributes_.clear();
+                span_active_ = false;
+
+                if (config_.sample_rate >= 1.0 ||
+                    [&]() {
+                        static thread_local std::mt19937 rng(std::random_device{}());
+                        std::uniform_real_distribution<> dist(0.0, 1.0);
+                        return dist(rng) <= config_.sample_rate;
+                    }()) {
+                    std::lock_guard<std::mutex> slock(spans_mutex_);
+                    completed_spans_.push_back(std::move(span));
+                }
+            }
+        }
 
         std::lock_guard<std::mutex> lock(span_mtx_);
         span_name_ = name;

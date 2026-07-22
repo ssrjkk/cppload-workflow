@@ -14,6 +14,17 @@ namespace {
 
 std::chrono::seconds parse_duration(const std::string& str) {
     if (str.empty()) return std::chrono::seconds{0};
+    // Try multi-character suffixes first
+    if (str.size() >= 3 && str.substr(str.size() - 3) == "min") {
+        std::string num_str = str.substr(0, str.size() - 3);
+        try { return std::chrono::minutes{std::stoll(num_str)}; }
+        catch (...) { return std::chrono::seconds{0}; }
+    }
+    if (str.size() >= 2 && str.substr(str.size() - 2) == "ms") {
+        std::string num_str = str.substr(0, str.size() - 2);
+        try { return std::chrono::milliseconds{std::stoll(num_str)}; }
+        catch (...) { return std::chrono::seconds{0}; }
+    }
     char unit = str.back();
     std::string num_str = str.substr(0, str.length() - 1);
     long long value = 0;

@@ -65,7 +65,7 @@ void ShardedMetricsCollector::record_request(uint16_t status_code,
 
 ShardedMetrics ShardedMetricsCollector::snapshot() const {
     ShardedMetrics m;
-    const auto ns = s_num_shards_.load(std::memory_order_relaxed);
+    const auto ns = s_num_shards_;
 
     int64_t global_min = INT64_MAX;
     int64_t global_max = INT64_MIN;
@@ -122,7 +122,7 @@ double ShardedMetricsCollector::requests_per_second() const {
     if (elapsed < 0.001) return 0.0;
 
     uint64_t total = 0;
-    const auto ns = s_num_shards_.load(std::memory_order_relaxed);
+    const auto ns = s_num_shards_;
     for (size_t i = 0; i < ns; ++i) {
         total += shards_[i].requests.load(std::memory_order_relaxed);
     }
@@ -132,7 +132,7 @@ double ShardedMetricsCollector::requests_per_second() const {
 double ShardedMetricsCollector::error_rate() const {
     uint64_t total = 0;
     uint64_t failed = 0;
-    const auto ns = s_num_shards_.load(std::memory_order_relaxed);
+    const auto ns = s_num_shards_;
     for (size_t i = 0; i < ns; ++i) {
         total += shards_[i].requests.load(std::memory_order_relaxed);
         failed += shards_[i].failed.load(std::memory_order_relaxed);
@@ -142,7 +142,7 @@ double ShardedMetricsCollector::error_rate() const {
 }
 
 void ShardedMetricsCollector::reset() {
-    const auto ns = s_num_shards_.load(std::memory_order_relaxed);
+    const auto ns = s_num_shards_;
     for (size_t i = 0; i < ns; ++i) {
         shards_[i].requests.store(0, std::memory_order_relaxed);
         shards_[i].successful.store(0, std::memory_order_relaxed);

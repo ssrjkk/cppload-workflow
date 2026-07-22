@@ -78,7 +78,8 @@ TEST(MetricsCollectorStressTest, ConcurrentRecordAndReset) {
     reseter.join();
 
     auto m = collector.snapshot();
-    EXPECT_GE(m.total_requests, 0);
+    // After concurrent writes + resets, verify no crash and plausible count
+    EXPECT_LE(m.total_requests, static_cast<int64_t>(10) * 500000);
 }
 
 TEST(MetricsCollectorStressTest, MinMaxLatencyCorrectness) {

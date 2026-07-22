@@ -65,6 +65,7 @@ public:
                 auto age = std::chrono::duration_cast<std::chrono::seconds>(
                     now - entry.idle_since);
                 if (age >= idle_timeout) {
+                    if (total_created_ > 0) total_created_--;
                     q.pop();
                 } else {
                     break;

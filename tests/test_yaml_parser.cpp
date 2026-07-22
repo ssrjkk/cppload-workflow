@@ -52,20 +52,20 @@ TEST_F(YamlParserTest, LoadsConfig) {
 
 TEST_F(YamlParserTest, ReadsTestId) {
     cppload::scenario::ScenarioEngine engine(test_file);
-    engine.load_config();
+    ASSERT_TRUE(engine.load_config());
     EXPECT_EQ(engine.config().test_id, "unit-test");
 }
 
 TEST_F(YamlParserTest, ReadsTarget) {
     cppload::scenario::ScenarioEngine engine(test_file);
-    engine.load_config();
+    ASSERT_TRUE(engine.load_config());
     EXPECT_EQ(engine.config().target.base_url, "http://localhost:8080");
     EXPECT_EQ(engine.config().target.protocol, "http1.1");
 }
 
 TEST_F(YamlParserTest, ReadsLoadProfile) {
     cppload::scenario::ScenarioEngine engine(test_file);
-    engine.load_config();
+    ASSERT_TRUE(engine.load_config());
     ASSERT_EQ(engine.config().load_profile.stages.size(), 1);
     EXPECT_EQ(engine.config().load_profile.stages[0].name, "rampup");
     EXPECT_EQ(engine.config().load_profile.stages[0].target_rps, 100);
@@ -73,7 +73,7 @@ TEST_F(YamlParserTest, ReadsLoadProfile) {
 
 TEST_F(YamlParserTest, ReadsScenario) {
     cppload::scenario::ScenarioEngine engine(test_file);
-    engine.load_config();
+    ASSERT_TRUE(engine.load_config());
     ASSERT_EQ(engine.config().scenarios.size(), 1);
     EXPECT_EQ(engine.config().scenarios[0].name, "test_scenario");
     EXPECT_EQ(engine.config().scenarios[0].weight, 100);
@@ -84,7 +84,7 @@ TEST_F(YamlParserTest, ReadsScenario) {
 
 TEST_F(YamlParserTest, ReadsSLA) {
     cppload::scenario::ScenarioEngine engine(test_file);
-    engine.load_config();
+    ASSERT_TRUE(engine.load_config());
     EXPECT_DOUBLE_EQ(engine.config().sla.max_error_rate, 1.0);
     EXPECT_EQ(engine.config().sla.max_p99_latency.count(), 500);
 }

@@ -119,7 +119,8 @@ public:
         timeout_ms_.store(timeout.count(), std::memory_order_relaxed);
     }
 
-    void set_keep_alive(bool) {
+    void set_keep_alive(bool keep_alive) {
+        keep_alive_.store(keep_alive, std::memory_order_relaxed);
     }
 
 private:
@@ -337,6 +338,7 @@ private:
 
     asio::io_context& ioc_;
     std::atomic<int64_t> timeout_ms_{5000};
+    std::atomic<bool> keep_alive_{true};
     std::unique_ptr<security::TlsContext> tls_ctx_;
 };
 

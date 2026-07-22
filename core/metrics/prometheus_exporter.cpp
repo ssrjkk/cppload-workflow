@@ -9,6 +9,7 @@
 #include <prometheus/histogram.h>
 #include <memory>
 #include <chrono>
+#include <mutex>
 
 namespace cppload::metrics {
 
@@ -20,6 +21,7 @@ public:
     }
 
     bool start() {
+        std::lock_guard<std::mutex> lock(mtx_);
         exposer_ = std::make_unique<prometheus::Exposer>(bind_address_);
         registry_ = std::make_shared<prometheus::Registry>();
         exposer_->RegisterCollectable(registry_);
@@ -77,6 +79,7 @@ public:
     }
 
     void stop() {
+        std::lock_guard<std::mutex> lock(mtx_);
         total_requests_ = nullptr;
         successful_requests_ = nullptr;
         failed_requests_ = nullptr;
@@ -90,10 +93,12 @@ public:
     }
 
     bool is_running() const {
+        std::lock_guard<std::mutex> lock(mtx_);
         return exposer_ != nullptr;
     }
     
     void update_metrics(const MetricsCollector& collector) {
+        std::lock_guard<std::mutex> lock(mtx_);
         if (!total_requests_) return;
         auto metrics = collector.snapshot();
 
@@ -128,6 +133,7 @@ public:
     
 private:
     std::string bind_address_;
+    mutable std::mutex mtx_;
     std::unique_ptr<prometheus::Exposer> exposer_;
     std::shared_ptr<prometheus::Registry> registry_;
     
