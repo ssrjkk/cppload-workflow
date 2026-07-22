@@ -145,6 +145,28 @@ private:
             });
     }
 
+    void populate_response(
+        std::shared_ptr<Response> response,
+        std::shared_ptr<beast::flat_buffer> buffer,
+        beast::error_code ec,
+        std::chrono::steady_clock::time_point start_time)
+    {
+        auto end_time = std::chrono::steady_clock::now();
+        response->latency =
+            std::chrono::duration_cast<std::chrono::microseconds>(
+                end_time - start_time);
+
+        if (ec) {
+            response->ec = (ec == beast::error::timeout)
+                ? Err::timeout : Err::read_error;
+        } else {
+            response->body.assign(
+                reinterpret_cast<const char*>(buffer->data().data()),
+                buffer->data().size());
+            response->status_code = 1;
+        }
+    }
+
     void send_raw(
         std::shared_ptr<beast::tcp_stream> stream,
         const std::string& body,
@@ -177,21 +199,7 @@ private:
                     [self, stream, buffer, response, handler, start_time](
                         beast::error_code ec, std::size_t bytes)
                     {
-                        auto end_time = std::chrono::steady_clock::now();
-                        response->latency =
-                            std::chrono::duration_cast<std::chrono::microseconds>(
-                                end_time - start_time);
-
-                        if (ec) {
-                            response->ec = (ec == beast::error::timeout)
-                                ? Err::timeout : Err::read_error;
-                        } else {
-                            response->body.assign(
-                                reinterpret_cast<const char*>(buffer->data().data()),
-                                buffer->data().size());
-                            response->status_code = 1;
-                        }
-
+                        self->populate_response(response, buffer, ec, start_time);
                         handler(response->ec, *response);
                     });
             });
@@ -229,21 +237,7 @@ private:
                     [self, ssl_stream, buffer, response, handler, start_time](
                         beast::error_code ec, std::size_t bytes)
                     {
-                        auto end_time = std::chrono::steady_clock::now();
-                        response->latency =
-                            std::chrono::duration_cast<std::chrono::microseconds>(
-                                end_time - start_time);
-
-                        if (ec) {
-                            response->ec = (ec == beast::error::timeout)
-                                ? Err::timeout : Err::read_error;
-                        } else {
-                            response->body.assign(
-                                reinterpret_cast<const char*>(buffer->data().data()),
-                                buffer->data().size());
-                            response->status_code = 1;
-                        }
-
+                        self->populate_response(response, buffer, ec, start_time);
                         handler(response->ec, *response);
                     });
             });

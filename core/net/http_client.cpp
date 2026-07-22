@@ -214,6 +214,38 @@ private:
             });
     }
 
+    void populate_response(
+        std::shared_ptr<Response> response,
+        const std::shared_ptr<http::response<http::string_body>>& res,
+        beast::error_code ec,
+        std::chrono::steady_clock::time_point start_time)
+    {
+        auto end_time = std::chrono::steady_clock::now();
+        response->latency =
+            std::chrono::duration_cast<std::chrono::microseconds>(
+                end_time - start_time);
+
+        if (ec) {
+            if (ec == http::error::end_of_stream) {
+                response->status_code = res->result_int();
+                response->body = res->body();
+                for (const auto& field : *res) {
+                    response->headers[std::string(field.name_string())] =
+                        std::string(field.value());
+                }
+            } else {
+                response->ec = Err::read_error;
+            }
+        } else {
+            response->status_code = res->result_int();
+            response->body = res->body();
+            for (const auto& field : *res) {
+                response->headers[std::string(field.name_string())] =
+                    std::string(field.value());
+            }
+        }
+    }
+
     void send_and_receive(
         std::shared_ptr<beast::tcp_stream> stream,
         std::shared_ptr<http::request<http::string_body>> req_msg,
@@ -243,33 +275,7 @@ private:
                     [self, stream, buffer, res, response, handler, start_time](
                         beast::error_code ec, std::size_t)
                     {
-                    auto end_time = std::chrono::steady_clock::now();
-                    response->latency =
-                        std::chrono::duration_cast<std::chrono::microseconds>(
-                            end_time - start_time);
-
-                    if (ec) {
-                        if (ec == http::error::end_of_stream) {
-                            response->status_code = res->result_int();
-                            response->body = res->body();
-                            for (const auto& field : *res) {
-                                response->headers[
-                                    std::string(field.name_string())] =
-                                    std::string(field.value());
-                            }
-                        } else {
-                            response->ec = Err::read_error;
-                        }
-                    } else {
-                        response->status_code = res->result_int();
-                        response->body = res->body();
-                        for (const auto& field : *res) {
-                            response->headers[
-                                std::string(field.name_string())] =
-                                std::string(field.value());
-                        }
-                    }
-
+                    self->populate_response(response, res, ec, start_time);
                     handler(response->ec, *response);
                     });
             });
@@ -304,33 +310,7 @@ private:
                     [self, ssl_stream, buffer, res, response, handler, start_time](
                         beast::error_code ec, std::size_t)
                     {
-                    auto end_time = std::chrono::steady_clock::now();
-                    response->latency =
-                        std::chrono::duration_cast<std::chrono::microseconds>(
-                            end_time - start_time);
-
-                    if (ec) {
-                        if (ec == http::error::end_of_stream) {
-                            response->status_code = res->result_int();
-                            response->body = res->body();
-                            for (const auto& field : *res) {
-                                response->headers[
-                                    std::string(field.name_string())] =
-                                    std::string(field.value());
-                            }
-                        } else {
-                            response->ec = Err::read_error;
-                        }
-                    } else {
-                        response->status_code = res->result_int();
-                        response->body = res->body();
-                        for (const auto& field : *res) {
-                            response->headers[
-                                std::string(field.name_string())] =
-                                std::string(field.value());
-                        }
-                    }
-
+                    self->populate_response(response, res, ec, start_time);
                     handler(response->ec, *response);
                     });
             });

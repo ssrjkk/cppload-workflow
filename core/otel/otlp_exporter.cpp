@@ -1,4 +1,5 @@
 #include "cppload/otel/exporter.hpp"
+#include "cppload/core/url_parse.hpp"
 #include <boost/beast/core.hpp>
 #include <boost/beast/http.hpp>
 #include <boost/asio/ip/tcp.hpp>
@@ -202,22 +203,10 @@ public:
 
 private:
     void parse_endpoint() {
-        auto proto_end = config_.endpoint.find("://");
-        auto start = (proto_end != std::string::npos) ? proto_end + 3 : 0;
-        auto path_start = config_.endpoint.find("/", start);
-        endpoint_target_ = (path_start != std::string::npos)
-            ? config_.endpoint.substr(path_start) : "/";
-        auto host_port = (path_start != std::string::npos)
-            ? config_.endpoint.substr(start, path_start - start)
-            : config_.endpoint.substr(start);
-        auto colon = host_port.find(":");
-        if (colon != std::string::npos) {
-            endpoint_host_ = host_port.substr(0, colon);
-            endpoint_port_ = host_port.substr(colon + 1);
-        } else {
-            endpoint_host_ = host_port;
-            endpoint_port_ = "4318";
-        }
+        auto parts = core::parse_url(config_.endpoint);
+        endpoint_host_ = std::move(parts.host);
+        endpoint_port_ = parts.port.empty() ? "4318" : std::move(parts.port);
+        endpoint_target_ = std::move(parts.path);
 
         if (endpoint_target_ == "/" || endpoint_target_.empty()) {
             endpoint_target_ = "/v1/traces";

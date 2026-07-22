@@ -1,6 +1,7 @@
 #include "cppload/security/auth_provider.hpp"
 #include "cppload/security/tls_context.hpp"
 #include "cppload/result.hpp"
+#include "cppload/core/url_parse.hpp"
 #include <boost/beast/core.hpp>
 #include <boost/beast/http.hpp>
 #include <boost/asio/ip/tcp.hpp>
@@ -88,24 +89,7 @@ Result<http::response<http::string_body>, Err> do_sync_post(
     return Result<http::response<http::string_body>, Err>::ok(std::move(res));
 }
 
-void parse_url(const std::string& url, std::string& host, std::string& port, std::string& path) {
-    auto proto_end = url.find("://");
-    auto start = (proto_end != std::string::npos) ? proto_end + 3 : 0;
-    auto path_start = url.find("/", start);
-    path = (path_start != std::string::npos) ? url.substr(path_start) : "/";
-    auto host_port = (path_start != std::string::npos)
-        ? url.substr(start, path_start - start)
-        : url.substr(start);
-
-    auto colon = host_port.find(":");
-    if (colon != std::string::npos) {
-        host = host_port.substr(0, colon);
-        port = host_port.substr(colon + 1);
-    } else {
-        host = host_port;
-        port = (url.find("https:") == 0) ? "443" : "80";
-    }
-}
+using core::parse_url;
 
 } // anonymous namespace
 
@@ -173,14 +157,13 @@ private:
     }
 
     Result<bool, Err> fetch_token() {
-        std::string host, port, path;
-        parse_url(config_.token_endpoint, host, port, path);
+        auto url = parse_url(config_.token_endpoint);
 
         std::string body = "grant_type=client_credentials"
             "&client_id=" + url_encode(config_.client_id) +
             "&client_secret=" + url_encode(config_.client_secret);
 
-        auto res = do_sync_post(host, port, path, body,
+        auto res = do_sync_post(url.host, url.port, url.path, body,
             "application/x-www-form-urlencoded");
 
         if (!res) return Result<bool, Err>::err(res.error());

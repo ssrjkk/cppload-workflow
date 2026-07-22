@@ -1,5 +1,6 @@
 #include "cppload/scenario/engine.hpp"
 #include "cppload/core/token_bucket.hpp"
+#include "cppload/core/url_parse.hpp"
 #include "cppload/net/protocol_factory.hpp"
 #include <boost/asio/io_context.hpp>
 #include <atomic>
@@ -99,18 +100,18 @@ public:
                                       req.use_tls, step.use_tls);
 
                             auto capture_req = std::make_shared<net::Request>(std::move(req));
-                            std::atomic<bool> done{false};
+                            auto done = std::make_shared<std::atomic<bool>>(false);
                             client->async_request(*capture_req,
-                                [capture_req, &metrics, &callback, &done, step](std::error_code ec, net::Response resp) mutable {
+                                [capture_req, &metrics, &callback, done, step](std::error_code ec, net::Response resp) mutable {
                                     metrics.record_request(static_cast<uint16_t>(resp.status_code), resp.latency,
                                                            capture_req->body.size(), resp.body.size());
                                     if (callback) {
                                         callback(step, resp, metrics);
                                     }
-                                    done = true;
+                                    done->store(true, std::memory_order_release);
                                 });
 
-                            while (!done && !stopped_) {
+                            while (!done->load(std::memory_order_acquire) && !stopped_) {
                                 ioc->run_one();
                             }
                         }
@@ -151,44 +152,26 @@ public:
 private:
     void parse_url(const std::string& url, std::string& host,
                    uint16_t& port, bool& use_tls, bool step_tls) {
-        bool is_https = false;
-        auto proto_end = url.find("://");
-        if (proto_end != std::string::npos) {
-            auto scheme = url.substr(0, proto_end);
-            is_https = (scheme == "https");
-        }
-        auto start = (proto_end != std::string::npos) ? proto_end + 3 : 0;
-        auto path_start = url.find("/", start);
-        auto host_port_str = (path_start != std::string::npos)
-            ? url.substr(start, path_start - start)
-            : url.substr(start);
+        auto parts = core::parse_url(url);
+        host = std::move(parts.host);
+        use_tls = parts.tls || step_tls;
 
-        use_tls = is_https || step_tls;
-
-        auto colon = host_port_str.find(":");
-        if (colon != std::string::npos) {
-            host = host_port_str.substr(0, colon);
-            std::string port_str = host_port_str.substr(colon + 1);
+        if (!parts.port.empty()) {
             try {
-                auto p = std::stoul(port_str);
+                auto p = std::stoul(parts.port);
                 if (p == 0 || p > 65535) {
-                    {
-                        std::lock_guard<std::mutex> lock(last_error_mtx_);
-                        last_error_ = "port out of range: " + port_str;
-                    }
+                    std::lock_guard<std::mutex> lock(last_error_mtx_);
+                    last_error_ = "port out of range: " + parts.port;
                     port = use_tls ? 443 : 80;
                 } else {
                     port = static_cast<uint16_t>(p);
                 }
             } catch (const std::exception&) {
-                {
-                    std::lock_guard<std::mutex> lock(last_error_mtx_);
-                    last_error_ = "invalid port: " + port_str;
-                }
+                std::lock_guard<std::mutex> lock(last_error_mtx_);
+                last_error_ = "invalid port: " + parts.port;
                 port = use_tls ? 443 : 80;
             }
         } else {
-            host = host_port_str;
             port = use_tls ? 443 : 80;
         }
     }

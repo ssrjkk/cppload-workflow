@@ -176,5 +176,5 @@ TEST(ShardedMetricsCollectorTest, ConcurrentRecordAndReset) {
     auto m = collector.snapshot();
     // After concurrent writes + resets, total is non-negative by type
     // but we verify no crash occurred and count is plausible
-    EXPECT_LE(m.total_requests, static_cast<uint64_t>(8) * kPerWriter);
+    EXPECT_LE(m.total_requests, static_cast<uint64_t>(8) * 50000);
 }
