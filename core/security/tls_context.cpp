@@ -11,6 +11,15 @@ public:
             ? boost::asio::ssl::context::tlsv13_client
             : boost::asio::ssl::context::tlsv12_client)
     {
+        // Set TLS options first (before cert loading, order matters on some OpenSSL versions)
+        ctx_.set_options(
+            boost::asio::ssl::context::default_workarounds |
+            boost::asio::ssl::context::no_sslv2 |
+            boost::asio::ssl::context::no_sslv3 |
+            boost::asio::ssl::context::no_tlsv1 |
+            boost::asio::ssl::context::no_tlsv1_1
+        );
+
         if (config.verify_peer) {
             ctx_.set_verify_mode(boost::asio::ssl::verify_peer);
             if (!config.ca_cert_file.empty()) {
@@ -18,7 +27,6 @@ public:
             } else if (!config.ca_cert_path.empty()) {
                 ctx_.add_verify_path(config.ca_cert_path);
             } else {
-                // Use default paths
                 ctx_.set_default_verify_paths();
             }
         } else {
@@ -37,15 +45,6 @@ public:
         if (!config.tmp_dh_file.empty()) {
             ctx_.use_tmp_dh_file(config.tmp_dh_file);
         }
-        
-        // Set options for security
-        ctx_.set_options(
-            boost::asio::ssl::context::default_workarounds |
-            boost::asio::ssl::context::no_sslv2 |
-            boost::asio::ssl::context::no_sslv3 |
-            boost::asio::ssl::context::no_tlsv1 |
-            boost::asio::ssl::context::no_tlsv1_1
-        );
     }
     
     boost::asio::ssl::context& get_native_context() {

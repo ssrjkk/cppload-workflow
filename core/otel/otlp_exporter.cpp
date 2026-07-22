@@ -277,6 +277,13 @@ private:
             if (completed_spans_.size() >= 64) {
                 spans_to_export.swap(completed_spans_);
             }
+            // Drop oldest spans if buffer grows too large (endpoint unreachable)
+            static constexpr size_t kMaxBufferedSpans = 4096;
+            if (completed_spans_.size() > kMaxBufferedSpans) {
+                completed_spans_.erase(
+                    completed_spans_.begin(),
+                    completed_spans_.begin() + (completed_spans_.size() - kMaxBufferedSpans));
+            }
         }
         do_export(spans_to_export);
     }

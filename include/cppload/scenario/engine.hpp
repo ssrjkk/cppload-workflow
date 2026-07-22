@@ -27,7 +27,7 @@ struct HttpStep {
 struct LoadProfile {
     struct Stage {
         std::string name;
-        std::chrono::seconds duration{0};
+        std::chrono::milliseconds duration{0};
         uint32_t target_rps{0};
         uint32_t concurrent_users{10};
     };

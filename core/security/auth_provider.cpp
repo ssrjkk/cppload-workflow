@@ -123,8 +123,8 @@ public:
         } else if (config_.type == AuthType::BEARER_TOKEN) {
             return "Authorization: Bearer " + config_.token;
         } else if (config_.type == AuthType::OAUTH2) {
-            std::lock_guard<std::mutex> lock(mtx_);
-            return "Authorization: Bearer " + current_token_;
+            auto token = const_cast<AuthProvider::Impl*>(this)->get_token();
+            return "Authorization: Bearer " + token;
         } else if (config_.type == AuthType::MTLS) {
             return "X-SSL-Cert: mtls";
         }

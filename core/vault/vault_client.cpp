@@ -53,8 +53,18 @@ Result<http::response<http::string_body>, Err> do_request(
     };
 
     if (use_tls) {
-        asio::ssl::context ssl_ctx(asio::ssl::context::tlsv12_client);
-        ssl_ctx.set_default_verify_paths();
+        static asio::ssl::context ssl_ctx(asio::ssl::context::tlsv12_client);
+        static bool ssl_ctx_initialized = [] {
+            ssl_ctx.set_default_verify_paths();
+            ssl_ctx.set_options(
+                asio::ssl::context::default_workarounds |
+                asio::ssl::context::no_sslv2 |
+                asio::ssl::context::no_sslv3 |
+                asio::ssl::context::no_tlsv1 |
+                asio::ssl::context::no_tlsv1_1);
+            return true;
+        }();
+        (void)ssl_ctx_initialized;
         asio::ssl::stream<beast::tcp_stream> stream(ioc, ssl_ctx);
 
         beast::get_lowest_layer(stream).expires_after(sec);

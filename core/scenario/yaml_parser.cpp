@@ -12,18 +12,19 @@ namespace cppload::scenario {
 
 namespace {
 
-std::chrono::seconds parse_duration(const std::string& str) {
-    if (str.empty()) return std::chrono::seconds{0};
+std::chrono::milliseconds parse_duration(const std::string& str) {
+    if (str.empty()) return std::chrono::milliseconds{0};
     // Try multi-character suffixes first
     if (str.size() >= 3 && str.substr(str.size() - 3) == "min") {
         std::string num_str = str.substr(0, str.size() - 3);
-        try { return std::chrono::minutes{std::stoll(num_str)}; }
-        catch (...) { return std::chrono::seconds{0}; }
+        try { return std::chrono::duration_cast<std::chrono::milliseconds>(
+            std::chrono::minutes{std::stoll(num_str)}); }
+        catch (...) { return std::chrono::milliseconds{0}; }
     }
     if (str.size() >= 2 && str.substr(str.size() - 2) == "ms") {
         std::string num_str = str.substr(0, str.size() - 2);
         try { return std::chrono::milliseconds{std::stoll(num_str)}; }
-        catch (...) { return std::chrono::seconds{0}; }
+        catch (...) { return std::chrono::milliseconds{0}; }
     }
     char unit = str.back();
     std::string num_str = str.substr(0, str.length() - 1);
@@ -31,16 +32,19 @@ std::chrono::seconds parse_duration(const std::string& str) {
     try {
         value = std::stoll(num_str);
     } catch (const std::exception&) {
-        return std::chrono::seconds{0};
+        return std::chrono::milliseconds{0};
     }
     switch (unit) {
-        case 's': return std::chrono::seconds{value};
-        case 'm': return std::chrono::minutes{value};
-        case 'h': return std::chrono::hours{value};
+        case 's': return std::chrono::duration_cast<std::chrono::milliseconds>(
+            std::chrono::seconds{value});
+        case 'm': return std::chrono::duration_cast<std::chrono::milliseconds>(
+            std::chrono::minutes{value});
+        case 'h': return std::chrono::duration_cast<std::chrono::milliseconds>(
+            std::chrono::hours{value});
         default:
             std::cerr << "Warning: unrecognized duration unit '" << unit
                       << "' in \"" << str << "\", treating as 0s" << std::endl;
-            return std::chrono::seconds{0};
+            return std::chrono::milliseconds{0};
     }
 }
 

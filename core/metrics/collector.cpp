@@ -128,25 +128,23 @@ double MetricsCollector::error_rate() const {
 uint64_t MetricsCollector::percentile(double p) const {
     if (p < 0.0 || p > 1.0) return 0;
 
-    std::vector<int64_t> sorted;
+    std::vector<int64_t> samples;
     {
         std::lock_guard<std::mutex> lock(snapshot_mtx_);
         uint64_t h = head_.load(std::memory_order_relaxed);
-        while (true) {
-            size_t idx = h & kRingMask;
+        uint64_t t = tail_.load(std::memory_order_relaxed);
+        for (uint64_t i = h; i < t; ++i) {
+            size_t idx = i & kRingMask;
             uint64_t seq = ring_[idx].seq.load(std::memory_order_acquire);
-            if (seq != h + 1) break;
-            sorted.push_back(ring_[idx].value);
-            ring_[idx].seq.store(h + kRingCapacity, std::memory_order_release);
-            h++;
+            if (seq != i + 1) break;
+            samples.push_back(ring_[idx].value);
         }
-        head_.store(h, std::memory_order_release);
     }
 
-    if (sorted.empty()) return 0;
-    std::sort(sorted.begin(), sorted.end());
-    auto idx = static_cast<size_t>(sorted.size() * p);
-    return static_cast<uint64_t>(sorted[std::min(idx, sorted.size() - 1)]);
+    if (samples.empty()) return 0;
+    std::sort(samples.begin(), samples.end());
+    auto idx = static_cast<size_t>(samples.size() * p);
+    return static_cast<uint64_t>(samples[std::min(idx, samples.size() - 1)]);
 }
 
 void MetricsCollector::reset() {

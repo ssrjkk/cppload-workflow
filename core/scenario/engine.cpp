@@ -23,11 +23,11 @@ public:
     }
 
     void set_target_rps(uint32_t rps) {
-        target_rps_ = rps > 0 ? rps : 100;
-        bucket_.set_rate(static_cast<double>(target_rps_));
+        target_rps_.store(rps > 0 ? rps : 100, std::memory_order_relaxed);
+        bucket_.set_rate(static_cast<double>(target_rps_.load(std::memory_order_relaxed)));
     }
 
-    uint32_t target_rps() const { return target_rps_; }
+    uint32_t target_rps() const { return target_rps_.load(std::memory_order_relaxed); }
 
     bool load_config();
 
@@ -56,24 +56,27 @@ public:
             active_ioc_ = ioc.get();
         }
 
-        std::string proto_name = config_.target.protocol;
+        // Take a local copy of config for thread safety
+        auto cfg = config_;
+
+        std::string proto_name = cfg.target.protocol;
         if (proto_name.empty()) proto_name = "http1.1";
 
         // Configure TLS
         cppload::security::TlsConfig tls_cfg;
-        tls_cfg.verify_peer = config_.target.tls.verify;
+        tls_cfg.verify_peer = cfg.target.tls.verify;
         net::ProtocolFactory::set_tls_config(tls_cfg);
 
         uint32_t concurrency = 10;
-        if (!config_.load_profile.stages.empty()) {
-            concurrency = config_.load_profile.stages[0].concurrent_users;
+        if (!cfg.load_profile.stages.empty()) {
+            concurrency = cfg.load_profile.stages[0].concurrent_users;
         }
 
         metrics::MetricsCollector metrics;
         std::vector<std::thread> workers;
 
         for (uint32_t w = 0; w < concurrency; ++w) {
-            workers.emplace_back([this, ioc, &metrics, &callback, &proto_name]() {
+            workers.emplace_back([this, ioc, &metrics, &callback, proto_name, cfg]() {
                 try {
                     auto client = net::ProtocolFactory::create(proto_name, *ioc);
                     if (!client) {
@@ -84,19 +87,21 @@ public:
                         return;
                     }
 
-                    for (const auto& scenario : config_.scenarios) {
+                    for (const auto& scenario : cfg.scenarios) {
                         if (stopped_) break;
                         for (const auto& step : scenario.steps) {
                             if (stopped_) break;
 
-                            bucket_.consume();
+                            if (!bucket_.try_consume_for(std::chrono::milliseconds(10))) {
+                                continue;
+                            }
 
                             net::Request req;
                             req.method = step.method;
                             req.path = step.path;
                             req.body = step.body;
                             req.headers = step.headers;
-                            parse_url(config_.target.base_url, req.host, req.port,
+                            parse_url(cfg.target.base_url, req.host, req.port,
                                       req.use_tls, step.use_tls);
 
                             auto capture_req = std::make_shared<net::Request>(std::move(req));
@@ -184,7 +189,7 @@ private:
     mutable std::mutex last_error_mtx_;
     mutable std::string last_error_;
     TokenBucket bucket_;
-    uint32_t target_rps_{100};
+    std::atomic<uint32_t> target_rps_{100};
 };
 
 // Defined in yaml_parser.cpp
