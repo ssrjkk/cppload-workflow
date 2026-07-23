@@ -30,8 +30,8 @@ public:
     const E& error() const& { assert(!has_value()); return std::get<1>(storage_); }
     E&& error() && { assert(!has_value()); return std::get<1>(std::move(storage_)); }
 
-    T value_or(T&& default_value) const& {
-        return has_value() ? std::get<0>(storage_) : std::forward<T>(default_value);
+    T value_or(const T& default_value) const& {
+        return has_value() ? std::get<0>(storage_) : default_value;
     }
 
     T value_or(T&& default_value) && {
@@ -57,9 +57,21 @@ public:
     }
 
     template <typename F>
+    Result and_then(F&& f) && {
+        if (has_value()) return f(std::get<0>(std::move(storage_)));
+        return Result::err(std::get<1>(std::move(storage_)));
+    }
+
+    template <typename F>
     Result or_else(F&& f) const& {
         if (!has_value()) return f(std::get<1>(storage_));
         return *this;
+    }
+
+    template <typename F>
+    Result or_else(F&& f) && {
+        if (!has_value()) return f(std::get<1>(std::move(storage_)));
+        return std::move(*this);
     }
 
     template <typename F>
@@ -109,6 +121,12 @@ public:
     Result or_else(F&& f) const& {
         if (!has_value()) return f(std::get<1>(storage_));
         return *this;
+    }
+
+    template <typename F>
+    Result or_else(F&& f) && {
+        if (!has_value()) return f(std::get<1>(std::move(storage_)));
+        return std::move(*this);
     }
 
     template <typename F>

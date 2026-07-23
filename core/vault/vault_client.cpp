@@ -146,6 +146,8 @@ public:
 
     bool is_connected() const { return connected_; }
 
+    std::string last_error() const { return last_error_; }
+
     Result<std::string, Err> get_secret(const std::string& path, const std::string& key) {
         if (path.empty()) return Result<std::string, Err>::err(Err::invalid_config);
         auto url = parse_url(config_.address);
@@ -301,80 +303,19 @@ private:
         std::unordered_map<std::string, std::string> hdrs;
         if (!config_.token.empty()) hdrs["X-Vault-Token"] = config_.token;
 
-        beast::error_code ec;
-        asio::io_context ioc;
-        asio::ip::tcp::resolver resolver(ioc);
-        auto results = resolver.resolve(url.host, url.port, ec);
-        if (ec) { connected_ = false; return; }
+        auto res = do_request(http::verb::get, url.host, url.port, api_path,
+            "", hdrs, config_.timeout_seconds, url.tls);
 
-        auto sec = std::chrono::seconds(config_.timeout_seconds);
-
-        if (url.tls) {
-            asio::ssl::context ssl_ctx(asio::ssl::context::tlsv12_client);
-            ssl_ctx.set_default_verify_paths();
-            asio::ssl::stream<beast::tcp_stream> stream(ioc, ssl_ctx);
-
-            beast::get_lowest_layer(stream).expires_after(sec);
-            beast::get_lowest_layer(stream).connect(results, ec);
-            if (ec) { connected_ = false; return; }
-
-            if (!SSL_set_tlsext_host_name(stream.native_handle(), url.host.c_str())) {
-                connected_ = false; return;
-            }
-
-            stream.next_layer().expires_after(sec);
-            stream.handshake(asio::ssl::stream_base::client, ec);
-            if (ec) { connected_ = false; return; }
-
-            http::request<http::string_body> req{http::verb::get, api_path, 11};
-            req.set(http::field::host, url.host);
-            req.set(http::field::user_agent, "cppload-pro/1.0");
-            req.set(http::field::accept, "application/json");
-            for (const auto& [k, v] : hdrs) req.set(k, v);
-
-            stream.next_layer().expires_after(sec);
-            http::write(stream, req, ec);
-            if (ec) { connected_ = false; return; }
-
-            beast::flat_buffer buffer;
-            http::response<http::string_body> res;
-            stream.next_layer().expires_after(sec);
-            http::read(stream, buffer, res, ec);
-            if (ec && ec != http::error::end_of_stream) { connected_ = false; return; }
-
-            connected_ = (res.result_int() >= 200 && res.result_int() < 500);
+        if (res) {
+            connected_ = (res.value().result_int() >= 200 && res.value().result_int() < 500);
         } else {
-            beast::tcp_stream stream(ioc);
-
-            stream.expires_after(sec);
-            stream.connect(results, ec);
-            if (ec) { connected_ = false; return; }
-
-            http::request<http::string_body> req{http::verb::get, api_path, 11};
-            req.set(http::field::host, url.host);
-            req.set(http::field::user_agent, "cppload-pro/1.0");
-            req.set(http::field::accept, "application/json");
-            for (const auto& [k, v] : hdrs) req.set(k, v);
-
-            stream.expires_after(sec);
-            http::write(stream, req, ec);
-            if (ec) { connected_ = false; return; }
-
-            beast::flat_buffer buffer;
-            http::response<http::string_body> res;
-            stream.expires_after(sec);
-            http::read(stream, buffer, res, ec);
-            if (ec && ec != http::error::end_of_stream) { connected_ = false; return; }
-
-            beast::error_code shutdown_ec;
-            stream.socket().shutdown(asio::ip::tcp::socket::shutdown_both, shutdown_ec);
-
-            connected_ = (res.result_int() >= 200 && res.result_int() < 500);
+            connected_ = false;
         }
     }
 
     VaultConfig config_;
     bool connected_;
+    mutable std::string last_error_;
 };
 
 VaultClient::VaultClient(const VaultConfig& config)
@@ -383,6 +324,8 @@ VaultClient::VaultClient(const VaultConfig& config)
 VaultClient::~VaultClient() = default;
 
 bool VaultClient::is_connected() const { return impl_->is_connected(); }
+
+std::string VaultClient::last_error() const { return impl_->last_error(); }
 
 Result<std::string, Err> VaultClient::get_secret(const std::string& path, const std::string& key) {
     return impl_->get_secret(path, key);

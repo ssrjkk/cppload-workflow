@@ -48,22 +48,15 @@ Result<http::response<http::string_body>, Err> do_sync_post(
     const std::string& target,
     const std::string& body,
     const std::string& content_type,
+    bool use_tls = false,
     std::chrono::seconds timeout = std::chrono::seconds(10))
 {
     beast::error_code ec;
     asio::io_context ioc;
     asio::ip::tcp::resolver resolver(ioc);
-    beast::tcp_stream stream(ioc);
 
     auto const results = resolver.resolve(host, port, ec);
     if (ec) return Result<http::response<http::string_body>, Err>::err(Err::dns_failure);
-
-    stream.expires_after(timeout);
-    stream.connect(results, ec);
-    if (ec == beast::error::timeout)
-        return Result<http::response<http::string_body>, Err>::err(Err::connection_timeout);
-    if (ec)
-        return Result<http::response<http::string_body>, Err>::err(Err::connection_refused);
 
     http::request<http::string_body> req{http::verb::post, target, 11};
     req.set(http::field::host, host);
@@ -73,20 +66,77 @@ Result<http::response<http::string_body>, Err> do_sync_post(
     req.body() = body;
     req.prepare_payload();
 
-    stream.expires_after(timeout);
-    http::write(stream, req, ec);
-    if (ec) return Result<http::response<http::string_body>, Err>::err(Err::write_error);
+    auto send_receive = [&](auto& stream) -> Result<http::response<http::string_body>, Err> {
+        beast::get_lowest_layer(stream).expires_after(timeout);
+        beast::get_lowest_layer(stream).connect(results, ec);
+        if (ec == beast::error::timeout)
+            return Result<http::response<http::string_body>, Err>::err(Err::connection_timeout);
+        if (ec)
+            return Result<http::response<http::string_body>, Err>::err(Err::connection_refused);
 
-    beast::flat_buffer buffer;
-    http::response<http::string_body> res;
-    stream.expires_after(timeout);
-    http::read(stream, buffer, res, ec);
-    if (ec && ec != http::error::end_of_stream)
-        return Result<http::response<http::string_body>, Err>::err(Err::read_error);
+        beast::get_lowest_layer(stream).expires_after(timeout);
+        http::write(stream, req, ec);
+        if (ec) return Result<http::response<http::string_body>, Err>::err(Err::write_error);
 
-    beast::error_code shutdown_ec;
-    stream.socket().shutdown(asio::ip::tcp::socket::shutdown_both, shutdown_ec);
-    return Result<http::response<http::string_body>, Err>::ok(std::move(res));
+        beast::flat_buffer buffer;
+        http::response<http::string_body> res;
+        beast::get_lowest_layer(stream).expires_after(timeout);
+        http::read(stream, buffer, res, ec);
+        if (ec && ec != http::error::end_of_stream)
+            return Result<http::response<http::string_body>, Err>::err(Err::read_error);
+
+        beast::error_code shutdown_ec;
+        beast::get_lowest_layer(stream).socket().shutdown(
+            asio::ip::tcp::socket::shutdown_both, shutdown_ec);
+        return Result<http::response<http::string_body>, Err>::ok(std::move(res));
+    };
+
+    if (use_tls) {
+        static asio::ssl::context ssl_ctx(asio::ssl::context::tlsv12_client);
+        static bool ssl_ctx_init = [] {
+            ssl_ctx.set_default_verify_paths();
+            ssl_ctx.set_options(
+                asio::ssl::context::default_workarounds |
+                asio::ssl::context::no_sslv2 |
+                asio::ssl::context::no_sslv3 |
+                asio::ssl::context::no_tlsv1 |
+                asio::ssl::context::no_tlsv1_1);
+            return true;
+        }();
+        (void)ssl_ctx_init;
+        asio::ssl::stream<beast::tcp_stream> stream(ioc, ssl_ctx);
+
+        if (!SSL_set_tlsext_host_name(stream.native_handle(), host.c_str()))
+            return Result<http::response<http::string_body>, Err>::err(Err::tls_handshake_failed);
+
+        beast::get_lowest_layer(stream).expires_after(timeout);
+        beast::get_lowest_layer(stream).connect(results, ec);
+        if (ec == beast::error::timeout)
+            return Result<http::response<http::string_body>, Err>::err(Err::connection_timeout);
+        if (ec)
+            return Result<http::response<http::string_body>, Err>::err(Err::connection_refused);
+
+        stream.next_layer().expires_after(timeout);
+        stream.handshake(asio::ssl::stream_base::client, ec);
+        if (ec) return Result<http::response<http::string_body>, Err>::err(Err::tls_handshake_failed);
+
+        stream.next_layer().expires_after(timeout);
+        http::write(stream, req, ec);
+        if (ec) return Result<http::response<http::string_body>, Err>::err(Err::write_error);
+
+        beast::flat_buffer buffer;
+        http::response<http::string_body> res;
+        stream.next_layer().expires_after(timeout);
+        http::read(stream, buffer, res, ec);
+        if (ec && ec != http::error::end_of_stream)
+            return Result<http::response<http::string_body>, Err>::err(Err::read_error);
+
+        stream.shutdown(ec);
+        return Result<http::response<http::string_body>, Err>::ok(std::move(res));
+    } else {
+        beast::tcp_stream stream(ioc);
+        return send_receive(stream);
+    }
 }
 
 using core::parse_url;
@@ -163,7 +213,7 @@ private:
             "&client_secret=" + url_encode(config_.client_secret);
 
         auto res = do_sync_post(url.host, url.port, url.path, body,
-            "application/x-www-form-urlencoded");
+            "application/x-www-form-urlencoded", url.tls);
 
         if (!res) return Result<bool, Err>::err(res.error());
 

@@ -18,19 +18,22 @@ namespace asio = boost::asio;
 namespace cppload::net {
 
 static std::string url_encode_path(const std::string& raw) {
-    std::ostringstream out;
-    out << std::hex << std::uppercase;
+    static constexpr char hex_chars[] = "0123456789ABCDEF";
+    std::string out;
+    out.reserve(raw.size() * 3);
     for (unsigned char c : raw) {
         if (std::isalnum(c) || c == '-' || c == '_' || c == '.' || c == '~' ||
             c == '/' || c == '@' || c == '!' || c == '$' || c == '&' ||
             c == '\'' || c == '(' || c == ')' || c == '*' || c == '+' ||
             c == ',' || c == ';' || c == '=' || c == ':' || c == '?') {
-            out << c;
+            out += static_cast<char>(c);
         } else {
-            out << '%' << std::setw(2) << std::setfill('0') << static_cast<int>(c);
+            out += '%';
+            out += hex_chars[c >> 4];
+            out += hex_chars[c & 0x0F];
         }
     }
-    return out.str();
+    return out;
 }
 
 class Http11Client::Impl : public std::enable_shared_from_this<Impl> {

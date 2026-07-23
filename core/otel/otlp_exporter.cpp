@@ -121,41 +121,48 @@ public:
     }
 
     void start_span(const std::string& name) {
-        std::lock_guard<std::mutex> lock(span_mtx_);
-        if (span_active_) {
-            // End previous span inline before starting new one
-            SpanData span;
-            span.name = span_name_;
-            span.trace_id = trace_id_;
-            span.span_id = current_span_id_;
-            span.parent_span_id = parent_span_id_;
-            span.start_time = span_start_;
-            span.end_time = std::chrono::system_clock::now();
-            span.attributes = std::move(attributes_);
+        SpanData span_to_push;
+        bool should_push = false;
 
-            last_span_id_ = current_span_id_;
-            attributes_.clear();
-            span_active_ = false;
+        {
+            std::lock_guard<std::mutex> lock(span_mtx_);
+            if (span_active_) {
+                span_to_push.name = span_name_;
+                span_to_push.trace_id = trace_id_;
+                span_to_push.span_id = current_span_id_;
+                span_to_push.parent_span_id = parent_span_id_;
+                span_to_push.start_time = span_start_;
+                span_to_push.end_time = std::chrono::system_clock::now();
+                span_to_push.attributes = std::move(attributes_);
 
-            if (config_.sample_rate >= 1.0 ||
-                [&]() {
-                    static thread_local std::mt19937 rng(std::random_device{}());
-                    std::uniform_real_distribution<> dist(0.0, 1.0);
-                    return dist(rng) <= config_.sample_rate;
-                }()) {
-                std::lock_guard<std::mutex> slock(spans_mutex_);
-                completed_spans_.push_back(std::move(span));
+                last_span_id_ = current_span_id_;
+                attributes_.clear();
+                span_active_ = false;
+
+                if (config_.sample_rate >= 1.0 ||
+                    [&]() {
+                        static thread_local std::mt19937 rng(std::random_device{}());
+                        std::uniform_real_distribution<> dist(0.0, 1.0);
+                        return dist(rng) <= config_.sample_rate;
+                    }()) {
+                    should_push = true;
+                }
             }
+
+            span_name_ = name;
+            span_active_ = true;
+            span_start_ = std::chrono::system_clock::now();
+            current_span_id_ = random_hex(16);
+            parent_span_id_ = last_span_id_;
+
+            attributes_["service.name"] = config_.service_name;
+            attributes_["service.version"] = config_.service_version;
         }
 
-        span_name_ = name;
-        span_active_ = true;
-        span_start_ = std::chrono::system_clock::now();
-        current_span_id_ = random_hex(16);
-        parent_span_id_ = last_span_id_;
-
-        attributes_["service.name"] = config_.service_name;
-        attributes_["service.version"] = config_.service_version;
+        if (should_push) {
+            std::lock_guard<std::mutex> slock(spans_mutex_);
+            completed_spans_.push_back(std::move(span_to_push));
+        }
     }
 
     void end_span() {

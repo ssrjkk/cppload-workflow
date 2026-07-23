@@ -47,6 +47,8 @@ public:
         const std::string& role_id,
         const std::string& secret_id);
 
+    [[nodiscard]] std::string last_error() const;
+
 private:
     class Impl;
     std::unique_ptr<Impl> impl_;

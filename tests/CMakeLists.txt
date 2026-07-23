@@ -75,6 +75,18 @@ target_link_libraries(test_metrics_stress
 )
 add_test(NAME MetricsStressTest COMMAND test_metrics_stress)
 
+add_executable(test_protocol_factory test_protocol_factory.cpp)
+target_link_libraries(test_protocol_factory
+    PRIVATE cppload_core GTest::gtest_main
+)
+add_test(NAME ProtocolFactoryTest COMMAND test_protocol_factory)
+
+add_executable(test_io_context_pool test_io_context_pool.cpp)
+target_link_libraries(test_io_context_pool
+    PRIVATE cppload_core GTest::gtest_main
+)
+add_test(NAME IoContextPoolTest COMMAND test_io_context_pool)
+
 add_test(NAME HttpClientTest COMMAND test_http_client)
 add_test(NAME MetricsTest COMMAND test_metrics)
 add_test(NAME TokenBucketTest COMMAND test_token_bucket)

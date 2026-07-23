@@ -41,7 +41,7 @@ struct Scenario {
     std::vector<HttpStep> steps;
 };
 
-struct AuthConfig {
+struct ScenarioAuthConfig {
     std::string type;
     std::string token_endpoint;
     struct {
@@ -84,7 +84,7 @@ struct ScenarioConfig {
         } tls;
     } target;
 
-    AuthConfig authentication;
+    ScenarioAuthConfig authentication;
     ObservabilityConfig observability;
     LoadProfile load_profile;
     std::vector<Scenario> scenarios;

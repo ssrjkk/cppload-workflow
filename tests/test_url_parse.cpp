@@ -1,5 +1,6 @@
 #include <gtest/gtest.h>
 #include "cppload/core/url_parse.hpp"
+#include "cppload/core/url_encode.hpp"
 
 using namespace cppload::core;
 
@@ -79,4 +80,54 @@ TEST(SanitisePathTest, PreservesSafeChars) {
 
 TEST(SanitisePathTest, EmptyPath) {
     EXPECT_EQ(sanitise_path(""), "");
+}
+
+TEST(UrlParseTest, UrlWithQueryString) {
+    auto p = parse_url("http://example.com/path?key=val&foo=bar");
+    EXPECT_EQ(p.host, "example.com");
+    EXPECT_EQ(p.path, "/path?key=val&foo=bar");
+}
+
+TEST(UrlParseTest, UrlWithFragment) {
+    auto p = parse_url("http://example.com/path#section");
+    EXPECT_EQ(p.host, "example.com");
+    EXPECT_EQ(p.path, "/path#section");
+}
+
+TEST(UrlParseTest, Ipv6Address) {
+    auto p = parse_url("http://[::1]:8080/test");
+    EXPECT_EQ(p.host, "[::1]");
+    EXPECT_EQ(p.port, "8080");
+    EXPECT_EQ(p.path, "/test");
+}
+
+TEST(UrlParseTest, NonStandardPort) {
+    auto p = parse_url("https://example.com:8443/api");
+    EXPECT_EQ(p.host, "example.com");
+    EXPECT_EQ(p.port, "8443");
+    EXPECT_EQ(p.path, "/api");
+    EXPECT_TRUE(p.tls);
+}
+
+TEST(UrlParseTest, PathOnly) {
+    auto p = parse_url("/api/v1/data");
+    EXPECT_EQ(p.host, "");
+    EXPECT_EQ(p.port, "80");
+    EXPECT_EQ(p.path, "/api/v1/data");
+}
+
+TEST(UrlEncodeTest, BasicEncode) {
+    EXPECT_EQ(url_encode("hello"), "hello");
+    EXPECT_EQ(url_encode("hello world"), "hello%20world");
+    EXPECT_EQ(url_encode("a&b=c"), "a%26b%3Dc");
+    EXPECT_EQ(url_encode(""), "");
+}
+
+TEST(UrlEncodeTest, SpecialChars) {
+    EXPECT_EQ(url_encode("!@#$%^*()"), "%21%40%23%24%25%5E%2A%28%29");
+}
+
+TEST(UrlEncodeTest, SafeCharsNotEncoded) {
+    EXPECT_EQ(url_encode("-_.~"), "-_.~");
+    EXPECT_EQ(url_encode("abc123"), "abc123");
 }
