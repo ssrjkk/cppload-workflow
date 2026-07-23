@@ -123,8 +123,7 @@ public:
         } else if (config_.type == AuthType::BEARER_TOKEN) {
             return "Authorization: Bearer " + config_.token;
         } else if (config_.type == AuthType::OAUTH2) {
-            auto token = const_cast<AuthProvider::Impl*>(this)->get_token();
-            return "Authorization: Bearer " + token;
+            return "Authorization: Bearer " + get_token();
         } else if (config_.type == AuthType::MTLS) {
             return "X-SSL-Cert: mtls";
         }
@@ -144,7 +143,7 @@ public:
     }
 
 private:
-    std::string get_token() {
+    std::string get_token() const {
         {
             std::lock_guard<std::mutex> lock(mtx_);
             if (std::chrono::system_clock::now() < token_expiry_) {
@@ -156,7 +155,7 @@ private:
         return current_token_;
     }
 
-    Result<bool, Err> fetch_token() {
+    Result<bool, Err> fetch_token() const {
         auto url = parse_url(config_.token_endpoint);
 
         std::string body = "grant_type=client_credentials"
@@ -193,8 +192,8 @@ private:
 
     mutable std::mutex mtx_;
     AuthConfig config_;
-    std::string current_token_;
-    std::chrono::system_clock::time_point token_expiry_;
+    mutable std::string current_token_;
+    mutable std::chrono::system_clock::time_point token_expiry_;
 };
 
 AuthProvider::AuthProvider(const AuthConfig& config)

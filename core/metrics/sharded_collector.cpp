@@ -3,6 +3,7 @@
 #include <thread>
 #include <vector>
 #include <numeric>
+#include <climits>
 
 namespace cppload::metrics {
 
@@ -38,13 +39,20 @@ void ShardedMetricsCollector::record_request(uint16_t status_code,
     shard.bytes_sent.fetch_add(bytes_sent, std::memory_order_relaxed);
     shard.bytes_received.fetch_add(bytes_received, std::memory_order_relaxed);
     auto lat_count = latency.count();
-    auto cur_sum = shard.latency_sum_us.load(std::memory_order_relaxed);
-    while (cur_sum <= INT64_MAX - lat_count &&
-           !shard.latency_sum_us.compare_exchange_weak(
-               cur_sum, cur_sum + lat_count, std::memory_order_relaxed)) {}
-    // If overflow would occur, clamp to INT64_MAX (mean will be approximate)
-    if (cur_sum > INT64_MAX - lat_count) {
-        shard.latency_sum_us.store(INT64_MAX, std::memory_order_relaxed);
+    if (lat_count <= 0) {
+        // Ignore negative/zero latency for sum to prevent underflow
+    } else {
+        auto cur_sum = shard.latency_sum_us.load(std::memory_order_relaxed);
+        while (true) {
+            if (cur_sum > INT64_MAX - lat_count) {
+                // Would overflow — clamp to INT64_MAX
+                shard.latency_sum_us.store(INT64_MAX, std::memory_order_relaxed);
+                break;
+            }
+            if (shard.latency_sum_us.compare_exchange_weak(
+                    cur_sum, cur_sum + lat_count, std::memory_order_relaxed))
+                break;
+        }
     }
 
     if (status_code >= 200 && status_code < 400) {

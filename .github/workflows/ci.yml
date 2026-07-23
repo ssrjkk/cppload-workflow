@@ -63,10 +63,14 @@ jobs:
       - name: Show build errors
         if: failure()
         run: |
+          echo "=== BUILD ERRORS ==="
+          grep -iE '(FAILED|error:|undefined reference|fatal error|no matching|note:)' build.log || true
+          echo "=== FULL BUILD LOG ==="
           cat build.log
-          while IFS= read -r line; do
+          echo "=== ANNOTATIONS ==="
+          grep -iE '(FAILED|error:|undefined reference|fatal error|no matching)' build.log | while IFS= read -r line; do
             echo "::error title=Build::$line"
-          done < build.log
+          done
 
       - name: Upload build log
         if: failure()
@@ -146,10 +150,14 @@ jobs:
       - name: Show build errors
         if: failure()
         run: |
+          echo "=== COVERAGE BUILD ERRORS ==="
+          grep -iE '(FAILED|error:|undefined reference|fatal error|no matching|note:)' build-cov.log || true
+          echo "=== FULL BUILD LOG ==="
           cat build-cov.log
-          while IFS= read -r line; do
+          echo "=== ANNOTATIONS ==="
+          grep -iE '(FAILED|error:|undefined reference|fatal error|no matching)' build-cov.log | while IFS= read -r line; do
             echo "::error title=Coverage-Build::$line"
-          done < build-cov.log
+          done
 
       - name: Upload coverage build log
         if: failure()
@@ -245,10 +253,14 @@ jobs:
       - name: Show build errors
         if: failure()
         run: |
+          echo "=== ASAN BUILD ERRORS ==="
+          grep -iE '(FAILED|error:|undefined reference|fatal error|no matching|note:)' build-asan.log || true
+          echo "=== FULL BUILD LOG ==="
           cat build-asan.log
-          while IFS= read -r line; do
+          echo "=== ANNOTATIONS ==="
+          grep -iE '(FAILED|error:|undefined reference|fatal error|no matching)' build-asan.log | while IFS= read -r line; do
             echo "::error title=ASan-Build::$line"
-          done < build-asan.log
+          done
 
       - name: Upload build log
         if: failure()
@@ -333,10 +345,14 @@ jobs:
       - name: Show build errors
         if: failure()
         run: |
+          echo "=== BENCHMARK BUILD ERRORS ==="
+          grep -iE '(FAILED|error:|undefined reference|fatal error|no matching|note:)' build-bench.log || true
+          echo "=== FULL BUILD LOG ==="
           cat build-bench.log
-          while IFS= read -r line; do
+          echo "=== ANNOTATIONS ==="
+          grep -iE '(FAILED|error:|undefined reference|fatal error|no matching)' build-bench.log | while IFS= read -r line; do
             echo "::error title=Bench-Build::$line"
-          done < build-bench.log
+          done
 
       - name: Run benchmarks
         run: |
@@ -396,10 +412,14 @@ jobs:
       - name: Show build errors
         if: failure()
         run: |
+          echo "=== INTEGRATION BUILD ERRORS ==="
+          grep -iE '(FAILED|error:|undefined reference|fatal error|no matching|note:)' build-int.log || true
+          echo "=== FULL BUILD LOG ==="
           cat build-int.log
-          while IFS= read -r line; do
+          echo "=== ANNOTATIONS ==="
+          grep -iE '(FAILED|error:|undefined reference|fatal error|no matching)' build-int.log | while IFS= read -r line; do
             echo "::error title=Int-Build::$line"
-          done < build-int.log
+          done
 
       - name: Run integration tests
         run: |
