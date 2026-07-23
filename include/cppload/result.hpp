@@ -51,27 +51,29 @@ public:
     }
 
     template <typename F>
-    Result and_then(F&& f) const& {
+    auto and_then(F&& f) const& -> decltype(f(std::declval<const T&>())) {
         if (has_value()) return f(std::get<0>(storage_));
-        return Result::err(std::get<1>(storage_));
+        using R = decltype(f(std::declval<const T&>()));
+        return R::err(std::get<1>(storage_));
     }
 
     template <typename F>
-    Result and_then(F&& f) && {
+    auto and_then(F&& f) && -> decltype(f(std::declval<T&&>())) {
         if (has_value()) return f(std::get<0>(std::move(storage_)));
-        return Result::err(std::get<1>(std::move(storage_)));
+        using R = decltype(f(std::declval<T&&>()));
+        return R::err(std::get<1>(std::move(storage_)));
     }
 
     template <typename F>
-    Result or_else(F&& f) const& {
+    auto or_else(F&& f) const& -> decltype(f(std::declval<const E&>())) {
         if (!has_value()) return f(std::get<1>(storage_));
-        return *this;
+        return Result::ok(std::get<0>(storage_));
     }
 
     template <typename F>
-    Result or_else(F&& f) && {
+    auto or_else(F&& f) && -> decltype(f(std::declval<E&&>())) {
         if (!has_value()) return f(std::get<1>(std::move(storage_)));
-        return std::move(*this);
+        return Result::ok(std::get<0>(std::move(storage_)));
     }
 
     template <typename F>
@@ -118,15 +120,15 @@ public:
     E&& error() && { assert(!has_value()); return std::get<1>(std::move(storage_)); }
 
     template <typename F>
-    Result or_else(F&& f) const& {
+    auto or_else(F&& f) const& -> decltype(f(std::declval<const E&>())) {
         if (!has_value()) return f(std::get<1>(storage_));
-        return *this;
+        return Result::ok();
     }
 
     template <typename F>
-    Result or_else(F&& f) && {
+    auto or_else(F&& f) && -> decltype(f(std::declval<E&&>())) {
         if (!has_value()) return f(std::get<1>(std::move(storage_)));
-        return std::move(*this);
+        return Result::ok();
     }
 
     template <typename F>
