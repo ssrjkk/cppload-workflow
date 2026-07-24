@@ -1,3 +1,4 @@
+<!-- @author ssrjkk | cppload -->
 # ADR-003: gRPC for Distributed Mode
 
 **Date:** 2026-05-08

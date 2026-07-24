@@ -1,3 +1,4 @@
+<!-- @author ssrjkk | cppload -->
 # ADR-002: Lock-free Metrics Collector
 
 **Date:** 2026-05-08

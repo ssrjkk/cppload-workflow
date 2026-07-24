@@ -1,3 +1,4 @@
+<!-- @author ssrjkk | cppload -->
 # ADR-004: Error Handling Strategy
 
 **Date:** 2026-07-02
