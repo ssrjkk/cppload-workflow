@@ -1,3 +1,4 @@
+# @author ssrjkk | cppload
 """Core Python SDK for cppload-pro - Enterprise Load Testing Platform"""
 
 import os

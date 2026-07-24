@@ -1,3 +1,4 @@
+# @author ssrjkk | cppload
 # Core library sources
 set(CORE_SOURCES
     net/http_client.cpp

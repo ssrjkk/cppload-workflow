@@ -1,3 +1,4 @@
+// @author ssrjkk | cppload
 #pragma once
 
 #include "cppload/error.hpp"
@@ -59,6 +60,7 @@ public:
     uint16_t remote_port() const override;
 
     [[nodiscard]] boost::beast::tcp_stream& stream() { return stream_; }
+    [[nodiscard]] const boost::beast::tcp_stream& stream() const { return stream_; }
 
 private:
     boost::beast::tcp_stream stream_;
@@ -92,6 +94,7 @@ public:
         std::function<void(std::error_code)> handler);
 
     [[nodiscard]] boost::asio::ssl::stream<boost::beast::tcp_stream>& stream() { return ssl_stream_; }
+    [[nodiscard]] const boost::asio::ssl::stream<boost::beast::tcp_stream>& stream() const { return ssl_stream_; }
 
 private:
     boost::asio::ssl::stream<boost::beast::tcp_stream> ssl_stream_;

@@ -1,3 +1,4 @@
+# @author ssrjkk | cppload
 cmake_minimum_required(VERSION 3.21)
 file(READ VERSION PROJECT_VERSION_STRING)
 string(STRIP "${PROJECT_VERSION_STRING}" PROJECT_VERSION_STRING)

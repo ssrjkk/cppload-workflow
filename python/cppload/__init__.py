@@ -1,3 +1,4 @@
+# @author ssrjkk | cppload
 """cppload-pro: Enterprise Load Testing Platform"""
 
 __version__ = "1.0.0"

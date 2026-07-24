@@ -1,3 +1,4 @@
+# @author ssrjkk | cppload
 enable_testing()
 
 find_package(GTest QUIET)
