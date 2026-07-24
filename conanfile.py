@@ -1,3 +1,4 @@
+# @author ssrjkk | cppload
 from conan import ConanFile
 from conan.tools.cmake import CMakeToolchain, CMake, cmake_layout
 

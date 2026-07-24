@@ -1,3 +1,4 @@
+# @author ssrjkk | cppload
 # Multi-stage build for minimal image size
 # Stage 1: Builder
 FROM ubuntu:22.04 AS builder

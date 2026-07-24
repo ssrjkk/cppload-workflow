@@ -1,3 +1,4 @@
+# @author ssrjkk | cppload
 FROM ubuntu:24.04
 RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y \
     cmake ninja-build g++-13 libboost-all-dev libssl-dev libyaml-cpp-dev \

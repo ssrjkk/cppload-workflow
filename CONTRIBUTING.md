@@ -1,3 +1,4 @@
+<!-- @author ssrjkk | cppload -->
 # Contributing to cppload-pro
 
 Thank you for your interest in contributing to cppload-pro!
