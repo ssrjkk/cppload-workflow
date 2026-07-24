@@ -29,6 +29,11 @@ public:
     MetricsCollector();
     ~MetricsCollector();
 
+    MetricsCollector(const MetricsCollector&) = delete;
+    MetricsCollector& operator=(const MetricsCollector&) = delete;
+    MetricsCollector(MetricsCollector&&) = delete;
+    MetricsCollector& operator=(MetricsCollector&&) = delete;
+
     void record_request(uint16_t status_code,
                        std::chrono::microseconds latency,
                        size_t bytes_sent,

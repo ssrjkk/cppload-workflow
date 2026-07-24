@@ -230,7 +230,7 @@ private:
 
         if (ec) {
             if (ec == http::error::end_of_stream) {
-                response->status_code = res->result_int();
+                response->status_code = static_cast<uint16_t>(res->result_int());
                 response->body = res->body();
                 for (const auto& field : *res) {
                     response->headers[std::string(field.name_string())] =
@@ -240,7 +240,7 @@ private:
                 response->ec = Err::read_error;
             }
         } else {
-            response->status_code = res->result_int();
+            response->status_code = static_cast<uint16_t>(res->result_int());
             response->body = res->body();
             for (const auto& field : *res) {
                 response->headers[std::string(field.name_string())] =

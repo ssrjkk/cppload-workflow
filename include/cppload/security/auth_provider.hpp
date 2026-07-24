@@ -33,6 +33,11 @@ public:
     explicit AuthProvider(const AuthConfig& config = {});
     ~AuthProvider();
 
+    AuthProvider(const AuthProvider&) = delete;
+    AuthProvider& operator=(const AuthProvider&) = delete;
+    AuthProvider(AuthProvider&&) = delete;
+    AuthProvider& operator=(AuthProvider&&) = delete;
+
     void apply_headers(std::unordered_map<std::string, std::string>& headers);
     [[nodiscard]] std::string get_auth_header() const;
 

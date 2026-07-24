@@ -1,5 +1,6 @@
 #include "cppload/core/io_context_pool.hpp"
 #include <mutex>
+#include <stdexcept>
 
 namespace cppload {
 
@@ -55,6 +56,10 @@ void IoContextPool::stop() {
 }
 
 boost::asio::io_context& IoContextPool::get_context() {
+    std::lock_guard<std::mutex> lock(mtx_);
+    if (contexts_.empty()) {
+        throw std::runtime_error("IoContextPool: get_context() called before initialization");
+    }
     auto idx = next_.fetch_add(1, std::memory_order_relaxed) % contexts_.size();
     return *contexts_[idx];
 }

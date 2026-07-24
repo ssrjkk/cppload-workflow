@@ -6,6 +6,11 @@
 
 namespace cppload::security {
 
+enum class TlsVersion : int {
+    TLS_1_2 = 12,
+    TLS_1_3 = 13,
+};
+
 struct TlsConfig {
     bool verify_peer{true};
     std::string cert_chain_file;
@@ -14,7 +19,7 @@ struct TlsConfig {
     std::string ca_cert_file;
     std::string ca_cert_path;
     bool use_mtls{false};
-    int min_tls_version{12};  // 12 = TLSv1.2, 13 = TLSv1.3
+    TlsVersion min_tls_version{TlsVersion::TLS_1_2};
 };
 
 class TlsContext {
@@ -24,6 +29,8 @@ public:
     
     TlsContext(const TlsContext&) = delete;
     TlsContext& operator=(const TlsContext&) = delete;
+    TlsContext(TlsContext&&) = delete;
+    TlsContext& operator=(TlsContext&&) = delete;
     
     [[nodiscard]] boost::asio::ssl::context& get_native_context();
     [[nodiscard]] bool is_mtls_enabled() const;

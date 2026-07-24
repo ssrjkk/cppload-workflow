@@ -12,7 +12,7 @@ struct VaultConfig {
     std::string address{"http://127.0.0.1:8200"};
     std::string token;
     std::string engine_path{"secret"};
-    int timeout_seconds{5};
+    uint32_t timeout_seconds{5};
 };
 
 class VaultClient {
@@ -22,6 +22,8 @@ public:
 
     VaultClient(const VaultClient&) = delete;
     VaultClient& operator=(const VaultClient&) = delete;
+    VaultClient(VaultClient&&) = delete;
+    VaultClient& operator=(VaultClient&&) = delete;
 
     [[nodiscard]] bool is_connected() const;
 

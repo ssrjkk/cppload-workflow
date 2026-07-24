@@ -24,7 +24,7 @@ struct Request {
 };
 
 struct Response {
-    unsigned int status_code{0};
+    uint16_t status_code{0};
     std::string body;
     std::unordered_map<std::string, std::string> headers;
     std::chrono::microseconds latency{0};

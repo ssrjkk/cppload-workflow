@@ -98,6 +98,8 @@ public:
 
     ScenarioEngine(const ScenarioEngine&) = delete;
     ScenarioEngine& operator=(const ScenarioEngine&) = delete;
+    ScenarioEngine(ScenarioEngine&&) = delete;
+    ScenarioEngine& operator=(ScenarioEngine&&) = delete;
 
     [[nodiscard]] bool load_config();
     [[nodiscard]] bool validate() const;

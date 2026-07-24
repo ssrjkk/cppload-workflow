@@ -44,13 +44,12 @@ void ShardedMetricsCollector::record_request(uint16_t status_code,
     } else {
         auto cur_sum = shard.latency_sum_us.load(std::memory_order_relaxed);
         while (true) {
-            if (cur_sum > INT64_MAX - lat_count) {
-                // Would overflow — clamp to INT64_MAX
-                shard.latency_sum_us.store(INT64_MAX, std::memory_order_relaxed);
+            if (cur_sum > UINT64_MAX - static_cast<uint64_t>(lat_count)) {
+                shard.latency_sum_us.store(UINT64_MAX, std::memory_order_relaxed);
                 break;
             }
             if (shard.latency_sum_us.compare_exchange_weak(
-                    cur_sum, cur_sum + lat_count, std::memory_order_relaxed))
+                    cur_sum, cur_sum + static_cast<uint64_t>(lat_count), std::memory_order_relaxed))
                 break;
         }
     }

@@ -3,13 +3,12 @@
 #include <chrono>
 #include <condition_variable>
 #include <mutex>
-#include <stdexcept>
 
 namespace cppload {
 
 class TokenBucket {
 public:
-    explicit TokenBucket(double rate, double burst = 0);
+    explicit TokenBucket(double rate, double burst = 1.0);
     TokenBucket(const TokenBucket&) = delete;
     TokenBucket& operator=(const TokenBucket&) = delete;
     TokenBucket(TokenBucket&&) = delete;

@@ -11,10 +11,15 @@ namespace cppload {
 template <typename T, typename E>
 class [[nodiscard]] Result {
 public:
-    Result(const T& value) : storage_(value) {}
-    Result(T&& value) : storage_(std::move(value)) {}
-    Result(const E& error) : storage_(error) {}
-    Result(E&& error) : storage_(std::move(error)) {}
+    explicit Result(const T& value) : storage_(value) {}
+    explicit Result(T&& value) : storage_(std::move(value)) {}
+    explicit Result(const E& error) : storage_(error) {}
+    explicit Result(E&& error) : storage_(std::move(error)) {}
+
+    Result(const Result&) = default;
+    Result& operator=(const Result&) = default;
+    Result(Result&&) noexcept = default;
+    Result& operator=(Result&&) noexcept = default;
 
     static Result ok(T value) { return Result(std::move(value)); }
     static Result err(E error) { return Result(std::move(error)); }
@@ -64,16 +69,30 @@ public:
         return R::err(std::get<1>(std::move(storage_)));
     }
 
-    template <typename F>
-    auto or_else(F&& f) const& -> decltype(f(std::declval<const E&>())) {
-        if (!has_value()) return f(std::get<1>(storage_));
+    template <typename F,
+              typename = std::enable_if_t<!std::is_void_v<std::invoke_result_t<F, const E&>>>>
+    auto or_else(F&& f) const& -> Result {
+        if (!has_value()) { f(std::get<1>(storage_)); }
         return Result::ok(std::get<0>(storage_));
     }
 
-    template <typename F>
-    auto or_else(F&& f) && -> decltype(f(std::declval<E&&>())) {
-        if (!has_value()) return f(std::get<1>(std::move(storage_)));
+    template <typename F,
+              typename = std::enable_if_t<std::is_void_v<std::invoke_result_t<F, const E&>>>>
+    void or_else(F&& f) const& {
+        if (!has_value()) f(std::get<1>(storage_));
+    }
+
+    template <typename F,
+              typename = std::enable_if_t<!std::is_void_v<std::invoke_result_t<F, E&&>>>>
+    auto or_else(F&& f) && -> Result {
+        if (!has_value()) { f(std::get<1>(std::move(storage_))); }
         return Result::ok(std::get<0>(std::move(storage_)));
+    }
+
+    template <typename F,
+              typename = std::enable_if_t<std::is_void_v<std::invoke_result_t<F, E&&>>>>
+    void or_else(F&& f) && {
+        if (!has_value()) f(std::get<1>(std::move(storage_)));
     }
 
     template <typename F>
@@ -106,8 +125,13 @@ template <typename E>
 class [[nodiscard]] Result<void, E> {
 public:
     Result() : storage_(std::monostate{}) {}
-    Result(const E& error) : storage_(error) {}
-    Result(E&& error) : storage_(std::move(error)) {}
+    explicit Result(const E& error) : storage_(error) {}
+    explicit Result(E&& error) : storage_(std::move(error)) {}
+
+    Result(const Result&) = default;
+    Result& operator=(const Result&) = default;
+    Result(Result&&) noexcept = default;
+    Result& operator=(Result&&) noexcept = default;
 
     static Result ok() { return Result(); }
     static Result err(E error) { return Result(std::move(error)); }
@@ -119,16 +143,30 @@ public:
     const E& error() const& { assert(!has_value()); return std::get<1>(storage_); }
     E&& error() && { assert(!has_value()); return std::get<1>(std::move(storage_)); }
 
-    template <typename F>
-    auto or_else(F&& f) const& -> decltype(f(std::declval<const E&>())) {
-        if (!has_value()) return f(std::get<1>(storage_));
+    template <typename F,
+              typename = std::enable_if_t<!std::is_void_v<std::invoke_result_t<F, const E&>>>>
+    auto or_else(F&& f) const& -> Result {
+        if (!has_value()) { f(std::get<1>(storage_)); }
         return Result::ok();
     }
 
-    template <typename F>
-    auto or_else(F&& f) && -> decltype(f(std::declval<E&&>())) {
-        if (!has_value()) return f(std::get<1>(std::move(storage_)));
+    template <typename F,
+              typename = std::enable_if_t<std::is_void_v<std::invoke_result_t<F, const E&>>>>
+    void or_else(F&& f) const& {
+        if (!has_value()) f(std::get<1>(storage_));
+    }
+
+    template <typename F,
+              typename = std::enable_if_t<!std::is_void_v<std::invoke_result_t<F, E&&>>>>
+    auto or_else(F&& f) && -> Result {
+        if (!has_value()) { f(std::get<1>(std::move(storage_))); }
         return Result::ok();
+    }
+
+    template <typename F,
+              typename = std::enable_if_t<std::is_void_v<std::invoke_result_t<F, E&&>>>>
+    void or_else(F&& f) && {
+        if (!has_value()) f(std::get<1>(std::move(storage_)));
     }
 
     template <typename F>

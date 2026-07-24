@@ -20,6 +20,8 @@ public:
     
     Tracer(const Tracer&) = delete;
     Tracer& operator=(const Tracer&) = delete;
+    Tracer(Tracer&&) = delete;
+    Tracer& operator=(Tracer&&) = delete;
     
     void start_span(const std::string& name);
     void end_span();

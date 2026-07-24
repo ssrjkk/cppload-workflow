@@ -30,6 +30,8 @@ public:
 
     ShardedMetricsCollector(const ShardedMetricsCollector&) = delete;
     ShardedMetricsCollector& operator=(const ShardedMetricsCollector&) = delete;
+    ShardedMetricsCollector(ShardedMetricsCollector&&) = delete;
+    ShardedMetricsCollector& operator=(ShardedMetricsCollector&&) = delete;
 
     void record_request(uint16_t status_code,
                        std::chrono::microseconds latency,
@@ -52,14 +54,16 @@ private:
         std::atomic<uint64_t> failed{0};
         std::atomic<uint64_t> bytes_sent{0};
         std::atomic<uint64_t> bytes_received{0};
-        std::atomic<int64_t> latency_sum_us{0};
+        std::atomic<uint64_t> latency_sum_us{0};
         std::atomic<int64_t> min_latency_us{INT64_MAX};
         std::atomic<int64_t> max_latency_us{INT64_MIN};
     };
 
     struct alignas(64) LatencyBucket {
         std::atomic<uint64_t> count{0};
-        char padding[64 > sizeof(std::atomic<uint64_t>) ? 64 - sizeof(std::atomic<uint64_t>) : 0]{};
+        static constexpr size_t kPadSize = (64 > sizeof(std::atomic<uint64_t>))
+            ? 64 - sizeof(std::atomic<uint64_t>) : sizeof(std::atomic<uint64_t>);
+        char padding[kPadSize]{};
     };
 
     static constexpr size_t kNumLatencyBuckets = 256;

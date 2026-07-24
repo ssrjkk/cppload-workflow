@@ -19,6 +19,8 @@ public:
     
     PrometheusExporter(const PrometheusExporter&) = delete;
     PrometheusExporter& operator=(const PrometheusExporter&) = delete;
+    PrometheusExporter(PrometheusExporter&&) = delete;
+    PrometheusExporter& operator=(PrometheusExporter&&) = delete;
     
     // Start the HTTP server (non-blocking)
     [[nodiscard]] bool start();

@@ -17,6 +17,8 @@ public:
 
     IoContextPool(const IoContextPool&) = delete;
     IoContextPool& operator=(const IoContextPool&) = delete;
+    IoContextPool(IoContextPool&&) = delete;
+    IoContextPool& operator=(IoContextPool&&) = delete;
 
     void start();
     void stop();

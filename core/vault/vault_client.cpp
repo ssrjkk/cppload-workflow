@@ -29,7 +29,7 @@ Result<http::response<http::string_body>, Err> do_request(
     const std::string& target,
     const std::string& body,
     const std::unordered_map<std::string, std::string>& headers,
-    int timeout_sec,
+    uint32_t timeout_sec,
     bool use_tls)
 {
     beast::error_code ec;
