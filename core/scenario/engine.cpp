@@ -102,8 +102,8 @@ public:
                             req.path = step.path;
                             req.body = step.body;
                             req.headers = step.headers;
-                            parse_url(cfg.target.base_url, req.host, req.port,
-                                      req.use_tls, step.use_tls);
+                            resolve_url(cfg.target.base_url, req.host, req.port,
+                                       req.use_tls, step.use_tls);
 
                             auto capture_req = std::make_shared<net::Request>(std::move(req));
                             auto done = std::make_shared<std::atomic<bool>>(false);
@@ -156,7 +156,7 @@ public:
     }
 
 private:
-    void parse_url(const std::string& url, std::string& host,
+    void resolve_url(const std::string& url, std::string& host,
                    uint16_t& port, bool& use_tls, bool step_tls) {
         auto parts = core::parse_url(url);
         host = std::move(parts.host);

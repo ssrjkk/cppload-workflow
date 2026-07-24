@@ -35,7 +35,7 @@ inline UrlParts parse_url(const std::string& url) {
     return p;
 }
 
-inline std::string sanitise_path(const std::string& path) {
+inline std::string sanitize_path(const std::string& path) {
     std::string result;
     result.reserve(path.size());
     for (char c : path) {

@@ -17,7 +17,6 @@ Enterprise load testing platform with C++20 core for maximum performance.
 ### Performance Targets
 
 - 50k+ RPS per node (HTTP/1.1)
-- 30k+ RPS with HTTP/2
 - <1ms overhead per request
 
 ## Building

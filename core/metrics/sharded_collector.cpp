@@ -1,5 +1,6 @@
 // @author ssrjkk | cppload
 #include "cppload/metrics/sharded_collector.hpp"
+#include "cppload/core/constants.hpp"
 #include <algorithm>
 #include <thread>
 #include <vector>
@@ -12,9 +13,9 @@ thread_local size_t ShardedMetricsCollector::t_shard_index = SIZE_MAX;
 std::atomic<size_t> ShardedMetricsCollector::s_next_shard{0};
 
 ShardedMetricsCollector::ShardedMetricsCollector()
-    : s_num_shards_(std::min(kMaxShards,
-        std::max<size_t>(4, std::thread::hardware_concurrency() * 2)))
-    , shards_(std::make_unique<Shard[]>(s_num_shards_))
+    : num_shards_(std::min(kMaxShards,
+        std::max<size_t>(core::kMinShards, std::thread::hardware_concurrency() * 2)))
+    , shards_(std::make_unique<Shard[]>(num_shards_))
     , latency_buckets_(std::make_unique<LatencyBucket[]>(kNumLatencyBuckets))
     , start_time_(std::chrono::steady_clock::now())
 {
@@ -24,7 +25,7 @@ ShardedMetricsCollector::~ShardedMetricsCollector() = default;
 
 size_t ShardedMetricsCollector::get_shard_index() const {
     if (t_shard_index == SIZE_MAX) {
-        t_shard_index = s_next_shard.fetch_add(1, std::memory_order_relaxed) % s_num_shards_;
+        t_shard_index = s_next_shard.fetch_add(1, std::memory_order_relaxed) % num_shards_;
     }
     return t_shard_index;
 }
@@ -81,7 +82,7 @@ void ShardedMetricsCollector::record_request(uint16_t status_code,
 
 ShardedMetrics ShardedMetricsCollector::snapshot() const {
     ShardedMetrics m;
-    const auto ns = s_num_shards_;
+    const auto ns = num_shards_;
 
     int64_t global_min = INT64_MAX;
     int64_t global_max = INT64_MIN;
@@ -132,10 +133,11 @@ ShardedMetrics ShardedMetricsCollector::snapshot() const {
 double ShardedMetricsCollector::requests_per_second() const {
     auto now = std::chrono::steady_clock::now();
     auto elapsed = std::chrono::duration<double>(now - start_time_).count();
-    if (elapsed < 0.001) return 0.0;
+    static constexpr double kMinElapsedSeconds = 0.001;
+    if (elapsed < kMinElapsedSeconds) return 0.0;
 
     uint64_t total = 0;
-    const auto ns = s_num_shards_;
+    const auto ns = num_shards_;
     for (size_t i = 0; i < ns; ++i) {
         total += shards_[i].requests.load(std::memory_order_relaxed);
     }
@@ -145,7 +147,7 @@ double ShardedMetricsCollector::requests_per_second() const {
 double ShardedMetricsCollector::error_rate() const {
     uint64_t total = 0;
     uint64_t failed = 0;
-    const auto ns = s_num_shards_;
+    const auto ns = num_shards_;
     for (size_t i = 0; i < ns; ++i) {
         total += shards_[i].requests.load(std::memory_order_relaxed);
         failed += shards_[i].failed.load(std::memory_order_relaxed);
@@ -155,7 +157,7 @@ double ShardedMetricsCollector::error_rate() const {
 }
 
 void ShardedMetricsCollector::reset() {
-    const auto ns = s_num_shards_;
+    const auto ns = num_shards_;
     for (size_t i = 0; i < ns; ++i) {
         shards_[i].requests.store(0, std::memory_order_relaxed);
         shards_[i].successful.store(0, std::memory_order_relaxed);

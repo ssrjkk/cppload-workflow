@@ -1,5 +1,6 @@
 // @author ssrjkk | cppload
 #include "cppload/otel/exporter.hpp"
+#include "cppload/core/constants.hpp"
 #include "cppload/core/url_parse.hpp"
 #include <boost/beast/core.hpp>
 #include <boost/beast/http.hpp>
@@ -35,11 +36,15 @@ struct SpanData {
 };
 
 std::string random_hex(size_t len) {
+    static constexpr char hex[] = "0123456789abcdef";
     static thread_local std::mt19937 gen(std::random_device{}());
     static thread_local std::uniform_int_distribution<> dis(0, 15);
-    std::ostringstream oss;
-    for (size_t i = 0; i < len; ++i) oss << std::hex << dis(gen);
-    return oss.str();
+    std::string result;
+    result.reserve(len);
+    for (size_t i = 0; i < len; ++i) {
+        result += hex[dis(gen)];
+    }
+    return result;
 }
 
 int64_t to_nanos(std::chrono::system_clock::time_point tp) {
@@ -75,9 +80,9 @@ void do_post_json(
     }
 
     std::string body_str = body.dump();
-    http::request<http::string_body> req{http::verb::post, target, 11};
+    http::request<http::string_body> req{http::verb::post, target, core::kHttpVersion};
     req.set(http::field::host, host);
-    req.set(http::field::user_agent, "cppload-pro/1.0");
+    req.set(http::field::user_agent, core::kUserAgent);
     req.set(http::field::content_type, "application/json");
     req.body() = body_str;
     req.prepare_payload();
@@ -232,7 +237,7 @@ private:
 
         json scope_spans;
         scope_spans["scope"]["name"] = "cppload-pro";
-        scope_spans["scope"]["version"] = "1.0.0";
+        scope_spans["scope"]["version"] = std::string(core::kVersion);
 
         for (const auto& span : spans_to_export) {
             json s;
@@ -242,7 +247,7 @@ private:
                 s["parentSpanId"] = span.parent_span_id;
             }
             s["name"] = span.name;
-            s["kind"] = 2; // SPAN_KIND_CLIENT
+            s["kind"] = core::kSpanKindClient;
             s["startTimeUnixNano"] = std::to_string(to_nanos(span.start_time));
             s["endTimeUnixNano"] = std::to_string(to_nanos(span.end_time));
 
@@ -255,7 +260,7 @@ private:
             }
             if (!attrs.empty()) s["attributes"] = attrs;
 
-            s["status"]["code"] = 1; // STATUS_CODE_OK
+            s["status"]["code"] = core::kOtlpStatusCodeOk;
 
             scope_spans["spans"].push_back(std::move(s));
         }
@@ -282,15 +287,14 @@ private:
         std::vector<SpanData> spans_to_export;
         {
             std::lock_guard<std::mutex> lock(spans_mutex_);
-            if (completed_spans_.size() >= 64) {
+            if (completed_spans_.size() >= core::kOtlpBatchSize) {
                 spans_to_export.swap(completed_spans_);
             }
             // Drop oldest spans if buffer grows too large (endpoint unreachable)
-            static constexpr size_t kMaxBufferedSpans = 4096;
-            if (completed_spans_.size() > kMaxBufferedSpans) {
+            if (completed_spans_.size() > core::kOtlpMaxBufferedSpans) {
                 completed_spans_.erase(
                     completed_spans_.begin(),
-                    completed_spans_.begin() + (completed_spans_.size() - kMaxBufferedSpans));
+                    completed_spans_.begin() + (completed_spans_.size() - core::kOtlpMaxBufferedSpans));
             }
         }
         do_export(spans_to_export);

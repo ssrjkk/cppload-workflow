@@ -1,6 +1,7 @@
 // @author ssrjkk | cppload
 #include "cppload/vault/vault_client.hpp"
 #include "cppload/result.hpp"
+#include "cppload/core/constants.hpp"
 #include "cppload/core/url_parse.hpp"
 #include <boost/beast/core.hpp>
 #include <boost/beast/http.hpp>
@@ -21,7 +22,7 @@ namespace cppload::vault {
 namespace {
 
 using core::parse_url;
-using core::sanitise_path;
+using core::sanitize_path;
 
 Result<http::response<http::string_body>, Err> do_request(
     http::verb method,
@@ -44,9 +45,9 @@ Result<http::response<http::string_body>, Err> do_request(
 
     auto build_request = [&](http::verb m, const std::string& tgt,
                              const std::string& body_data) {
-        http::request<http::string_body> req{m, tgt, 11};
+        http::request<http::string_body> req{m, tgt, core::kHttpVersion};
         req.set(http::field::host, host);
-        req.set(http::field::user_agent, "cppload-pro/1.0");
+        req.set(http::field::user_agent, core::kUserAgent);
         req.set(http::field::accept, "application/json");
         for (const auto& [k, v] : headers) req.set(k, v);
         if (!body_data.empty()) { req.body() = body_data; req.prepare_payload(); }
@@ -55,7 +56,8 @@ Result<http::response<http::string_body>, Err> do_request(
 
     if (use_tls) {
         static asio::ssl::context ssl_ctx(asio::ssl::context::tlsv12_client);
-        static bool ssl_ctx_initialized = [] {
+        static std::once_flag ssl_flag;
+        std::call_once(ssl_flag, [] {
             ssl_ctx.set_default_verify_paths();
             ssl_ctx.set_options(
                 asio::ssl::context::default_workarounds |
@@ -63,9 +65,7 @@ Result<http::response<http::string_body>, Err> do_request(
                 asio::ssl::context::no_sslv3 |
                 asio::ssl::context::no_tlsv1 |
                 asio::ssl::context::no_tlsv1_1);
-            return true;
-        }();
-        (void)ssl_ctx_initialized;
+        });
         asio::ssl::stream<beast::tcp_stream> stream(ioc, ssl_ctx);
 
         beast::get_lowest_layer(stream).expires_after(sec);
@@ -152,8 +152,8 @@ public:
     Result<std::string, Err> get_secret(const std::string& path, const std::string& key) {
         if (path.empty()) return Result<std::string, Err>::err(Err::invalid_config);
         auto url = parse_url(config_.address);
-        std::string api_path = "/v1/" + sanitise_path(config_.engine_path)
-            + "/data/" + sanitise_path(path);
+        std::string api_path = "/v1/" + sanitize_path(config_.engine_path)
+            + "/data/" + sanitize_path(path);
 
         std::unordered_map<std::string, std::string> hdrs;
         hdrs["X-Vault-Token"] = config_.token;
@@ -167,6 +167,8 @@ public:
 
         try {
             auto j = json::parse(res.value().body());
+            if (!j.contains("data") || !j["data"].contains("data"))
+                return Result<std::string, Err>::err(Err::parse_error);
             auto data = j["data"]["data"];
             if (data.is_object() && data.contains(key)) {
                 return Result<std::string, Err>::ok(data[key].get<std::string>());
@@ -183,8 +185,8 @@ public:
             return Result<std::unordered_map<std::string, std::string>, Err>::err(Err::invalid_config);
 
         auto url = parse_url(config_.address);
-        std::string api_path = "/v1/" + sanitise_path(config_.engine_path)
-            + "/data/" + sanitise_path(path);
+        std::string api_path = "/v1/" + sanitize_path(config_.engine_path)
+            + "/data/" + sanitize_path(path);
 
         std::unordered_map<std::string, std::string> hdrs;
         hdrs["X-Vault-Token"] = config_.token;
@@ -198,6 +200,8 @@ public:
 
         try {
             auto j = json::parse(res.value().body());
+            if (!j.contains("data") || !j["data"].contains("data"))
+                return Result<std::unordered_map<std::string, std::string>, Err>::err(Err::parse_error);
             auto data = j["data"]["data"];
             std::unordered_map<std::string, std::string> result;
             if (data.is_object()) {
@@ -215,8 +219,8 @@ public:
                                   const std::unordered_map<std::string, std::string>& data) {
         if (path.empty()) return Result<bool, Err>::err(Err::invalid_config);
         auto url = parse_url(config_.address);
-        std::string api_path = "/v1/" + sanitise_path(config_.engine_path)
-            + "/data/" + sanitise_path(path);
+        std::string api_path = "/v1/" + sanitize_path(config_.engine_path)
+            + "/data/" + sanitize_path(path);
 
         json body;
         json data_obj;
@@ -243,7 +247,7 @@ public:
         if (role_name.empty()) return Result<std::string, Err>::err(Err::invalid_config);
 
         auto url = parse_url(config_.address);
-        std::string safe_role = sanitise_path(role_name);
+        std::string safe_role = sanitize_path(role_name);
         std::string api_path = "/v1/database/creds/" + safe_role;
 
         std::unordered_map<std::string, std::string> hdrs;
@@ -258,6 +262,8 @@ public:
 
         try {
             auto j = json::parse(res.value().body());
+            if (!j.contains("data"))
+                return Result<std::string, Err>::err(Err::parse_error);
             auto d = j["data"];
             std::string username = d.value("username", "");
             std::string password = d.value("password", "");
@@ -290,6 +296,8 @@ public:
 
         try {
             auto j = json::parse(res.value().body());
+            if (!j.contains("auth") || !j["auth"].contains("client_token"))
+                return Result<std::string, Err>::err(Err::parse_error);
             return Result<std::string, Err>::ok(j["auth"]["client_token"].get<std::string>());
         } catch (const json::exception&) {
             return Result<std::string, Err>::err(Err::parse_error);

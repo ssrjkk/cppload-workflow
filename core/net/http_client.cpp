@@ -1,6 +1,8 @@
 // @author ssrjkk | cppload
 #include "cppload/net/http_client.hpp"
 #include "cppload/net/connection.hpp"
+#include "cppload/core/constants.hpp"
+#include "cppload/core/url_encode.hpp"
 #include <boost/beast/http.hpp>
 #include <boost/beast/core/flat_buffer.hpp>
 #include <boost/asio/ip/tcp.hpp>
@@ -9,8 +11,6 @@
 #include <atomic>
 #include <cctype>
 #include <chrono>
-#include <iomanip>
-#include <sstream>
 
 namespace beast = boost::beast;
 namespace http = beast::http;
@@ -20,13 +20,12 @@ namespace cppload::net {
 
 static std::string url_encode_path(const std::string& raw) {
     static constexpr char hex_chars[] = "0123456789ABCDEF";
+    static constexpr std::string_view unreserved =
+        "/@!$&'()*+,;=:?._-";
     std::string out;
     out.reserve(raw.size() * 3);
     for (unsigned char c : raw) {
-        if (std::isalnum(c) || c == '-' || c == '_' || c == '.' || c == '~' ||
-            c == '/' || c == '@' || c == '!' || c == '$' || c == '&' ||
-            c == '\'' || c == '(' || c == ')' || c == '*' || c == '+' ||
-            c == ',' || c == ';' || c == '=' || c == ':' || c == '?') {
+        if (std::isalnum(c) || unreserved.find(static_cast<char>(c)) != std::string_view::npos) {
             out += static_cast<char>(c);
         } else {
             out += '%';
@@ -82,9 +81,9 @@ public:
         safe_target.erase(std::remove_if(safe_target.begin(), safe_target.end(),
             [](char c) { return c == '\r' || c == '\n'; }), safe_target.end());
         req_msg->target(url_encode_path(safe_target));
-        req_msg->version(11);
+        req_msg->version(core::kHttpVersion);
         req_msg->set(http::field::host, req.host);
-        req_msg->set(http::field::user_agent, "cppload-pro/1.0");
+        req_msg->set(http::field::user_agent, core::kUserAgent);
 
         if (!req.body.empty()) {
             req_msg->body() = req.body;
@@ -321,7 +320,7 @@ private:
     }
 
     asio::io_context& ioc_;
-    std::atomic<int64_t> timeout_ms_{5000};
+    std::atomic<int64_t> timeout_ms_{core::kDefaultTimeout.count()};
     std::atomic<bool> keep_alive_{true};
     std::unique_ptr<security::TlsContext> tls_ctx_;
 };

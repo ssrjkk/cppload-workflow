@@ -2,6 +2,8 @@
 #include "cppload/security/auth_provider.hpp"
 #include "cppload/security/tls_context.hpp"
 #include "cppload/result.hpp"
+#include "cppload/core/constants.hpp"
+#include "cppload/core/url_encode.hpp"
 #include "cppload/core/url_parse.hpp"
 #include <boost/beast/core.hpp>
 #include <boost/beast/http.hpp>
@@ -10,11 +12,10 @@
 #include <boost/asio/ssl.hpp>
 #include <nlohmann/json.hpp>
 #include <chrono>
-#include <iomanip>
 #include <mutex>
 #include <string>
-#include <sstream>
 #include <algorithm>
+#include <cstdlib>
 #include <cstdint>
 
 namespace beast = boost::beast;
@@ -26,22 +27,7 @@ namespace cppload::security {
 
 namespace {
 
-std::string url_encode(const std::string& value) {
-    std::ostringstream escaped;
-    escaped.fill('0');
-    escaped << std::hex;
-    for (char c : value) {
-        if (std::isalnum(static_cast<unsigned char>(c)) || c == '-' || c == '_'
-            || c == '.' || c == '~') {
-            escaped << c;
-        } else {
-            escaped << '%' << std::uppercase
-                    << std::setw(2) << static_cast<int>(static_cast<unsigned char>(c))
-                    << std::nouppercase;
-        }
-    }
-    return escaped.str();
-}
+using core::url_encode;
 
 Result<http::response<http::string_body>, Err> do_sync_post(
     const std::string& host,
@@ -50,7 +36,7 @@ Result<http::response<http::string_body>, Err> do_sync_post(
     const std::string& body,
     const std::string& content_type,
     bool use_tls = false,
-    std::chrono::seconds timeout = std::chrono::seconds(10))
+    std::chrono::seconds timeout = std::chrono::seconds(core::kDefaultAuthTimeoutSec))
 {
     beast::error_code ec;
     asio::io_context ioc;
@@ -59,9 +45,9 @@ Result<http::response<http::string_body>, Err> do_sync_post(
     auto const results = resolver.resolve(host, port, ec);
     if (ec) return Result<http::response<http::string_body>, Err>::err(Err::dns_failure);
 
-    http::request<http::string_body> req{http::verb::post, target, 11};
+    http::request<http::string_body> req{http::verb::post, target, core::kHttpVersion};
     req.set(http::field::host, host);
-    req.set(http::field::user_agent, "cppload-pro/1.0");
+    req.set(http::field::user_agent, core::kUserAgent);
     req.set(http::field::content_type, content_type);
     req.set(http::field::accept, "application/json");
     req.body() = body;
@@ -94,7 +80,8 @@ Result<http::response<http::string_body>, Err> do_sync_post(
 
     if (use_tls) {
         static asio::ssl::context ssl_ctx(asio::ssl::context::tlsv12_client);
-        static bool ssl_ctx_init = [] {
+        static std::once_flag ssl_flag;
+        std::call_once(ssl_flag, [] {
             ssl_ctx.set_default_verify_paths();
             ssl_ctx.set_options(
                 asio::ssl::context::default_workarounds |
@@ -102,9 +89,7 @@ Result<http::response<http::string_body>, Err> do_sync_post(
                 asio::ssl::context::no_sslv3 |
                 asio::ssl::context::no_tlsv1 |
                 asio::ssl::context::no_tlsv1_1);
-            return true;
-        }();
-        (void)ssl_ctx_init;
+        });
         asio::ssl::stream<beast::tcp_stream> stream(ioc, ssl_ctx);
 
         if (!SSL_set_tlsext_host_name(stream.native_handle(), host.c_str()))
@@ -201,8 +186,12 @@ private:
                 return current_token_;
             }
         }
-        fetch_token();
+        auto result = fetch_token();
         std::lock_guard<std::mutex> lock(mtx_);
+        if (!result && current_token_.empty()) {
+            throw std::runtime_error("OAuth2 token fetch failed: " +
+                make_error_code(result.error()).message());
+        }
         return current_token_;
     }
 
@@ -231,9 +220,9 @@ private:
             {
                 std::lock_guard<std::mutex> lock(mtx_);
                 current_token_ = j.value("access_token", "");
-                auto expires_in = j.value("expires_in", 3600);
+                auto expires_in = j.value("expires_in", core::kDefaultTokenExpirySec);
                 token_expiry_ = std::chrono::system_clock::now() +
-                    std::chrono::seconds(std::max(expires_in - 60, 1));
+                    std::chrono::seconds(std::max(expires_in - core::kExpiryMarginSec, 1));
             }
             return Result<bool, Err>::ok(true);
         } catch (const json::exception&) {

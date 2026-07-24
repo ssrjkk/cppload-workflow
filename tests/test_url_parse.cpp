@@ -64,23 +64,23 @@ TEST(UrlParseTest, PortOnly) {
     EXPECT_EQ(p.path, "/");
 }
 
-TEST(SanitisePathTest, BasicPath) {
-    EXPECT_EQ(sanitise_path("db/creds"), "db/creds");
+TEST(SanitizePathTest, BasicPath) {
+    EXPECT_EQ(sanitize_path("db/creds"), "db/creds");
 }
 
-TEST(SanitisePathTest, StripsSpecialChars) {
-    EXPECT_EQ(sanitise_path("path with spaces"), "pathwithspaces");
-    EXPECT_EQ(sanitise_path("path<script>"), "pathscript");
-    EXPECT_EQ(sanitise_path("path;injection"), "pathinjection");
+TEST(SanitizePathTest, StripsSpecialChars) {
+    EXPECT_EQ(sanitize_path("path with spaces"), "pathwithspaces");
+    EXPECT_EQ(sanitize_path("path<script>"), "pathscript");
+    EXPECT_EQ(sanitize_path("path;injection"), "pathinjection");
 }
 
-TEST(SanitisePathTest, PreservesSafeChars) {
-    EXPECT_EQ(sanitise_path("a-b_c.d~e"), "a-b_c.d~e");
-    EXPECT_EQ(sanitise_path("ABC/123"), "ABC/123");
+TEST(SanitizePathTest, PreservesSafeChars) {
+    EXPECT_EQ(sanitize_path("a-b_c.d~e"), "a-b_c.d~e");
+    EXPECT_EQ(sanitize_path("ABC/123"), "ABC/123");
 }
 
-TEST(SanitisePathTest, EmptyPath) {
-    EXPECT_EQ(sanitise_path(""), "");
+TEST(SanitizePathTest, EmptyPath) {
+    EXPECT_EQ(sanitize_path(""), "");
 }
 
 TEST(UrlParseTest, UrlWithQueryString) {

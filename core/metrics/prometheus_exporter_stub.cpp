@@ -49,7 +49,7 @@ public:
     }
 
 private:
-    std::string format_metrics() {
+    std::string format_metrics() const {
         std::lock_guard<std::mutex> lock(metrics_mtx_);
         std::ostringstream os;
         os << "# HELP cppload_requests_total Total number of HTTP requests\n"

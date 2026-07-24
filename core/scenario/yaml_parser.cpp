@@ -1,5 +1,6 @@
 // @author ssrjkk | cppload
 #include "cppload/scenario/engine.hpp"
+#include "cppload/core/constants.hpp"
 #include <yaml-cpp/yaml.h>
 #include <fstream>
 #include <iostream>
@@ -8,6 +9,7 @@
 #include <chrono>
 #include <cctype>
 #include <cstdlib>
+#include <mutex>
 
 namespace cppload::scenario {
 
@@ -56,22 +58,22 @@ double parse_error_rate(const std::string& str) {
         try {
             return std::stod(str.substr(start, end - start));
         } catch (const std::exception&) {
-            return 0.1;
+            return core::kDefaultErrorRate;
         }
     }
-    return 0.1;
+    return core::kDefaultErrorRate;
 }
 
 std::chrono::milliseconds parse_latency(const std::string& str) {
     auto start = str.find_first_of("0123456789");
-    if (start == std::string::npos) return std::chrono::milliseconds{500};
+    if (start == std::string::npos) return core::kDefaultLatencyMs;
     size_t num_end = start;
     while (num_end < str.length() && std::isdigit(static_cast<unsigned char>(str[num_end]))) ++num_end;
     long long value = 0;
     try {
         value = std::stoll(str.substr(start, num_end - start));
     } catch (const std::exception&) {
-        return std::chrono::milliseconds{500};
+        return core::kDefaultLatencyMs;
     }
     if (str.find("ms") != std::string::npos) return std::chrono::milliseconds{value};
     if (str.find("s") != std::string::npos) return std::chrono::seconds{value};
@@ -79,6 +81,7 @@ std::chrono::milliseconds parse_latency(const std::string& str) {
 }
 
 void substitute_env(YAML::Node node) {
+    static std::mutex env_mtx;
     if (!node.IsDefined()) return;
     if (node.IsScalar()) {
         std::string val = node.Scalar();
@@ -103,8 +106,13 @@ void substitute_env(YAML::Node node) {
             bool valid_name = !var_name.empty() &&
                 std::all_of(var_name.begin(), var_name.end(),
                     [](char c) { return std::isalnum(c) || c == '_'; });
-            const char* env_val = valid_name ? std::getenv(var_name.c_str()) : nullptr;
-            result += env_val ? env_val : default_val;
+            std::string env_val;
+            if (valid_name) {
+                std::lock_guard<std::mutex> lock(env_mtx);
+                const char* val = std::getenv(var_name.c_str());
+                if (val) env_val = val;
+            }
+            result += env_val.empty() ? default_val : env_val;
             pos = end + 1;
         }
         node = result;
@@ -187,11 +195,6 @@ bool parse_config_file(const std::string& path, ScenarioConfig& config, std::str
                     if (http["headers"] && http["headers"].IsMap()) {
                         for (const auto& h : http["headers"]) {
                             step.headers[h.first.as<std::string>()] = h.second.as<std::string>();
-                        }
-                    }
-                    if (http["assertions"] && http["assertions"].IsSequence()) {
-                        for (const auto& a : http["assertions"]) {
-                            step.assertions.push_back(a.as<std::string>());
                         }
                     }
                     scenario.steps.push_back(std::move(step));

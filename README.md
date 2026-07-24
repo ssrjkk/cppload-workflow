@@ -267,7 +267,7 @@ cppload-pro/
 
 **C++ Core:** C++20, Boost.Beast/ASIO, OpenSSL, yaml-cpp, nlohmann_json, Prometheus-cpp (optional)
 
-**Testing:** GoogleTest (51+ тестов, 8 test suites)
+**Testing:** GoogleTest (80+ тестов, 15 test suites)
 
 **CI/CD:** GitHub Actions, AddressSanitizer, clang-tidy, codecov, lcov
 
@@ -299,12 +299,18 @@ cd build && ctest --output-on-failure
 |------|--------|---------------|
 | test_yaml_parser.cpp | 10 | Парсинг конфигов, env vars, SLA, error handling |
 | test_metrics.cpp | 9 | Snapshot, percentiles (p50/p95/p99), reset, RPS |
-| test_token_bucket.cpp | 7 | Consume, try_consume, concurrent, rate/burst, invalid rate |
+| test_token_bucket.cpp | 14 | Consume, try_consume, concurrent, rate/burst, invalid rate |
+| test_result.cpp | 22 | Result API, or_else, and_then, move, chaining, void-returning |
+| test_url_parse.cpp | 15 | URL parsing, edge cases, URL encoding |
 | test_vault.cpp | 6 | KV v2, AppRole, database creds, health, error handling, path sanitization |
 | test_otlp.cpp | 6 | Span lifecycle, attributes, trace_id, batch export |
 | test_auth.cpp | 5 | OAuth2, API Key, Bearer, mTLS |
 | test_http_client.cpp | 4 | Async request, timeout, keep-alive, graceful failure |
 | test_prometheus.cpp | 4 | Metrics registry, counters, histograms, gauges |
+| test_tls_context.cpp | 7 | TLS context creation, version validation, cert loading |
+| test_protocol_factory.cpp | 7 | Protocol registration, HTTP/TCP/WebSocket creation |
+| test_io_context_pool.cpp | 6 | Pool initialization, context distribution, thread safety |
+| test_sharded_metrics.cpp | 10 | Sharded collection, percentiles, concurrent, reset |
 
 ## Benchmarks
 
@@ -319,7 +325,7 @@ cd build && ./tests/benchmarks/benchmark_http_client
 
 | Job | Назначение | Статус |
 |-----|-----------|--------|
-| **Build & Test** | Сборка Release + GTest (8 suites, 51+ тестов) | ✅ |
+| **Build & Test** | Сборка Release + GTest (15 suites, 80+ тестов) | ✅ |
 | **Coverage** | Debug + --coverage + codecov | ✅ |
 | **AddressSanitizer** | ASan + UBSan, g++-13 | ✅ |
 | **Lint** | clang-tidy, black, flake8, YAML валидация | ✅ |

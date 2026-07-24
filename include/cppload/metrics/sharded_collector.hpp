@@ -75,9 +75,9 @@ private:
     static std::atomic<size_t> s_next_shard;
 
     size_t get_shard_index() const;
-    size_t num_shards() const { return s_num_shards_; }
+    size_t num_shards() const { return num_shards_; }
 
-    const size_t s_num_shards_;
+    const size_t num_shards_;
     std::unique_ptr<Shard[]> shards_;
     std::unique_ptr<LatencyBucket[]> latency_buckets_;
     std::chrono::steady_clock::time_point start_time_;

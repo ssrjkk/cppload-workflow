@@ -25,7 +25,7 @@ void TcpConnection::async_write(
     std::function<void(std::error_code, size_t)> handler)
 {
     stream_.expires_after(timeout_);
-    asio::async_write(stream_, asio::const_buffer(buffer),
+    asio::async_write(stream_, buffer,
         [handler](beast::error_code ec, size_t n) {
             handler(ec == asio::error::operation_aborted ? Err::operation_cancelled : ec, n);
         });
@@ -88,7 +88,7 @@ void SslConnection::async_write(
     std::function<void(std::error_code, size_t)> handler)
 {
     beast::get_lowest_layer(ssl_stream_).expires_after(timeout_);
-    asio::async_write(ssl_stream_, asio::const_buffer(buffer),
+    asio::async_write(ssl_stream_, buffer,
         [handler](beast::error_code ec, size_t n) {
             handler(ec == asio::error::operation_aborted ? Err::operation_cancelled : ec, n);
         });

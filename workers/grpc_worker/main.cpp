@@ -10,6 +10,7 @@
 #include <boost/asio.hpp>
 #include "cppload/net/http_client.hpp"
 #include "cppload/core/token_bucket.hpp"
+#include "cppload/core/url_parse.hpp"
 #include "cppload/metrics/collector.hpp"
 #include "cppload/scenario/engine.hpp"
 #include "load_controller.pb.h"
@@ -132,29 +133,14 @@ void run_load_test(const AssignTaskResponse& task) {
         cppload::net::Request req;
         req.method = "GET";
         std::string url = task.task().target_url();
-        req.path = "/";
-        req.host = url;
-        req.port = 80;
-
-        // Parse URL to extract host, port and path
-        auto proto_end = url.find("://");
-        auto url_start = (proto_end != std::string::npos) ? proto_end + 3 : 0;
-        auto path_start = url.find("/", url_start);
-        auto host_port_end = (path_start != std::string::npos) ? path_start : url.size();
-        std::string host_port = url.substr(url_start, host_port_end - url_start);
-        auto colon = host_port.find(":");
-        if (colon != std::string::npos) {
-            req.host = host_port.substr(0, colon);
-            try {
-                auto p = std::stoul(host_port.substr(colon + 1));
-                if (p > 0 && p <= 65535) req.port = static_cast<uint16_t>(p);
-            } catch (const std::exception&) {}
-        } else {
-            req.host = host_port;
-        }
-        if (path_start != std::string::npos) {
-            req.path = url.substr(path_start);
-        }
+        auto url_parts = cppload::core::parse_url(url);
+        req.path = url_parts.path;
+        req.host = url_parts.host;
+        try {
+            auto p = std::stoul(url_parts.port);
+            if (p > 0 && p <= 65535) req.port = static_cast<uint16_t>(p);
+        } catch (const std::exception&) {}
+        req.use_tls = url_parts.tls;
 
         for (const auto& [key, val] : task.task().headers()) {
             req.headers[key] = val;
@@ -178,7 +164,7 @@ void run_load_test(const AssignTaskResponse& task) {
                     failed_requests.fetch_add(1);
                 }
             }
-            done = true;
+            done.store(true, std::memory_order_release);
         });
 
         if (!done) ioc.run_one();

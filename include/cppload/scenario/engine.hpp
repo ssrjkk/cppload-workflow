@@ -21,8 +21,6 @@ struct HttpStep {
     std::string host;
     std::string port{"80"};
     bool use_tls{false};
-    std::vector<std::string> assertions;
-    bool cache{false};
 };
 
 struct LoadProfile {

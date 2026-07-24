@@ -2,6 +2,7 @@
 #pragma once
 
 #include "cppload/error.hpp"
+#include "cppload/core/constants.hpp"
 #include <boost/asio/io_context.hpp>
 #include <boost/asio/buffer.hpp>
 #include <boost/asio/ip/tcp.hpp>
@@ -64,7 +65,7 @@ public:
 
 private:
     boost::beast::tcp_stream stream_;
-    std::chrono::milliseconds timeout_{5000};
+    std::chrono::milliseconds timeout_{core::kDefaultTimeout};
 };
 
 class SslConnection final : public Connection {
@@ -98,7 +99,7 @@ public:
 
 private:
     boost::asio::ssl::stream<boost::beast::tcp_stream> ssl_stream_;
-    std::chrono::milliseconds timeout_{5000};
+    std::chrono::milliseconds timeout_{core::kDefaultTimeout};
 };
 
 class Connector {
@@ -126,7 +127,7 @@ public:
 
 private:
     boost::asio::io_context& ioc_;
-    std::chrono::milliseconds timeout_{5000};
+    std::chrono::milliseconds timeout_{core::kDefaultTimeout};
 };
 
 class SslConnector final : public Connector {
@@ -145,7 +146,7 @@ public:
 private:
     boost::asio::io_context& ioc_;
     boost::asio::ssl::context& ssl_ctx_;
-    std::chrono::milliseconds timeout_{5000};
+    std::chrono::milliseconds timeout_{core::kDefaultTimeout};
 };
 
 } // namespace cppload::net
