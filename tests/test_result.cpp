@@ -128,3 +128,69 @@ TEST(ResultTest, MoveSemantics) {
     EXPECT_TRUE(moved.has_value());
     EXPECT_EQ(moved.value(), "hello");
 }
+
+TEST(ResultTest, OrElseVoidFunctorOk) {
+    bool called = false;
+    Result<int, Err> r = Result<int, Err>::ok(42);
+    r.or_else([&called](Err) { called = true; });
+    EXPECT_FALSE(called);
+}
+
+TEST(ResultTest, OrElseVoidFunctorErr) {
+    bool called = false;
+    Result<int, Err> r = Result<int, Err>::err(Err::timeout);
+    r.or_else([&called](Err e) { called = true; });
+    EXPECT_TRUE(called);
+}
+
+TEST(ResultVoidTest, OrElseVoidFunctorOk) {
+    bool called = false;
+    Result<void, Err> r = Result<void, Err>::ok();
+    r.or_else([&called](Err) { called = true; });
+    EXPECT_FALSE(called);
+}
+
+TEST(ResultVoidTest, OrElseVoidFunctorErr) {
+    bool called = false;
+    Result<void, Err> r = Result<void, Err>::err(Err::timeout);
+    r.or_else([&called](Err e) { called = true; });
+    EXPECT_TRUE(called);
+}
+
+TEST(ResultTest, MoveAndThen) {
+    Result<int, Err> r = Result<int, Err>::ok(5);
+    auto result = std::move(r).and_then([](int v) -> Result<std::string, Err> {
+        return Result<std::string, Err>::ok(std::to_string(v));
+    });
+    EXPECT_TRUE(result.has_value());
+    EXPECT_EQ(result.value(), "5");
+}
+
+TEST(ResultTest, SwapBasic) {
+    Result<int, Err> a = Result<int, Err>::ok(1);
+    Result<int, Err> b = Result<int, Err>::err(Err::timeout);
+    a.swap(b);
+    EXPECT_FALSE(a.has_value());
+    EXPECT_TRUE(b.has_value());
+    EXPECT_EQ(b.value(), 1);
+}
+
+TEST(ResultTest, BoolConversion) {
+    Result<int, Err> ok = Result<int, Err>::ok(42);
+    Result<int, Err> err = Result<int, Err>::err(Err::timeout);
+    EXPECT_TRUE(static_cast<bool>(ok));
+    EXPECT_FALSE(static_cast<bool>(err));
+}
+
+TEST(ResultTest, ChainedAndThen) {
+    Result<int, Err> r = Result<int, Err>::ok(1);
+    auto result = r
+        .and_then([](int v) -> Result<int, Err> {
+            return Result<int, Err>::ok(v + 1);
+        })
+        .and_then([](int v) -> Result<std::string, Err> {
+            return Result<std::string, Err>::ok(std::to_string(v));
+        });
+    EXPECT_TRUE(result.has_value());
+    EXPECT_EQ(result.value(), "2");
+}

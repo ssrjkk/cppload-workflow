@@ -88,6 +88,12 @@ target_link_libraries(test_io_context_pool
 )
 add_test(NAME IoContextPoolTest COMMAND test_io_context_pool)
 
+add_executable(test_tls_context test_tls_context.cpp)
+target_link_libraries(test_tls_context
+    PRIVATE cppload_core GTest::gtest_main
+)
+add_test(NAME TlsContextTest COMMAND test_tls_context)
+
 add_test(NAME HttpClientTest COMMAND test_http_client)
 add_test(NAME MetricsTest COMMAND test_metrics)
 add_test(NAME TokenBucketTest COMMAND test_token_bucket)
