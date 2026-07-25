@@ -23,7 +23,7 @@ classifiers = [
 dev = [
     "pytest==8.2.0",
     "black==24.4.2",
-    "mypy==1.10.0",
+    "mypy==2.3.0",
     "allure-pytest==2.13.5",
 ]
 
