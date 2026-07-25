@@ -1,0 +1,16 @@
+# @author ssrjkk | cppload
+{{- if .Values.resourceQuota.enabled }}
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: {{ include "cppload-pro.fullname" . }}
+  labels:
+    {{- include "cppload-pro.labels" . | nindent 4 }}
+spec:
+  hard:
+    requests.cpu: {{ .Values.resourceQuota.requestsCpu | default "8" }}
+    requests.memory: {{ .Values.resourceQuota.requestsMemory | default "8Gi" }}
+    limits.cpu: {{ .Values.resourceQuota.limitsCpu | default "16" }}
+    limits.memory: {{ .Values.resourceQuota.limitsMemory | default "16Gi" }}
+    pods: {{ .Values.resourceQuota.maxPods | default 20 }}
+{{- end }}

@@ -1,0 +1,14 @@
+# @author ssrjkk | cppload
+{{- if .Values.autoscaling.enabled }}
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ include "cppload-pro.fullname" . }}
+  labels:
+    {{- include "cppload-pro.labels" . | nindent 4 }}
+spec:
+  minAvailable: {{ .Values.autoscaling.minReplicas | default 2 }}
+  selector:
+    matchLabels:
+      {{- include "cppload-pro.selectorLabels" . | nindent 6 }}
+{{- end }}

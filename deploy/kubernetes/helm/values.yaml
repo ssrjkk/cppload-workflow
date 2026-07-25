@@ -106,3 +106,12 @@ securityContext:
 nodeSelector: {}
 tolerations: []
 affinity: {}
+
+# Resource quota (limits total resource usage per namespace)
+resourceQuota:
+  enabled: false
+  requestsCpu: "8"
+  requestsMemory: "8Gi"
+  limitsCpu: "16"
+  limitsMemory: "16Gi"
+  maxPods: 20
