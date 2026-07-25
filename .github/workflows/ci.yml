@@ -468,7 +468,18 @@ jobs:
 
       - name: Validate YAML
         run: |
-          python3 -c "import yaml; yaml.safe_load(open('scenarios/ecommerce/load-test.yaml'))"
+          python3 -c "
+          import yaml, sys, glob
+          ok = True
+          for f in glob.glob('scenarios/**/load-test.yaml', recursive=True):
+              try:
+                  yaml.safe_load(open(f))
+                  print(f'OK: {f}')
+              except Exception as e:
+                  print(f'FAIL: {f}: {e}')
+                  ok = False
+          sys.exit(0 if ok else 1)
+          "
 
       - name: Generate compile_commands.json
         run: |

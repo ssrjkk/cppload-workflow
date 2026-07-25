@@ -14,6 +14,7 @@ from enum import Enum
 
 
 class AuthType(Enum):
+    """Supported authentication types."""
     NONE = "none"
     API_KEY = "api_key"
     BEARER_TOKEN = "bearer_token"
@@ -23,6 +24,7 @@ class AuthType(Enum):
 
 @dataclass
 class AuthConfig:
+    """Configuration for authentication providers."""
     type: AuthType = AuthType.NONE
     api_key: str = ""
     token: str = ""
@@ -36,6 +38,7 @@ class AuthConfig:
 
 @dataclass
 class VaultConfig:
+    """Configuration for HashiCorp Vault client."""
     address: str = "http://127.0.0.1:8200"
     token: str = ""
     engine_path: str = "secret"
@@ -44,6 +47,7 @@ class VaultConfig:
 
 @dataclass
 class TraceConfig:
+    """Configuration for OpenTelemetry tracing."""
     endpoint: str = "http://localhost:4317"
     sample_rate: float = 1.0
     service_name: str = "cppload-pro"
@@ -52,6 +56,7 @@ class TraceConfig:
 
 @dataclass
 class LoadProfile:
+    """A single stage in a load test profile."""
     stage: str
     duration: str
     target_rps: int
@@ -62,6 +67,7 @@ class LoadProfile:
 
 @dataclass
 class PoolConfig:
+    """Configuration for connection pool."""
     min_connections: int = 5
     max_connections: int = 100
     idle_timeout: int = 30
@@ -70,6 +76,7 @@ class PoolConfig:
 
 @dataclass
 class HttpRequest:
+    """An HTTP request to be executed by the client."""
     method: str = "GET"
     target: str = "/"
     body: str = ""
@@ -80,6 +87,7 @@ class HttpRequest:
 
 @dataclass
 class Scenario:
+    """A named load test scenario with HTTP steps."""
     name: str
     weight: int = 100
     steps: List[Dict[str, Any]] = field(default_factory=list)
@@ -89,6 +97,8 @@ class Scenario:
 
 
 class MetricsCollector:
+    """Thread-safe HTTP request metrics collector with percentile computation."""
+
     def __init__(self):
         self._total_requests = 0
         self._successful_requests = 0
@@ -101,7 +111,7 @@ class MetricsCollector:
 
     def record_request(
         self, status_code: int, latency_us: int, bytes_sent: int = 0, bytes_received: int = 0
-    ):
+    ) -> None:
         with self._lock:
             self._total_requests += 1
             self._total_bytes_sent += bytes_sent
@@ -166,7 +176,7 @@ class MetricsCollector:
                 "error_rate": self.error_rate,
             }
 
-    def reset(self):
+    def reset(self) -> None:
         with self._lock:
             self._total_requests = 0
             self._successful_requests = 0
@@ -178,6 +188,8 @@ class MetricsCollector:
 
 
 class TokenBucket:
+    """Thread-safe token bucket rate limiter."""
+
     def __init__(self, rate: float, burst: float = 0):
         self.rate = rate
         self.burst = burst if burst > 0 else rate
@@ -196,7 +208,7 @@ class TokenBucket:
                 self.tokens = self.burst
             self.last_refill = now
 
-    def consume(self):
+    def consume(self) -> None:
         while True:
             with self._lock:
                 self._refill()
@@ -218,6 +230,8 @@ class TokenBucket:
 
 
 class HttpClient:
+    """Simple synchronous HTTP client using urllib."""
+
     def __init__(self):
         self.timeout_ms = 5000
         self.keep_alive = True
@@ -226,7 +240,7 @@ class HttpClient:
         import urllib.request
         import urllib.error
 
-        scheme = "https" if req.port == 443 else "http"
+        scheme = "https" if str(req.port) == "443" else "http"
         url = f"{scheme}://{req.host}:{req.port}{req.target}"
         data = req.body.encode() if req.body else None
         headers = req.headers.copy()
@@ -261,6 +275,8 @@ class HttpClient:
 
 
 class ConnectionPool:
+    """Thread-safe HTTP connection pool."""
+
     def __init__(self, config: Optional[PoolConfig] = None):
         self.config = config or PoolConfig()
         self._pool: Dict[str, List[HttpClient]] = {}
@@ -284,6 +300,8 @@ class ConnectionPool:
 
 
 class AuthProvider:
+    """Authentication provider supporting API Key, Bearer, OAuth2."""
+
     def __init__(self, config: Optional[AuthConfig] = None):
         self.config = config or AuthConfig()
         self._current_token = ""
@@ -291,7 +309,7 @@ class AuthProvider:
         if self.config.type == AuthType.OAUTH2 and self.config.token_endpoint:
             self._fetch_token()
 
-    def apply_headers(self, headers: Dict[str, str]):
+    def apply_headers(self, headers: Dict[str, str]) -> None:
         if self.config.type == AuthType.API_KEY:
             headers["X-API-Key"] = self.config.api_key
         elif self.config.type == AuthType.BEARER_TOKEN:
@@ -304,7 +322,7 @@ class AuthProvider:
     def _is_expired(self) -> bool:
         return time.time() >= self._token_expiry
 
-    def _fetch_token(self):
+    def _fetch_token(self) -> None:
         import urllib.request
         import urllib.parse
 
@@ -339,14 +357,18 @@ class AuthProvider:
 
 
 class VaultClient:
+    """HashiCorp Vault HTTP client for KV v2 secrets."""
+
     def __init__(self, config: Optional[VaultConfig] = None):
         self.config = config or VaultConfig()
         self._connected = False
+        self._last_error = ""
         try:
             self._health_check()
             self._connected = True
-        except Exception:
+        except Exception as e:
             self._connected = False
+            self._last_error = str(e)
 
     @property
     def is_connected(self) -> bool:
@@ -397,6 +419,8 @@ class VaultClient:
 
 
 class Tracer:
+    """OpenTelemetry-compatible distributed tracer."""
+
     def __init__(self, config: Optional[TraceConfig] = None):
         self.config = config or TraceConfig()
         self._trace_id = None
@@ -449,6 +473,8 @@ def _find_cli() -> str:
 
 
 class ScenarioEngine:
+    """YAML-based scenario loader and executor."""
+
     def __init__(self, config_path: str):
         self._config_path = config_path
         self._config: Dict[str, Any] = {}
@@ -476,6 +502,8 @@ class ScenarioEngine:
 
 
 class LoadTest:
+    """High-level load test orchestrator with metrics, auth, and tracing."""
+
     def __init__(self, config_path: str):
         with open(config_path) as f:
             self.config = yaml.safe_load(f)

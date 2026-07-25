@@ -109,8 +109,8 @@ void substitute_env(YAML::Node node) {
             std::string env_val;
             if (valid_name) {
                 std::lock_guard<std::mutex> lock(env_mtx);
-                const char* val = std::getenv(var_name.c_str());
-                if (val) env_val = val;
+                const char* env_raw = std::getenv(var_name.c_str());
+                if (env_raw) env_val = env_raw;
             }
             result += env_val.empty() ? default_val : env_val;
             pos = end + 1;

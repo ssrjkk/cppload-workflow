@@ -60,6 +60,7 @@ ARG DEBIAN_FRONTEND=noninteractive
 RUN apt-get update && apt-get install -y \
     libssl3 \
     ca-certificates \
+    curl \
     && rm -rf /var/lib/apt/lists/*
 
 # Create non-root user
@@ -95,4 +96,6 @@ CMD ["--help"]
 LABEL org.opencontainers.image.title="cppload-pro" \
       org.opencontainers.image.description="Enterprise Load Testing Platform" \
       org.opencontainers.image.authors="cppload-pro contributors" \
-      org.opencontainers.image.source="https://github.com/ssrjkk/cppload-workflow"
+      org.opencontainers.image.source="https://github.com/ssrjkk/cppload-workflow" \
+      org.opencontainers.image.version="1.0.0" \
+      org.opencontainers.image.licenses="Apache-2.0"

@@ -1,4 +1,4 @@
-// @author ssrjkk | cppload
+# @author ssrjkk | cppload
 find_package(pybind11 REQUIRED)
 
 pybind11_add_module(_cppload MODULE

@@ -20,6 +20,7 @@ from .core import (
     ConnectionPool,
     PoolConfig,
     ScenarioEngine,
+    LoadProfile,
 )
 
 __all__ = [
@@ -39,4 +40,5 @@ __all__ = [
     "ConnectionPool",
     "PoolConfig",
     "ScenarioEngine",
+    "LoadProfile",
 ]
