@@ -22,8 +22,10 @@ set(CORE_SOURCES
 set(CORE_HEADERS
     ${CMAKE_SOURCE_DIR}/include/cppload/error.hpp
     ${CMAKE_SOURCE_DIR}/include/cppload/result.hpp
+    ${CMAKE_SOURCE_DIR}/include/cppload/core/constants.hpp
     ${CMAKE_SOURCE_DIR}/include/cppload/core/token_bucket.hpp
     ${CMAKE_SOURCE_DIR}/include/cppload/core/url_parse.hpp
+    ${CMAKE_SOURCE_DIR}/include/cppload/core/url_encode.hpp
     ${CMAKE_SOURCE_DIR}/include/cppload/net/protocol.hpp
     ${CMAKE_SOURCE_DIR}/include/cppload/net/connection.hpp
     ${CMAKE_SOURCE_DIR}/include/cppload/net/http_client.hpp

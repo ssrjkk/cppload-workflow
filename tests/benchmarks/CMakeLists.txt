@@ -1,4 +1,4 @@
-// @author ssrjkk | cppload
+# @author ssrjkk | cppload
 find_package(benchmark QUIET)
 if(NOT benchmark_FOUND)
     include(FetchContent)
