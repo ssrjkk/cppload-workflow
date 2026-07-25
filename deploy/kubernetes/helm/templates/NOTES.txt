@@ -3,17 +3,17 @@
 {{- if .Values.ingress.enabled }}
 Access the application via:
 {{- range .Values.ingress.hosts }}
-  http{{ if $.Values.ingress.tls }}s{{ end }}://{{ .host }}{{ (first .paths).path }}
+  http{{ if $.Values.ingress.tls }}s{{ end }}://{{ .host }}{{ (index .paths 0).path }}
 {{- end }}
 {{- else }}
 Get the application URL by running:
-  export POD_NAME=$(kubectl get pods --namespace {{ .Release.Namespace }} -l "app.kubernetes.io/name={{ include "cppload-pro.name" . }}" -o jsonpath="{.items[0].metadata.name}")
+  export POD_NAME=$(kubectl get pods --namespace {{ .Release.Namespace }} -l "app.kubernetes.io/name={{ include "cppload-pro.fullname" . }}" -o jsonpath="{.items[0].metadata.name}")
   kubectl --namespace {{ .Release.Namespace }} port-forward $POD_NAME {{ .Values.service.port }}:{{ .Values.service.port }}
 
   Then access http://localhost:{{ .Values.service.port }}
 {{- end }}
 
-Metrics endpoint: http://localhost:9090/metrics
+Metrics endpoint: http://localhost:{{ .Values.metrics.port }}/metrics
 
 Run a load test:
   kubectl exec -it deploy/{{ include "cppload-pro.fullname" . }} -- \

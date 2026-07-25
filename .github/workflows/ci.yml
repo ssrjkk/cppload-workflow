@@ -484,8 +484,8 @@ jobs:
       - name: Lint Helm charts
         run: |
           curl -fsSL https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
-          helm lint deploy/kubernetes/helm/
-          helm template cppload-pro deploy/kubernetes/helm/ > /dev/null
+          helm lint deploy/kubernetes/helm/ --set image.tag=latest
+          helm template test-release deploy/kubernetes/helm/ --set image.tag=latest > /dev/null
           echo "Helm lint passed"
 
       - name: Validate Dockerfile
