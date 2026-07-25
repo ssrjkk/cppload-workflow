@@ -75,7 +75,7 @@ jobs:
 
       - name: Upload build log
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: build-log
           path: build.log
@@ -162,7 +162,7 @@ jobs:
 
       - name: Upload coverage build log
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: build-cov-log
           path: build-cov.log
@@ -184,7 +184,7 @@ jobs:
 
       - name: Upload lcov log
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: lcov-log
           path: lcov.log
@@ -265,7 +265,7 @@ jobs:
 
       - name: Upload build log
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: build-asan-log
           path: build-asan.log
@@ -295,7 +295,7 @@ jobs:
 
       - name: Upload ASan test log
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: test-asan-log
           path: build-asan/test-asan.log
@@ -361,7 +361,7 @@ jobs:
 
       - name: Upload benchmark results
         if: success()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: benchmark-results
           path: build-bench/Testing/
@@ -433,7 +433,7 @@ jobs:
 
       - name: Upload integration test log
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: test-int-log
           path: build-int/test-int.log
@@ -517,7 +517,7 @@ jobs:
 
       - name: Upload clang-tidy log
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: clang-tidy-log
           path: clang-tidy.log
