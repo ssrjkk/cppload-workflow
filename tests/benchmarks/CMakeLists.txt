@@ -22,3 +22,7 @@ add_test(NAME MetricsBench COMMAND metrics_bench)
 add_executable(http_client_bench http_client_bench.cpp)
 target_link_libraries(http_client_bench PRIVATE cppload_core benchmark::benchmark)
 add_test(NAME HttpClientBench COMMAND http_client_bench)
+
+add_executable(url_bench url_bench.cpp)
+target_link_libraries(url_bench PRIVATE cppload_core benchmark::benchmark)
+add_test(NAME UrlBench COMMAND url_bench)

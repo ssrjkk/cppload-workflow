@@ -9,6 +9,10 @@ spec:
   type: {{ .Values.service.type }}
   ports:
     - port: {{ .Values.service.port }}
+      targetPort: http
+      protocol: TCP
+      name: http
+    - port: 9090
       targetPort: metrics
       protocol: TCP
       name: metrics

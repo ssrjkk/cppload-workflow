@@ -1,0 +1,20 @@
+🚀 cppload-pro has been deployed!
+
+{{- if .Values.ingress.enabled }}
+Access the application via:
+{{- range .Values.ingress.hosts }}
+  http{{ if $.Values.ingress.tls }}s{{ end }}://{{ .host }}{{ (first .paths).path }}
+{{- end }}
+{{- else }}
+Get the application URL by running:
+  export POD_NAME=$(kubectl get pods --namespace {{ .Release.Namespace }} -l "app.kubernetes.io/name={{ include "cppload-pro.name" . }}" -o jsonpath="{.items[0].metadata.name}")
+  kubectl --namespace {{ .Release.Namespace }} port-forward $POD_NAME {{ .Values.service.port }}:{{ .Values.service.port }}
+
+  Then access http://localhost:{{ .Values.service.port }}
+{{- end }}
+
+Metrics endpoint: http://localhost:9090/metrics
+
+Run a load test:
+  kubectl exec -it deploy/{{ include "cppload-pro.fullname" . }} -- \
+    cppload-cli --config=/etc/cppload/scenarios/ecommerce/load-test.yaml

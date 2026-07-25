@@ -1,5 +1,6 @@
 // @author ssrjkk | cppload
 #include "cppload/scenario/engine.hpp"
+#include "cppload/core/constants.hpp"
 #include "cppload/core/token_bucket.hpp"
 #include "cppload/core/url_parse.hpp"
 #include "cppload/net/protocol_factory.hpp"
@@ -68,69 +69,98 @@ public:
         tls_cfg.verify_peer = cfg.target.tls.verify;
         net::ProtocolFactory::set_tls_config(tls_cfg);
 
-        uint32_t concurrency = 10;
+        uint32_t concurrency = core::kDefaultConcurrency;
         if (!cfg.load_profile.stages.empty()) {
             concurrency = cfg.load_profile.stages[0].concurrent_users;
         }
 
         metrics::MetricsCollector metrics;
-        std::vector<std::thread> workers;
 
-        for (uint32_t w = 0; w < concurrency; ++w) {
-            workers.emplace_back([this, ioc, &metrics, &callback, proto_name, cfg]() {
-                try {
-                    auto client = net::ProtocolFactory::create(proto_name, *ioc);
-                    if (!client) {
-                        {
-                            std::lock_guard<std::mutex> lock(last_error_mtx_);
-                            last_error_ = "unsupported protocol: " + proto_name;
+        for (size_t stage_idx = 0; stage_idx < cfg.load_profile.stages.size() && !stopped_; ++stage_idx) {
+            const auto& stage = cfg.load_profile.stages[stage_idx];
+
+            // Update rate limiter for this stage
+            if (stage.target_rps > 0) {
+                set_target_rps(stage.target_rps);
+            }
+
+            uint32_t stage_concurrency = stage.concurrent_users > 0
+                ? stage.concurrent_users : concurrency;
+
+            std::vector<std::thread> workers;
+            for (uint32_t w = 0; w < stage_concurrency; ++w) {
+                workers.emplace_back([this, ioc, &metrics, &callback, proto_name, cfg, stage_idx]() {
+                    try {
+                        auto client = net::ProtocolFactory::create(proto_name, *ioc);
+                        if (!client) {
+                            {
+                                std::lock_guard<std::mutex> lock(last_error_mtx_);
+                                last_error_ = "unsupported protocol: " + proto_name;
+                            }
+                            return;
                         }
-                        return;
-                    }
 
-                    for (const auto& scenario : cfg.scenarios) {
-                        if (stopped_) break;
-                        for (const auto& step : scenario.steps) {
+                        for (const auto& scenario : cfg.scenarios) {
                             if (stopped_) break;
+                            for (const auto& step : scenario.steps) {
+                                if (stopped_) break;
 
-                            if (!bucket_.try_consume_for(std::chrono::milliseconds(10))) {
-                                continue;
-                            }
+                                if (!bucket_.try_consume_for(std::chrono::milliseconds(10))) {
+                                    continue;
+                                }
 
-                            net::Request req;
-                            req.method = step.method;
-                            req.path = step.path;
-                            req.body = step.body;
-                            req.headers = step.headers;
-                            resolve_url(cfg.target.base_url, req.host, req.port,
-                                       req.use_tls, step.use_tls);
+                                net::Request req;
+                                req.method = step.method;
+                                req.path = step.path;
+                                req.body = step.body;
+                                req.headers = step.headers;
+                                resolve_url(cfg.target.base_url, req.host, req.port,
+                                           req.use_tls, step.use_tls);
 
-                            auto capture_req = std::make_shared<net::Request>(std::move(req));
-                            auto done = std::make_shared<std::atomic<bool>>(false);
-                            client->async_request(*capture_req,
-                                [capture_req, &metrics, &callback, done, step](std::error_code ec, net::Response resp) mutable {
-                                    metrics.record_request(resp.status_code, resp.latency,
-                                                           capture_req->body.size(), resp.body.size());
-                                    if (callback) {
-                                        callback(step, resp, metrics);
-                                    }
-                                    done->store(true, std::memory_order_release);
-                                });
+                                auto capture_req = std::make_shared<net::Request>(std::move(req));
+                                auto done = std::make_shared<std::atomic<bool>>(false);
+                                client->async_request(*capture_req,
+                                    [capture_req, &metrics, &callback, done, step](std::error_code ec, net::Response resp) mutable {
+                                        metrics.record_request(resp.status_code, resp.latency,
+                                                               capture_req->body.size(), resp.body.size());
+                                        if (callback) {
+                                            callback(step, resp, metrics);
+                                        }
+                                        done->store(true, std::memory_order_release);
+                                    });
 
-                            while (!done->load(std::memory_order_acquire) && !stopped_) {
-                                ioc->run_one();
+                                while (!done->load(std::memory_order_acquire) && !stopped_) {
+                                    ioc->run_one();
+                                }
                             }
                         }
+                    } catch (const std::exception& e) {
+                        std::lock_guard<std::mutex> lock(last_error_mtx_);
+                        last_error_ = "worker thread error: " + std::string(e.what());
                     }
-                } catch (const std::exception& e) {
-                    std::lock_guard<std::mutex> lock(last_error_mtx_);
-                    last_error_ = "worker thread error: " + std::string(e.what());
-                }
-            });
-        }
+                });
+            }
 
-        for (auto& t : workers) {
-            if (t.joinable()) t.join();
+            // Wait for stage duration if specified
+            if (stage.duration.count() > 0 && !stopped_) {
+                auto stage_end = std::chrono::steady_clock::now() + stage.duration;
+                while (std::chrono::steady_clock::now() < stage_end && !stopped_) {
+                    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+                }
+                stopped_ = true;
+                std::lock_guard<std::mutex> lock(ioc_mutex_);
+                if (active_ioc_) active_ioc_->stop();
+            }
+
+            for (auto& t : workers) {
+                if (t.joinable()) t.join();
+            }
+
+            // Reset io_context for next stage
+            if (stage_idx + 1 < cfg.load_profile.stages.size() && !stopped_) {
+                ioc->restart();
+                stopped_ = false;
+            }
         }
 
         {

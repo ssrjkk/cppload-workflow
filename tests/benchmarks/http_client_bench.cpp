@@ -24,9 +24,10 @@ static void BM_ConnectionPool_AcquireRelease(benchmark::State& state) {
     for (auto _ : state) {
         auto client = pool.acquire("localhost", 8080);
         if (client) {
+            auto raw = client.get();
             pool.release(std::move(client), "localhost", 8080);
+            benchmark::DoNotOptimize(raw);
         }
-        benchmark::DoNotOptimize(client);
     }
 }
 BENCHMARK(BM_ConnectionPool_AcquireRelease);

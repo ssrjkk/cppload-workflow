@@ -1,0 +1,22 @@
+# @author ssrjkk | cppload
+apiVersion: v1
+kind: Pod
+metadata:
+  name: "{{ include "cppload-pro.fullname" . }}-test-connection"
+  labels:
+    {{- include "cppload-pro.labels" . | nindent 4 }}
+  annotations:
+    "helm.sh/hook": test
+spec:
+  containers:
+    - name: curl
+      image: curlimages/curl:8.5.0
+      command: ['curl']
+      args:
+        - '--fail'
+        - '--silent'
+        - '--show-error'
+        - '--max-time'
+        - '5'
+        - 'http://{{ include "cppload-pro.fullname" . }}:{{ .Values.service.port }}/metrics'
+  restartPolicy: Never
