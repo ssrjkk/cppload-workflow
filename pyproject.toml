@@ -24,7 +24,7 @@ dev = [
     "pytest==8.2.0",
     "black==24.4.2",
     "mypy==2.3.0",
-    "allure-pytest==2.13.5",
+    "allure-pytest==2.16.0",
 ]
 
 [tool.setuptools.dynamic]
