@@ -28,7 +28,7 @@ public:
 
     static void set_tls_config(const security::TlsConfig& tls_config);
     [[nodiscard]] static const security::TlsConfig& tls_config();
-    [[nodiscard]] static boost::asio::ssl::context& ssl_context();
+    [[nodiscard]] static std::shared_ptr<boost::asio::ssl::context> ssl_context();
     [[nodiscard]] static bool ensure_tls_context();
 
     [[nodiscard]] static std::vector<std::string> available_protocols();

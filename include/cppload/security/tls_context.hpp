@@ -34,6 +34,7 @@ public:
     TlsContext& operator=(TlsContext&&) = delete;
     
     [[nodiscard]] boost::asio::ssl::context& get_native_context();
+    [[nodiscard]] std::shared_ptr<boost::asio::ssl::context> shared_ctx();
     [[nodiscard]] bool is_mtls_enabled() const;
     
 private:

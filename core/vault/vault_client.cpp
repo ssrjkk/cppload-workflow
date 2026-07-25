@@ -65,8 +65,10 @@ Result<http::response<http::string_body>, Err> do_request(
                 asio::ssl::context::no_sslv3 |
                 asio::ssl::context::no_tlsv1 |
                 asio::ssl::context::no_tlsv1_1);
+            ssl_ctx.set_verify_mode(asio::ssl::verify_peer);
         });
         asio::ssl::stream<beast::tcp_stream> stream(ioc, ssl_ctx);
+        stream.set_verify_callback(asio::ssl::rfc2818_verification(host));
 
         beast::get_lowest_layer(stream).expires_after(sec);
         beast::get_lowest_layer(stream).connect(results, ec);

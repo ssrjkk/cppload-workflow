@@ -83,12 +83,12 @@ const security::TlsConfig& ProtocolFactory::tls_config() {
     return global_tls_config_;
 }
 
-boost::asio::ssl::context& ProtocolFactory::ssl_context() {
+std::shared_ptr<boost::asio::ssl::context> ProtocolFactory::ssl_context() {
     std::lock_guard<std::mutex> lock(global_mutex_);
     if (!global_tls_ctx_) {
         global_tls_ctx_ = std::make_shared<security::TlsContext>(global_tls_config_);
     }
-    return global_tls_ctx_->get_native_context();
+    return global_tls_ctx_->shared_ctx();
 }
 
 bool ProtocolFactory::ensure_tls_context() {

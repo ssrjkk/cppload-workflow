@@ -8,12 +8,12 @@ namespace cppload::security {
 class TlsContext::Impl {
 public:
     explicit Impl(const TlsConfig& config) 
-        : ctx_(config.min_tls_version >= TlsVersion::TLS_1_3
+        : ctx_(std::make_shared<boost::asio::ssl::context>(
+            config.min_tls_version >= TlsVersion::TLS_1_3
             ? boost::asio::ssl::context::tlsv13_client
-            : boost::asio::ssl::context::tlsv12_client)
+            : boost::asio::ssl::context::tlsv12_client))
     {
-        // Set TLS options first (before cert loading, order matters on some OpenSSL versions)
-        ctx_.set_options(
+        ctx_->set_options(
             boost::asio::ssl::context::default_workarounds |
             boost::asio::ssl::context::no_sslv2 |
             boost::asio::ssl::context::no_sslv3 |
@@ -22,33 +22,37 @@ public:
         );
 
         if (config.verify_peer) {
-            ctx_.set_verify_mode(boost::asio::ssl::verify_peer);
+            ctx_->set_verify_mode(boost::asio::ssl::verify_peer);
             if (!config.ca_cert_file.empty()) {
-                ctx_.load_verify_file(config.ca_cert_file);
+                ctx_->load_verify_file(config.ca_cert_file);
             } else if (!config.ca_cert_path.empty()) {
-                ctx_.add_verify_path(config.ca_cert_path);
+                ctx_->add_verify_path(config.ca_cert_path);
             } else {
-                ctx_.set_default_verify_paths();
+                ctx_->set_default_verify_paths();
             }
         } else {
-            ctx_.set_verify_mode(boost::asio::ssl::verify_none);
+            ctx_->set_verify_mode(boost::asio::ssl::verify_none);
         }
         
         if (config.use_mtls) {
             if (config.cert_chain_file.empty() || config.private_key_file.empty()) {
                 throw std::invalid_argument("mTLS requires cert and key files");
             }
-            ctx_.use_certificate_chain_file(config.cert_chain_file);
-            ctx_.use_private_key_file(config.private_key_file, boost::asio::ssl::context::pem);
+            ctx_->use_certificate_chain_file(config.cert_chain_file);
+            ctx_->use_private_key_file(config.private_key_file, boost::asio::ssl::context::pem);
             mtls_enabled_ = true;
         }
         
         if (!config.tmp_dh_file.empty()) {
-            ctx_.use_tmp_dh_file(config.tmp_dh_file);
+            ctx_->use_tmp_dh_file(config.tmp_dh_file);
         }
     }
     
     boost::asio::ssl::context& get_native_context() {
+        return *ctx_;
+    }
+    
+    std::shared_ptr<boost::asio::ssl::context> shared_ctx() {
         return ctx_;
     }
     
@@ -57,7 +61,7 @@ public:
     }
     
 private:
-    boost::asio::ssl::context ctx_;
+    std::shared_ptr<boost::asio::ssl::context> ctx_;
     bool mtls_enabled_{false};
 };
 
@@ -68,6 +72,10 @@ TlsContext::~TlsContext() = default;
 
 boost::asio::ssl::context& TlsContext::get_native_context() {
     return impl_->get_native_context();
+}
+
+std::shared_ptr<boost::asio::ssl::context> TlsContext::shared_ctx() {
+    return impl_->shared_ctx();
 }
 
 bool TlsContext::is_mtls_enabled() const {

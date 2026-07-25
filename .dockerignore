@@ -1,0 +1,34 @@
+# Build
+build/
+out/
+cmake-build-*/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Git
+.git/
+.github/
+
+# CI/CD
+.travis.yml
+Jenkinsfile
+
+# Test artifacts
+*.log
+testing/
+
+# Documentation
+docs/
+*.md
+LICENSE
+
+# Pre-commit
+.pre-commit-config.yaml
+
+# Docker
+Dockerfile
+docker-compose*.yml

@@ -182,6 +182,32 @@ TEST(ResultTest, BoolConversion) {
     EXPECT_FALSE(static_cast<bool>(err));
 }
 
+TEST(ResultVoidTest, OrElseNonVoidOk) {
+    Result<void, Err> r = Result<void, Err>::ok();
+    auto result = r.or_else([](Err) -> Result<int, Err> {
+        return Result<int, Err>::ok(42);
+    });
+    EXPECT_TRUE(result.has_value());
+}
+
+TEST(ResultVoidTest, OrElseNonVoidErr) {
+    Result<void, Err> r = Result<void, Err>::err(Err::timeout);
+    auto result = r.or_else([](Err) -> Result<int, Err> {
+        return Result<int, Err>::ok(99);
+    });
+    EXPECT_TRUE(result.has_value());
+    EXPECT_EQ(result.value(), 99);
+}
+
+TEST(ResultTest, MoveOrElseNonVoidErr) {
+    Result<int, Err> r = Result<int, Err>::err(Err::timeout);
+    auto result = std::move(r).or_else([](Err&&) -> Result<int, Err> {
+        return Result<int, Err>::ok(77);
+    });
+    EXPECT_TRUE(result.has_value());
+    EXPECT_EQ(result.value(), 77);
+}
+
 TEST(ResultTest, ChainedAndThen) {
     Result<int, Err> r = Result<int, Err>::ok(1);
     auto result = r
