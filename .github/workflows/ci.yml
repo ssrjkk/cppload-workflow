@@ -197,7 +197,7 @@ jobs:
             --title "cppload-pro Coverage"
 
       - name: Upload to Codecov
-        uses: codecov/codecov-action@v4
+        uses: codecov/codecov-action@v7
         continue-on-error: true
         with:
           files: coverage.info
