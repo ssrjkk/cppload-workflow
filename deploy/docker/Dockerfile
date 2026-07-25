@@ -1,7 +1,7 @@
 # @author ssrjkk | cppload
 # Multi-stage build for minimal image size
 # Stage 1: Builder
-FROM ubuntu:22.04@sha256:0e0a0fc6d18feda9db1590da249ac93e8d5abfea8f4c3c0c849ce512b5ef8982 AS builder
+FROM ubuntu:26.04@sha256:3131b4cc82a783df6c9df078f86e01819a13594b865c2cad47bd1bca2b7063bb AS builder
 
 ARG DEBIAN_FRONTEND=noninteractive
 ENV TZ=Etc/UTC
@@ -52,7 +52,7 @@ RUN cmake --build build-release --config Release -j$(nproc)
 RUN cmake --install build-release
 
 # Stage 2: Runtime image (minimal)
-FROM ubuntu:22.04@sha256:0e0a0fc6d18feda9db1590da249ac93e8d5abfea8f4c3c0c849ce512b5ef8982 AS runtime
+FROM ubuntu:26.04@sha256:3131b4cc82a783df6c9df078f86e01819a13594b865c2cad47bd1bca2b7063bb AS runtime
 
 ARG DEBIAN_FRONTEND=noninteractive
 
