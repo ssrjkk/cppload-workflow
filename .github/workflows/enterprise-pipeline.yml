@@ -25,7 +25,7 @@ jobs:
     continue-on-error: true
     
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       
       - name: Set up Python
         uses: actions/setup-python@v7
@@ -62,7 +62,7 @@ jobs:
     timeout-minutes: 20
     
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       
       - name: Install system deps
         run: |
@@ -101,7 +101,7 @@ jobs:
     needs: build-linux
     
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       
       - name: Install deps
         run: |
@@ -142,7 +142,7 @@ jobs:
     needs: [lint, build-linux, test]
     
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       
       - name: Build Docker image
         run: docker build -t cppload-pro:test -f deploy/docker/Dockerfile .
@@ -156,7 +156,7 @@ jobs:
     timeout-minutes: 10
     
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       
       - name: Generate ADR index
         run: |
