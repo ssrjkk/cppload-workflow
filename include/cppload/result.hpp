@@ -145,23 +145,9 @@ public:
     E&& error() && { assert(!has_value()); return std::get<1>(std::move(storage_)); }
 
     template <typename F,
-              typename = std::enable_if_t<!std::is_void_v<std::invoke_result_t<F, const E&>>>>
-    auto or_else(F&& f) const& -> Result {
-        if (has_value()) return Result::ok();
-        return Result::err(f(std::get<1>(storage_)));
-    }
-
-    template <typename F,
               typename = std::enable_if_t<std::is_void_v<std::invoke_result_t<F, const E&>>>>
     void or_else(F&& f) const& {
         if (!has_value()) f(std::get<1>(storage_));
-    }
-
-    template <typename F,
-              typename = std::enable_if_t<!std::is_void_v<std::invoke_result_t<F, E&&>>>>
-    auto or_else(F&& f) && -> Result {
-        if (has_value()) return Result::ok();
-        return Result::err(f(std::get<1>(std::move(storage_))));
     }
 
     template <typename F,
