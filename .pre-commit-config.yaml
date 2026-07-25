@@ -26,3 +26,9 @@ repos:
       - id: clang-format
         types_or: [c++, c, cuda]
         args: [--style=file]
+
+  - repo: https://github.com/cheshirekow/cmake-format-precommit
+    rev: v0.6.13
+    hooks:
+      - id: cmake-format
+        args: [--line-width=120, --enable-sort]
