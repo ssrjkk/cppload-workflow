@@ -58,6 +58,28 @@ TEST(MetricsCollectorTest, PercentilesSingleValue) {
     EXPECT_EQ(m.p99_latency_us, 500);
 }
 
+TEST(MetricsCollectorTest, SnapshotIsNonDestructive) {
+    cppload::metrics::MetricsCollector collector;
+    for (int i = 1; i <= 100; ++i) {
+        collector.record_request(200, std::chrono::microseconds(i * 10), 100, 500);
+    }
+
+    auto first = collector.snapshot();
+    EXPECT_NE(first.p95_latency_us, 0u);
+    EXPECT_NE(first.p99_latency_us, 0u);
+
+    // A second snapshot must observe the same buffered samples: snapshot()
+    // must not drain the ring buffer (previously it zeroed p95/p99).
+    auto second = collector.snapshot();
+    EXPECT_EQ(second.p95_latency_us, first.p95_latency_us);
+    EXPECT_EQ(second.p99_latency_us, first.p99_latency_us);
+    EXPECT_EQ(second.total_requests, 100u);
+
+    // Percentiles still see the same samples after snapshot() ran.
+    EXPECT_EQ(collector.percentile(1.0), 1000u);
+    EXPECT_GT(collector.percentile(0.5), 0u);
+}
+
 TEST(MetricsCollectorTest, PercentilesZeroRequests) {
     cppload::metrics::MetricsCollector collector;
     auto m = collector.snapshot();

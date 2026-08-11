@@ -97,9 +97,19 @@ TEST(UrlParseTest, UrlWithFragment) {
 
 TEST(UrlParseTest, Ipv6Address) {
     auto p = parse_url("http://[::1]:8080/test");
-    EXPECT_EQ(p.host, "[::1]");
+    // Host is stored without brackets so resolvers/SNI can use it directly;
+    // brackets are re-added when formatting the Host header.
+    EXPECT_EQ(p.host, "::1");
     EXPECT_EQ(p.port, "8080");
     EXPECT_EQ(p.path, "/test");
+}
+
+TEST(UrlParseTest, Ipv6AddressNoPort) {
+    auto p = parse_url("https://[::1]/api");
+    EXPECT_EQ(p.host, "::1");
+    EXPECT_EQ(p.port, "443");
+    EXPECT_EQ(p.path, "/api");
+    EXPECT_TRUE(p.tls);
 }
 
 TEST(UrlParseTest, NonStandardPort) {

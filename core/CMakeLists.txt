@@ -66,6 +66,10 @@ target_link_libraries(cppload_core
         nlohmann_json::nlohmann_json
 )
 
+if(WIN32)
+    target_link_libraries(cppload_core PUBLIC ws2_32 mswsock)
+endif()
+
 if(prometheus-cpp_FOUND)
     target_sources(cppload_core PRIVATE metrics/prometheus_exporter.cpp)
     target_link_libraries(cppload_core
@@ -75,7 +79,7 @@ if(prometheus-cpp_FOUND)
     )
     target_compile_definitions(cppload_core PUBLIC CPLOAD_HAVE_PROMETHEUS)
 else()
-    target_sources(cppload_core PRIVATE metrics/prometheus_exporter_stub.cpp)
+    target_sources(cppload_core PRIVATE metrics/prometheus_exporter_embedded.cpp)
 endif()
 
 target_compile_features(cppload_core PUBLIC cxx_std_20)

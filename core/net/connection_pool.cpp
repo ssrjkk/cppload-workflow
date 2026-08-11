@@ -32,7 +32,8 @@ public:
 
         if (total_created_ < config_.max_connections) {
             total_created_++;
-            return std::make_unique<Http11Client>(ioc_);
+            return std::make_unique<Http11Client>(
+                ioc_, cppload::security::TlsConfig{}, config_.keep_alive);
         }
 
         return nullptr;
@@ -51,7 +52,9 @@ public:
             return;
         }
 
-        client->set_keep_alive(config_.keep_alive);
+        // keep-alive is configured once on the client at construction time.
+        // A client that closed its connection (server-side) is dropped on the
+        // next reuse inside Http11Client, so pooling it here is always safe.
         auto now = std::chrono::steady_clock::now();
         pool.push({std::move(client), now});
     }

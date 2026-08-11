@@ -12,6 +12,7 @@ public:
             config.min_tls_version >= TlsVersion::TLS_1_3
             ? boost::asio::ssl::context::tlsv13_client
             : boost::asio::ssl::context::tlsv12_client))
+        , verify_peer_(config.verify_peer)
     {
         ctx_->set_options(
             boost::asio::ssl::context::default_workarounds |
@@ -59,9 +60,14 @@ public:
     bool is_mtls_enabled() const {
         return mtls_enabled_;
     }
+
+    bool is_verify_enabled() const {
+        return verify_peer_;
+    }
     
 private:
     std::shared_ptr<boost::asio::ssl::context> ctx_;
+    bool verify_peer_{false};
     bool mtls_enabled_{false};
 };
 
@@ -80,6 +86,10 @@ std::shared_ptr<boost::asio::ssl::context> TlsContext::shared_ctx() {
 
 bool TlsContext::is_mtls_enabled() const {
     return impl_->is_mtls_enabled();
+}
+
+bool TlsContext::is_verify_enabled() const {
+    return impl_->is_verify_enabled();
 }
 
 } // namespace cppload::security

@@ -16,7 +16,8 @@ class Http11Client final : public ProtocolClient {
 public:
     Http11Client(
         boost::asio::io_context& ioc,
-        const security::TlsConfig& tls_config = {});
+        const security::TlsConfig& tls_config = {},
+        bool keep_alive = true);
 
     ~Http11Client() override;
 

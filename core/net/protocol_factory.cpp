@@ -78,7 +78,7 @@ void ProtocolFactory::set_tls_config(const security::TlsConfig& tls_config) {
     global_tls_ctx_ = std::make_shared<security::TlsContext>(tls_config);
 }
 
-const security::TlsConfig& ProtocolFactory::tls_config() {
+security::TlsConfig ProtocolFactory::tls_config() {
     std::lock_guard<std::mutex> lock(global_mutex_);
     return global_tls_config_;
 }

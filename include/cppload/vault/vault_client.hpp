@@ -5,6 +5,7 @@
 #include "cppload/error.hpp"
 #include <string>
 #include <memory>
+#include <cstdint>
 #include <unordered_map>
 
 namespace cppload::vault {

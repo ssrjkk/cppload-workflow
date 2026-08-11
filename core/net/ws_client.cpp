@@ -14,14 +14,21 @@ namespace asio = boost::asio;
 
 namespace cppload::net {
 
+static bool host_is_ip_literal(const std::string& host) {
+    if (host.find(':') != std::string::npos) return true;
+    if (host.empty()) return false;
+    for (char c : host) {
+        if (!(c == '.' || (c >= '0' && c <= '9'))) return false;
+    }
+    return true;
+}
+
 class WsClient::Impl : public std::enable_shared_from_this<Impl> {
 public:
     Impl(asio::io_context& ioc, const security::TlsConfig& tls_config)
         : ioc_(ioc), timeout_ms_(5000)
     {
-        if (tls_config.verify_peer) {
-            tls_ctx_ = std::make_unique<security::TlsContext>(tls_config);
-        }
+        tls_ctx_ = std::make_unique<security::TlsContext>(tls_config);
     }
 
     void async_request(const Request& req,
@@ -129,11 +136,18 @@ private:
                     return;
                 }
 
-                if (!SSL_set_tlsext_host_name(
+                if (!host_is_ip_literal(req.host) && !SSL_set_tlsext_host_name(
                         ws->next_layer().native_handle(), req.host.c_str())) {
                     response->ec = Err::tls_handshake_failed;
                     handler(response->ec, *response);
                     return;
+                }
+
+                // Enforce hostname verification on top of chain validation.
+                // No-op when the context uses verify_none.
+                if (self->tls_ctx_->is_verify_enabled()) {
+                    ws->next_layer().set_verify_callback(
+                        asio::ssl::host_name_verification(req.host));
                 }
 
                 beast::get_lowest_layer(*ws).expires_after(std::chrono::milliseconds(self->timeout_ms_.load(std::memory_order_relaxed)));

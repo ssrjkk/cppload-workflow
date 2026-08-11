@@ -4,7 +4,7 @@ if(NOT benchmark_FOUND)
     include(FetchContent)
     FetchContent_Declare(
         googlebenchmark
-        URL https://github.com/google/benchmark/archive/refs/tags/v1.8.3.zip
+        URL https://github.com/google/benchmark/archive/refs/tags/v1.9.1.zip
     )
     set(BENCHMARK_ENABLE_TESTING OFF CACHE BOOL "" FORCE)
     set(BENCHMARK_ENABLE_INSTALL OFF CACHE BOOL "" FORCE)

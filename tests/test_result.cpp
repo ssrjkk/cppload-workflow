@@ -55,7 +55,7 @@ TEST(ResultTest, TransformErrorErr) {
         return "error: " + std::to_string(static_cast<int>(e));
     });
     EXPECT_FALSE(transformed.has_value());
-    EXPECT_EQ(transformed.error(), "error: 5");
+    EXPECT_EQ(transformed.error(), "error: " + std::to_string(static_cast<int>(Err::timeout)));
 }
 
 TEST(ResultTest, AndThenOk) {

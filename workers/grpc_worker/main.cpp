@@ -6,6 +6,7 @@
 #include <atomic>
 #include <chrono>
 #include <csignal>
+#include <cstdlib>
 #include <grpcpp/grpcpp.h>
 #include <boost/asio.hpp>
 #include "cppload/net/http_client.hpp"
@@ -171,6 +172,10 @@ void run_load_test(const AssignTaskResponse& task) {
 
         bucket.consume();
     }
+
+    // Drain remaining async completions so no handler outlives this scope.
+    ioc.restart();
+    ioc.run();
 }
 
 int main(int argc, char** argv) {
@@ -183,13 +188,28 @@ int main(int argc, char** argv) {
 
     for (int i = 1; i < argc; ++i) {
         std::string arg = argv[i];
-        if (arg == "--controller" && i + 1 < argc) controller_addr = argv[++i];
-        else if (arg == "--worker-id" && i + 1 < argc) worker_id = argv[++i];
-        else if (arg == "--max-rps" && i + 1 < argc) {
-            try { max_rps = std::stoi(argv[++i]); }
+        auto eq = arg.find('=');
+        std::string key = arg;
+        std::string value;
+        bool inline_value = false;
+        if (eq != std::string::npos) {
+            key = arg.substr(0, eq);
+            value = arg.substr(eq + 1);
+            inline_value = true;
+        }
+        auto next_value = [&](const char* name) -> std::string {
+            if (inline_value) return value;
+            if (i + 1 < argc) return argv[++i];
+            std::cerr << "Missing value for " << name << "\n";
+            std::exit(1);
+        };
+        if (key == "--controller") controller_addr = next_value("--controller");
+        else if (key == "--worker-id") worker_id = next_value("--worker-id");
+        else if (key == "--max-rps") {
+            try { max_rps = std::stoi(next_value("--max-rps")); }
             catch (const std::exception&) { std::cerr << "Invalid --max-rps value\n"; return 1; }
         }
-        else if (arg == "--help") {
+        else if (key == "--help") {
             std::cout << "Usage: grpc_worker --controller=HOST:PORT --worker-id=ID --max-rps=N\n";
             return 0;
         }

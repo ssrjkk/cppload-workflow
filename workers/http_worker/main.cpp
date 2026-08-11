@@ -6,8 +6,10 @@
 #include <atomic>
 #include <chrono>
 #include <csignal>
+#include <cstdlib>
 #include <string>
 #include "cppload/net/http_client.hpp"
+#include "cppload/security/tls_context.hpp"
 #include "cppload/core/token_bucket.hpp"
 #include "cppload/metrics/collector.hpp"
 
@@ -28,6 +30,9 @@ struct WorkerConfig {
     uint32_t rps{100};
     int duration_sec{60};
     int report_interval_sec{5};
+    bool use_tls{false};
+    bool tls_verify{true};
+    bool show_help{false};
 };
 
 void print_usage(const char* prog) {
@@ -37,43 +42,87 @@ void print_usage(const char* prog) {
         << "  --path PATH       Target path (default: /)\n"
         << "  --method METHOD   HTTP method (default: GET)\n"
         << "  --rps N           Requests per second (default: 100)\n"
-        << "  --duration N      Test duration in seconds (default: 60)\n";
+        << "  --duration N      Test duration in seconds (default: 60)\n"
+        << "  --use-tls         Use HTTPS\n"
+        << "  --tls-verify BOOL Verify TLS certificate (default: true)\n"
+        << "  --help            Show this help\n";
 }
 
 WorkerConfig parse_args(int argc, char* argv[]) {
     WorkerConfig cfg;
     for (int i = 1; i < argc; ++i) {
         std::string arg = argv[i];
-        if (arg == "--host" && i + 1 < argc) cfg.target_host = argv[++i];
-        else if (arg == "--port" && i + 1 < argc) cfg.target_port = argv[++i];
-        else if (arg == "--path" && i + 1 < argc) cfg.target_path = argv[++i];
-        else if (arg == "--method" && i + 1 < argc) cfg.method = argv[++i];
-        else if (arg == "--rps" && i + 1 < argc) {
-            try { cfg.rps = static_cast<uint32_t>(std::stoi(argv[++i])); }
+        auto eq = arg.find('=');
+        std::string key = arg;
+        std::string value;
+        bool inline_value = false;
+        if (eq != std::string::npos) {
+            key = arg.substr(0, eq);
+            value = arg.substr(eq + 1);
+            inline_value = true;
+        }
+        auto next_value = [&](const char* name) -> std::string {
+            if (inline_value) return value;
+            if (i + 1 < argc) return argv[++i];
+            std::cerr << "Missing value for " << name << "\n";
+            exit(1);
+        };
+        auto to_bool = [](const std::string& s) -> bool {
+            return !(s == "0" || s == "false" || s == "off" || s == "no");
+        };
+
+        if (key == "--host") cfg.target_host = next_value("--host");
+        else if (key == "--port") cfg.target_port = next_value("--port");
+        else if (key == "--path") cfg.target_path = next_value("--path");
+        else if (key == "--method") cfg.method = next_value("--method");
+        else if (key == "--rps") {
+            try { cfg.rps = static_cast<uint32_t>(std::stoi(next_value("--rps"))); }
             catch (const std::exception&) { std::cerr << "Invalid --rps value\n"; exit(1); }
         }
-        else if (arg == "--duration" && i + 1 < argc) {
-            try { cfg.duration_sec = std::stoi(argv[++i]); }
+        else if (key == "--duration") {
+            try { cfg.duration_sec = std::stoi(next_value("--duration")); }
             catch (const std::exception&) { std::cerr << "Invalid --duration value\n"; exit(1); }
         }
-        else if (arg == "--help") { print_usage(argv[0]); exit(0); }
+        else if (key == "--report-interval") {
+            try { cfg.report_interval_sec = std::stoi(next_value("--report-interval")); }
+            catch (const std::exception&) { std::cerr << "Invalid --report-interval value\n"; exit(1); }
+        }
+        else if (key == "--use-tls" || key == "--tls") {
+            cfg.use_tls = inline_value ? to_bool(value) : true;
+        }
+        else if (key == "--tls-verify") {
+            cfg.tls_verify = to_bool(next_value("--tls-verify"));
+        }
+        else if (key == "--help") { cfg.show_help = true; }
+        else {
+            std::cerr << "Unknown option: " << key << "\n";
+            cfg.show_help = true;
+        }
     }
     return cfg;
 }
 
 int main(int argc, char* argv[]) {
     auto cfg = parse_args(argc, argv);
+    if (cfg.show_help) { print_usage(argv[0]); return 0; }
+    if (cfg.rps == 0) {
+        std::cerr << "Invalid --rps: must be > 0\n";
+        return 1;
+    }
 
     std::signal(SIGINT, signal_handler);
     std::signal(SIGTERM, signal_handler);
 
     asio::io_context ioc;
-    net::Http11Client client(ioc);
+    cppload::security::TlsConfig tls_cfg;
+    tls_cfg.verify_peer = cfg.tls_verify;
+    net::Http11Client client(ioc, tls_cfg);
     cppload::metrics::MetricsCollector metrics;
     cppload::TokenBucket bucket(static_cast<double>(cfg.rps));
 
     std::cout << "cppload-pro HTTP Worker\n"
-        << "Target: " << cfg.target_host << ":" << cfg.target_port << cfg.target_path << "\n"
+        << "Target: " << (cfg.use_tls ? "https://" : "http://")
+        << cfg.target_host << ":" << cfg.target_port << cfg.target_path << "\n"
         << "Method: " << cfg.method << "\n"
         << "RPS: " << cfg.rps << "\n"
         << "Duration: " << cfg.duration_sec << "s\n"
@@ -108,6 +157,7 @@ int main(int argc, char* argv[]) {
         req.method = cfg.method;
         req.path = cfg.target_path;
         req.host = cfg.target_host;
+        req.use_tls = cfg.use_tls;
         try {
             auto p = std::stoul(cfg.target_port);
             req.port = (p > 0 && p <= 65535) ? static_cast<uint16_t>(p) : 80;

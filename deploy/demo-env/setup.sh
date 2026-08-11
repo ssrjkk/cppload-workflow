@@ -21,21 +21,7 @@ mkdir -p kong
 mkdir -p prometheus_data
 mkdir -p grafana_data
 
-# Create Kong configuration
-cat > kong.yml <<EOF
-_format_version: "2.1"
-services:
-  - name: product-service
-    url: http://product-service:8080
-    routes:
-      - name: products-route
-        paths: ["/api/v1/products"]
-  - name: order-service
-    url: http://order-service:8080
-    routes:
-      - name: orders-route
-        paths: ["/api/v1/orders"]
-EOF
+# kong.yml is committed next to this script and mounted by docker-compose.yml
 
 # Start the environment
 echo "Starting demo environment..."

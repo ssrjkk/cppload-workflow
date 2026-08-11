@@ -36,6 +36,7 @@ public:
     [[nodiscard]] boost::asio::ssl::context& get_native_context();
     [[nodiscard]] std::shared_ptr<boost::asio::ssl::context> shared_ctx();
     [[nodiscard]] bool is_mtls_enabled() const;
+    [[nodiscard]] bool is_verify_enabled() const;
     
 private:
     class Impl;

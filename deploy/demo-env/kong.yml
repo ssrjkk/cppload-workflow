@@ -1,0 +1,16 @@
+# @author ssrjkk | cppload
+_format_version: "2.1"
+services:
+  - name: product-service
+    url: http://product-service:8080
+    routes:
+      - name: products-route
+        paths: ["/api/v1/products"]
+  - name: order-service
+    url: http://order-service:8080
+    routes:
+      - name: orders-route
+        paths: ["/api/v1/orders"]
+plugins:
+  - name: prometheus
+    config: {}

@@ -2,6 +2,7 @@
 #include "cppload/net/connection.hpp"
 #include <boost/beast/core.hpp>
 #include <boost/asio/ip/tcp.hpp>
+#include <boost/asio/ssl.hpp>
 #include <boost/asio/write.hpp>
 #include <memory>
 
@@ -10,6 +11,15 @@ namespace asio = boost::asio;
 using tcp = asio::ip::tcp;
 
 namespace cppload::net {
+
+static bool host_is_ip_literal(const std::string& host) {
+    if (host.find(':') != std::string::npos) return true;
+    if (host.empty()) return false;
+    for (char c : host) {
+        if (!(c == '.' || (c >= '0' && c <= '9'))) return false;
+    }
+    return true;
+}
 
 //
 // TcpConnection
@@ -182,7 +192,7 @@ void TcpConnector::async_connect(
             stream.expires_after(timeout);
             stream.async_connect(results,
                 [conn = std::move(conn), handler](
-                    beast::error_code ec, const tcp::endpoint& ep) mutable
+                    beast::error_code ec, const tcp::endpoint& /*ep*/) mutable
                 {
                     if (ec) {
                         std::error_code err = (ec == asio::error::timed_out)
@@ -250,13 +260,19 @@ void SslConnector::async_connect(
                     auto& ssl_stream = conn->stream();
                     auto& tcp_stream = beast::get_lowest_layer(ssl_stream);
 
-                    // Set SNI hostname
-                    if (!SSL_set_tlsext_host_name(
+                    // Set SNI hostname (RFC 6066: never send IP literals)
+                    if (!host_is_ip_literal(host) && !SSL_set_tlsext_host_name(
                             ssl_stream.native_handle(), host.c_str()))
                     {
                         handler(Err::tls_handshake_failed, nullptr);
                         return;
                     }
+
+                    // Enforce hostname verification on top of chain validation.
+                    // No-op when the context uses verify_none (the callback is
+                    // not invoked for unverified handshakes).
+                    ssl_stream.set_verify_callback(
+                        asio::ssl::host_name_verification(host));
 
                     tcp_stream.expires_after(timeout);
                     ssl_stream.async_handshake(asio::ssl::stream_base::client,

@@ -15,6 +15,7 @@ RUN apt-get update && apt-get install -y \
     g++-13 \
     libboost-all-dev \
     libssl-dev \
+    libyaml-cpp-dev \
     git \
     wget \
     python3 \
@@ -42,6 +43,7 @@ RUN conan install . --output-folder=. --build=missing \
 # Configure and build
 RUN cmake -B build-release -G Ninja \
     -DCMAKE_BUILD_TYPE=Release \
+    -DCMAKE_TOOLCHAIN_FILE=conan_toolchain.cmake \
     -DCPLOAD_BUILD_PYTHON=OFF \
     -DCPLOAD_BUILD_TESTS=OFF \
     -DCMAKE_INSTALL_PREFIX=/install
@@ -58,9 +60,13 @@ ARG DEBIAN_FRONTEND=noninteractive
 
 # Install only runtime dependencies
 RUN apt-get update && apt-get install -y \
-    libssl3 \
     ca-certificates \
     curl \
+    libstdc++6 \
+    libgcc-s1 \
+    libyaml-cpp-dev \
+    libboost-system-dev \
+    && apt-get install -y libssl3t64 || apt-get install -y libssl3 \
     && rm -rf /var/lib/apt/lists/*
 
 # Create non-root user

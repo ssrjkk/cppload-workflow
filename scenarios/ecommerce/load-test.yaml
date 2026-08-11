@@ -40,18 +40,18 @@ scenarios:
           method: POST
           path: "/api/v1/cart"
           body:
-            item_id: "${faker:uuid}"
+            item_id: "${ITEM_ID:-1001}"
           assertions:
             - status_code == 201
-            - latency_p95 < 200ms
+            - latency < 200ms
 
 observability:
   metrics:
     prometheus:
       enabled: true
-      port: 9090
+      port: 9095
   tracing:
-    otlp_endpoint: "http://jaeger:4317"
+    otlp_endpoint: "http://jaeger:4318"
     sample_rate: 0.1
   logging:
     level: info

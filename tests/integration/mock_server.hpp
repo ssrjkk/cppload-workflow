@@ -20,8 +20,9 @@ public:
     using Handler = std::function<http::response<http::string_body>(
         const http::request<http::string_body>&)>;
 
-    explicit MockHttpServer(uint16_t port = 0)
+    explicit MockHttpServer(uint16_t port = 0, const std::string& address = "127.0.0.1")
         : port_(port)
+        , address_(address)
         , acceptor_(ioc_)
         , running_(false)
     {
@@ -34,7 +35,7 @@ public:
 
     bool start() {
         try {
-            auto address = asio::ip::make_address("127.0.0.1");
+            auto address = asio::ip::make_address(address_);
             asio::ip::tcp::endpoint ep(address, port_);
             acceptor_.open(ep.protocol());
             acceptor_.set_option(asio::socket_base::reuse_address(true));
@@ -112,6 +113,7 @@ private:
 
     asio::io_context ioc_;
     uint16_t port_;
+    std::string address_;
     asio::ip::tcp::acceptor acceptor_;
     std::thread thread_;
     std::atomic<bool> running_;

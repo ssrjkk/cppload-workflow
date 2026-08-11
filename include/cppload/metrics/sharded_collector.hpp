@@ -7,7 +7,9 @@
 #include <cstddef>
 #include <cstdint>
 #include <memory>
+#include <mutex>
 #include <thread>
+#include <vector>
 
 namespace cppload::metrics {
 
@@ -48,6 +50,9 @@ public:
 
     static constexpr size_t kMaxShards = 128;
 
+    // Upper bound on retained latency samples for p95/p99 estimation.
+    static constexpr size_t kMaxLatencySamples = 8192;
+
 private:
     struct alignas(64) Shard {
         std::atomic<uint64_t> requests{0};
@@ -60,17 +65,6 @@ private:
         std::atomic<int64_t> max_latency_us{INT64_MIN};
     };
 
-    struct alignas(64) LatencyBucket {
-        std::atomic<uint64_t> count{0};
-        static constexpr size_t kPadSize = (64 > sizeof(std::atomic<uint64_t>))
-            ? 64 - sizeof(std::atomic<uint64_t>) : sizeof(std::atomic<uint64_t>);
-        char padding[kPadSize]{};
-    };
-
-    static constexpr size_t kNumLatencyBuckets = 256;
-    static constexpr int64_t kMaxLatencyUs = 30000000LL;
-    static constexpr int64_t kBucketWidthUs = kMaxLatencyUs / kNumLatencyBuckets;
-
     static thread_local size_t t_shard_index;
     static std::atomic<size_t> s_next_shard;
 
@@ -79,8 +73,19 @@ private:
 
     const size_t num_shards_;
     std::unique_ptr<Shard[]> shards_;
-    std::unique_ptr<LatencyBucket[]> latency_buckets_;
-    std::chrono::steady_clock::time_point start_time_;
+
+    // Bounded ring buffer of raw latency samples used for exact percentile
+    // estimation at snapshot() time.
+    mutable std::mutex samples_mtx_;
+    std::vector<uint64_t> latency_samples_;
+    size_t samples_head_{0};
+    size_t samples_count_{0};
+
+    // Windowed request rate: counter reset every second so a burst followed
+    // by idle reports a fresh ~0 instead of an ever-draining average.
+    mutable std::mutex rps_mtx_;
+    mutable std::atomic<uint64_t> rps_count_{0};
+    mutable std::chrono::steady_clock::time_point rps_window_start_;
 };
 
 } // namespace cppload::metrics

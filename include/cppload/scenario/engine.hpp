@@ -3,6 +3,7 @@
 
 #include "cppload/net/protocol.hpp"
 #include "cppload/metrics/collector.hpp"
+#include "cppload/security/auth_provider.hpp"
 #include <functional>
 #include <string>
 #include <vector>
@@ -10,6 +11,7 @@
 #include <variant>
 #include <chrono>
 #include <cstdint>
+#include <memory>
 
 namespace cppload::scenario {
 
@@ -21,7 +23,14 @@ struct HttpStep {
     std::string host;
     std::string port{"80"};
     bool use_tls{false};
+    // Assertions like "status_code == 201". A failed assertion marks the
+    // request as failed for SLA/metrics purposes.
+    std::vector<std::string> assertions;
 };
+
+// Evaluates all assertions of a step against the response.
+// Returns true when the step has no assertions or all of them pass.
+bool evaluate_assertions(const HttpStep& step, const net::Response& response);
 
 struct LoadProfile {
     struct Stage {
@@ -116,6 +125,14 @@ public:
 
     void set_target_rps(uint32_t rps);
     [[nodiscard]] uint32_t target_rps() const;
+
+    // Optional global cap on the whole test run. Stages still run in order,
+    // but the run ends once the cap is reached. 0 disables the cap.
+    void set_max_duration(std::chrono::milliseconds duration);
+    [[nodiscard]] std::chrono::milliseconds max_duration() const;
+
+    // Optional auth provider; its header (Bearer/API key) is applied to every request.
+    void set_auth_provider(std::shared_ptr<security::AuthProvider> auth);
 
     [[nodiscard]] bool check_sla(const metrics::MetricsCollector& metrics) const;
 

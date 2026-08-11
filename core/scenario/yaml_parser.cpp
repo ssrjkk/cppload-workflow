@@ -9,6 +9,7 @@
 #include <chrono>
 #include <cctype>
 #include <cstdlib>
+#include <algorithm>
 #include <mutex>
 
 namespace cppload::scenario {
@@ -115,7 +116,9 @@ void substitute_env(YAML::Node node) {
             result += env_val.empty() ? default_val : env_val;
             pos = end + 1;
         }
-        node = result;
+        if (result != val) {
+            node = result;
+        }
     } else if (node.IsMap()) {
         for (auto it = node.begin(); it != node.end(); ++it) {
             substitute_env(it->second);
@@ -146,16 +149,36 @@ bool parse_config_file(const std::string& path, ScenarioConfig& config, std::str
 
     substitute_env(root);
 
-    if (root["version"]) config.version = root["version"].as<std::string>();
-    if (root["test_id"]) config.test_id = root["test_id"].as<std::string>();
+    // Use a const view for lookups so operator[] never inserts missing keys
+    // into the document while validating.
+    const YAML::Node& root_view = root;
+    if (!root_view.IsMap()) {
+        error = "YAML root must be a mapping";
+        return false;
+    }
+    if (!root_view["target"]) {
+        error = "target section is required";
+        return false;
+    }
 
-    if (root["target"]) {
-        auto target = root["target"];
+    try {
+        const YAML::Node& target = root_view["target"];
+        if (!target.IsMap()) {
+            error = "target must be a mapping";
+            return false;
+        }
+
+        if (root_view["version"]) config.version = root_view["version"].as<std::string>();
+        if (root_view["test_id"]) config.test_id = root_view["test_id"].as<std::string>();
+
         if (target["base_url"]) config.target.base_url = target["base_url"].as<std::string>();
         if (target["protocol"]) config.target.protocol = target["protocol"].as<std::string>();
         if (target["tls"] && target["tls"]["verify"]) {
             config.target.tls.verify = target["tls"]["verify"].as<bool>();
         }
+    } catch (const YAML::Exception& e) {
+        error = std::string("YAML target parse error: ") + e.what();
+        return false;
     }
 
     if (root["load_profile"] && root["load_profile"].IsSequence()) {
@@ -195,6 +218,13 @@ bool parse_config_file(const std::string& path, ScenarioConfig& config, std::str
                     if (http["headers"] && http["headers"].IsMap()) {
                         for (const auto& h : http["headers"]) {
                             step.headers[h.first.as<std::string>()] = h.second.as<std::string>();
+                        }
+                    }
+                    if (http["assertions"] && http["assertions"].IsSequence()) {
+                        for (const auto& a : http["assertions"]) {
+                            if (a.IsScalar()) {
+                                step.assertions.push_back(a.as<std::string>());
+                            }
                         }
                     }
                     scenario.steps.push_back(std::move(step));

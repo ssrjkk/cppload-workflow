@@ -7,6 +7,7 @@
 #include <memory>
 #include <mutex>
 #include <string>
+#include <vector>
 
 
 namespace cppload::metrics {
@@ -50,6 +51,9 @@ public:
     void reset();
 
 private:
+    // Copies the samples currently buffered in the ring without consuming
+    // them. May be called concurrently with record_request().
+    std::vector<int64_t> collect_ring_samples() const;
     std::atomic<uint64_t> total_requests_{0};
     std::atomic<uint64_t> successful_requests_{0};
     std::atomic<uint64_t> failed_requests_{0};

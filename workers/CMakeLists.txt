@@ -1,4 +1,4 @@
-// @author ssrjkk | cppload
+# @author ssrjkk | cppload
 add_subdirectory(http_worker)
 
 find_package(gRPC QUIET)

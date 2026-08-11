@@ -16,8 +16,8 @@ ShardedMetricsCollector::ShardedMetricsCollector()
     : num_shards_(std::min(kMaxShards,
         std::max<size_t>(core::kMinShards, std::thread::hardware_concurrency() * 2)))
     , shards_(std::make_unique<Shard[]>(num_shards_))
-    , latency_buckets_(std::make_unique<LatencyBucket[]>(kNumLatencyBuckets))
-    , start_time_(std::chrono::steady_clock::now())
+    , latency_samples_(kMaxLatencySamples)
+    , rps_window_start_(std::chrono::steady_clock::now())
 {
 }
 
@@ -64,7 +64,6 @@ void ShardedMetricsCollector::record_request(uint16_t status_code,
 
     auto lat_val = static_cast<int64_t>(latency.count());
     if (lat_val < 0) lat_val = 0;
-    if (lat_val >= kMaxLatencyUs) lat_val = kMaxLatencyUs - 1;
 
     auto min_curr = shard.min_latency_us.load(std::memory_order_relaxed);
     while (lat_val < min_curr &&
@@ -76,8 +75,14 @@ void ShardedMetricsCollector::record_request(uint16_t status_code,
            !shard.max_latency_us.compare_exchange_weak(max_curr, lat_val,
                std::memory_order_relaxed)) {}
 
-    auto bucket_idx = static_cast<size_t>(lat_val / kBucketWidthUs);
-    latency_buckets_[bucket_idx].count.fetch_add(1, std::memory_order_relaxed);
+    {
+        std::lock_guard<std::mutex> lock(samples_mtx_);
+        latency_samples_[samples_head_] = static_cast<uint64_t>(lat_val);
+        samples_head_ = (samples_head_ + 1) % kMaxLatencySamples;
+        if (samples_count_ < kMaxLatencySamples) ++samples_count_;
+    }
+
+    rps_count_.fetch_add(1, std::memory_order_relaxed);
 }
 
 ShardedMetrics ShardedMetricsCollector::snapshot() const {
@@ -110,20 +115,31 @@ ShardedMetrics ShardedMetricsCollector::snapshot() const {
     m.max_latency_us = (global_max == INT64_MIN) ? 0 : static_cast<uint64_t>(global_max);
 
     if (m.total_requests > 0) {
-        uint64_t cumulative = 0;
-        uint64_t p95_target = (m.total_requests * 95) / 100;
-        uint64_t p99_target = (m.total_requests * 99) / 100;
-        if (p95_target == 0) p95_target = 1;
-        if (p99_target == 0) p99_target = 1;
+        std::vector<uint64_t> sorted;
+        {
+            std::lock_guard<std::mutex> lock(samples_mtx_);
+            sorted.reserve(samples_count_);
+            if (samples_count_ == kMaxLatencySamples) {
+                // Ring is full: oldest samples live after the head.
+                sorted.insert(sorted.end(),
+                    latency_samples_.begin() + samples_head_,
+                    latency_samples_.end());
+                sorted.insert(sorted.end(),
+                    latency_samples_.begin(),
+                    latency_samples_.begin() + samples_head_);
+            } else {
+                sorted.assign(latency_samples_.begin(),
+                    latency_samples_.begin() + samples_count_);
+            }
+        }
+        std::sort(sorted.begin(), sorted.end());
 
-        for (size_t b = 0; b < kNumLatencyBuckets; ++b) {
-            cumulative += latency_buckets_[b].count.load(std::memory_order_relaxed);
-            if (m.p95_latency_us == 0 && cumulative >= p95_target) {
-                m.p95_latency_us = static_cast<uint64_t>(b * kBucketWidthUs);
-            }
-            if (m.p99_latency_us == 0 && cumulative >= p99_target) {
-                m.p99_latency_us = static_cast<uint64_t>(b * kBucketWidthUs);
-            }
+        const size_t n = sorted.size();
+        if (n > 0) {
+            size_t idx95 = (n * 95 + 99) / 100 - 1;
+            size_t idx99 = (n * 99 + 99) / 100 - 1;
+            m.p95_latency_us = sorted[idx95];
+            m.p99_latency_us = sorted[idx99];
         }
     }
 
@@ -132,16 +148,21 @@ ShardedMetrics ShardedMetricsCollector::snapshot() const {
 
 double ShardedMetricsCollector::requests_per_second() const {
     auto now = std::chrono::steady_clock::now();
-    auto elapsed = std::chrono::duration<double>(now - start_time_).count();
-    static constexpr double kMinElapsedSeconds = 0.001;
-    if (elapsed < kMinElapsedSeconds) return 0.0;
+    std::lock_guard<std::mutex> lock(rps_mtx_);
+    auto elapsed = std::chrono::duration<double>(now - rps_window_start_).count();
 
-    uint64_t total = 0;
-    const auto ns = num_shards_;
-    for (size_t i = 0; i < ns; ++i) {
-        total += shards_[i].requests.load(std::memory_order_relaxed);
+    if (elapsed <= 0.0) return 0.0;
+
+    // Once at least one second has elapsed, report the rate over that whole
+    // window and start a fresh one so idle time never keeps the average alive.
+    if (elapsed >= 1.0) {
+        uint64_t count = rps_count_.exchange(0, std::memory_order_relaxed);
+        double rps = static_cast<double>(count) / elapsed;
+        rps_window_start_ = now;
+        return rps;
     }
-    return static_cast<double>(total) / elapsed;
+
+    return static_cast<double>(rps_count_.load(std::memory_order_relaxed)) / elapsed;
 }
 
 double ShardedMetricsCollector::error_rate() const {
@@ -168,10 +189,16 @@ void ShardedMetricsCollector::reset() {
         shards_[i].min_latency_us.store(INT64_MAX, std::memory_order_relaxed);
         shards_[i].max_latency_us.store(INT64_MIN, std::memory_order_relaxed);
     }
-    for (size_t b = 0; b < kNumLatencyBuckets; ++b) {
-        latency_buckets_[b].count.store(0, std::memory_order_relaxed);
+    {
+        std::lock_guard<std::mutex> lock(samples_mtx_);
+        samples_head_ = 0;
+        samples_count_ = 0;
     }
-    start_time_ = std::chrono::steady_clock::now();
+    {
+        std::lock_guard<std::mutex> lock(rps_mtx_);
+        rps_count_.store(0, std::memory_order_relaxed);
+        rps_window_start_ = std::chrono::steady_clock::now();
+    }
 }
 
 } // namespace cppload::metrics

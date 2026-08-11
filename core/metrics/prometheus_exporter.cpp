@@ -23,7 +23,11 @@ public:
 
     bool start() {
         std::lock_guard<std::mutex> lock(mtx_);
-        exposer_ = std::make_unique<prometheus::Exposer>(bind_address_);
+        try {
+            exposer_ = std::make_unique<prometheus::Exposer>(bind_address_);
+        } catch (const std::exception&) {
+            return false;
+        }
         registry_ = std::make_shared<prometheus::Registry>();
         exposer_->RegisterCollectable(registry_);
 
@@ -124,6 +128,7 @@ public:
         // Update gauges
         rps_gauge_->Set(collector.requests_per_second());
         error_rate_gauge_->Set(collector.error_rate());
+        latency_histogram_->Observe(static_cast<double>(metrics.mean_latency_us) / 1e6);
         
         // last_ values updated inside delta_or_reset()
     }

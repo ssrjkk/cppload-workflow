@@ -42,6 +42,19 @@ enum class Err {
     auth_parse_error,
 };
 
+// Pin the numeric values so test expectations and any external consumers of
+// the numeric codes break loudly if the enum order ever drifts.
+static_assert(static_cast<int>(Err::success) == 0,
+    "Err::success must remain 0");
+static_assert(static_cast<int>(Err::timeout) == 14,
+    "Err::timeout numeric code drift detected");
+static_assert(static_cast<int>(Err::invalid_config) == 15,
+    "Err::invalid_config numeric code drift detected");
+static_assert(static_cast<int>(Err::vault_not_found) == 20,
+    "Err::vault_not_found numeric code drift detected");
+static_assert(static_cast<int>(Err::auth_parse_error) == 29,
+    "Err::auth_parse_error numeric code drift detected");
+
 class ErrCategory : public std::error_category {
 public:
     const char* name() const noexcept override {

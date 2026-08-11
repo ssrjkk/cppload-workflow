@@ -55,6 +55,8 @@ TEST(MetricsCollectorStressTest, ConcurrentRecordAndReset) {
     std::atomic<bool> stop{false};
     std::atomic<int64_t> reset_count{0};
 
+    auto start_time = std::chrono::steady_clock::now();
+
     std::vector<std::thread> writers;
     for (int t = 0; t < 10; ++t) {
         writers.emplace_back([&collector, &stop]() {
@@ -79,8 +81,16 @@ TEST(MetricsCollectorStressTest, ConcurrentRecordAndReset) {
     reseter.join();
 
     auto m = collector.snapshot();
-    // After concurrent writes + resets, verify no crash and plausible count
-    EXPECT_LE(m.total_requests, static_cast<int64_t>(10) * 500000);
+    // After concurrent writes + resets, verify no crash and plausible count.
+    // The cap scales with wall time: 10 writers at a generous 2M req/s each,
+    // so it catches runaway counting without being machine-dependent.
+    auto elapsed_us = std::chrono::duration_cast<std::chrono::microseconds>(
+        std::chrono::steady_clock::now() - start_time).count();
+    constexpr double kMaxPerWriterPerSec = 2'000'000.0;
+    auto cap = static_cast<int64_t>(
+        10.0 * kMaxPerWriterPerSec * static_cast<double>(elapsed_us) / 1'000'000.0
+        + 100'000);
+    EXPECT_LE(m.total_requests, cap);
 }
 
 TEST(MetricsCollectorStressTest, MinMaxLatencyCorrectness) {

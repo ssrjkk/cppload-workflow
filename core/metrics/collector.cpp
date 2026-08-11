@@ -82,22 +82,9 @@ RequestMetrics MetricsCollector::snapshot() const {
     m.max_latency = std::chrono::microseconds(
         max_latency_us_.load(std::memory_order_relaxed));
 
-    // Drain ring buffer under mutex
-    std::vector<int64_t> sorted;
-    {
-        std::lock_guard<std::mutex> lock(snapshot_mtx_);
-        uint64_t h = head_.load(std::memory_order_relaxed);
-        while (true) {
-            size_t idx = h & kRingMask;
-            uint64_t seq = ring_[idx].seq.load(std::memory_order_acquire);
-            if (seq != h + 1) break;
-            sorted.push_back(ring_[idx].value);
-            ring_[idx].seq.store(h + kRingCapacity, std::memory_order_release);
-            h++;
-        }
-        head_.store(h, std::memory_order_release);
-    }
-
+    // Read-only: the ring is not consumed, so consecutive snapshots keep
+    // returning the same buffered samples and never zero out p95/p99.
+    auto sorted = collect_ring_samples();
     if (!sorted.empty()) {
         std::sort(sorted.begin(), sorted.end());
         auto p95_idx = static_cast<size_t>(sorted.size() * kP95);
@@ -107,6 +94,23 @@ RequestMetrics MetricsCollector::snapshot() const {
     }
 
     return m;
+}
+
+std::vector<int64_t> MetricsCollector::collect_ring_samples() const {
+    std::vector<int64_t> samples;
+    std::lock_guard<std::mutex> lock(snapshot_mtx_);
+    uint64_t h = head_.load(std::memory_order_relaxed);
+    uint64_t t = tail_.load(std::memory_order_relaxed);
+    if (t > h) {
+        samples.reserve(static_cast<size_t>(t - h));
+        for (uint64_t i = h; i < t; ++i) {
+            size_t idx = i & kRingMask;
+            uint64_t seq = ring_[idx].seq.load(std::memory_order_acquire);
+            if (seq != i + 1) break;
+            samples.push_back(ring_[idx].value);
+        }
+    }
+    return samples;
 }
 
 double MetricsCollector::requests_per_second() const {
@@ -129,19 +133,7 @@ double MetricsCollector::error_rate() const {
 uint64_t MetricsCollector::percentile(double p) const {
     if (p < 0.0 || p > 1.0) return 0;
 
-    std::vector<int64_t> samples;
-    {
-        std::lock_guard<std::mutex> lock(snapshot_mtx_);
-        uint64_t h = head_.load(std::memory_order_relaxed);
-        uint64_t t = tail_.load(std::memory_order_relaxed);
-        for (uint64_t i = h; i < t; ++i) {
-            size_t idx = i & kRingMask;
-            uint64_t seq = ring_[idx].seq.load(std::memory_order_acquire);
-            if (seq != i + 1) break;
-            samples.push_back(ring_[idx].value);
-        }
-    }
-
+    auto samples = collect_ring_samples();
     if (samples.empty()) return 0;
     std::sort(samples.begin(), samples.end());
     auto idx = static_cast<size_t>(samples.size() * p);

@@ -3,25 +3,34 @@
 #include "cppload/net/connection.hpp"
 #include <boost/beast/core.hpp>
 #include <boost/asio/ip/tcp.hpp>
+#include <boost/asio/ssl.hpp>
 #include <boost/asio/read.hpp>
 #include <boost/asio/write.hpp>
 #include <memory>
 #include <chrono>
 #include <atomic>
+#include <array>
 
 namespace beast = boost::beast;
 namespace asio = boost::asio;
 
 namespace cppload::net {
 
+static bool host_is_ip_literal(const std::string& host) {
+    if (host.find(':') != std::string::npos) return true;
+    if (host.empty()) return false;
+    for (char c : host) {
+        if (!(c == '.' || (c >= '0' && c <= '9'))) return false;
+    }
+    return true;
+}
+
 class TcpRawClient::Impl : public std::enable_shared_from_this<Impl> {
 public:
     Impl(asio::io_context& ioc, const security::TlsConfig& tls_config)
         : ioc_(ioc)
     {
-        if (tls_config.verify_peer) {
-            tls_ctx_ = std::make_unique<security::TlsContext>(tls_config);
-        }
+        tls_ctx_ = std::make_unique<security::TlsContext>(tls_config);
     }
 
     void async_request(const Request& req,
@@ -40,11 +49,10 @@ public:
         }
 
         auto response = std::make_shared<Response>();
-        auto buffer = std::make_shared<beast::flat_buffer>();
         auto resolver = std::make_shared<asio::ip::tcp::resolver>(ioc_);
 
         resolver->async_resolve(req.host, std::to_string(req.port),
-            [self, resolver, response, handler, start_time, buffer, req, use_tls](
+            [self, resolver, response, handler, start_time, req, use_tls](
                 beast::error_code ec, asio::ip::tcp::resolver::results_type results)
             {
                 if (ec) {
@@ -55,9 +63,9 @@ public:
                 }
 
                 if (use_tls) {
-                    self->connect_tls(results, req, response, handler, start_time, buffer);
+                    self->connect_tls(results, req, response, handler, start_time);
                 } else {
-                    self->connect_tcp(results, req, response, handler, start_time, buffer);
+                    self->connect_tcp(results, req, response, handler, start_time);
                 }
             });
     }
@@ -72,15 +80,14 @@ private:
         const Request& req,
         std::shared_ptr<Response> response,
         std::function<void(std::error_code, Response)> handler,
-        std::chrono::steady_clock::time_point start_time,
-        std::shared_ptr<beast::flat_buffer> buffer)
+        std::chrono::steady_clock::time_point start_time)
     {
         auto self = shared_from_this();
         auto stream = std::make_shared<beast::tcp_stream>(ioc_);
         stream->expires_after(get_timeout(timeout_ms_));
 
         stream->async_connect(results,
-            [self, stream, response, handler, start_time, buffer, req](
+            [self, stream, response, handler, start_time, req](
                 beast::error_code ec, const asio::ip::tcp::endpoint&)
             {
                 if (ec) {
@@ -90,7 +97,7 @@ private:
                     return;
                 }
 
-                self->send_raw(stream, req.body, response, handler, start_time, buffer);
+                self->send_raw(stream, req.body, response, handler, start_time);
             });
     }
 
@@ -99,15 +106,14 @@ private:
         const Request& req,
         std::shared_ptr<Response> response,
         std::function<void(std::error_code, Response)> handler,
-        std::chrono::steady_clock::time_point start_time,
-        std::shared_ptr<beast::flat_buffer> buffer)
+        std::chrono::steady_clock::time_point start_time)
     {
         auto self = shared_from_this();
         auto tcp_stream = std::make_shared<beast::tcp_stream>(ioc_);
         tcp_stream->expires_after(get_timeout(timeout_ms_));
 
         tcp_stream->async_connect(results,
-            [self, tcp_stream, response, handler, start_time, buffer, req](
+            [self, tcp_stream, response, handler, start_time, req](
                 beast::error_code ec, const asio::ip::tcp::endpoint&)
             {
                 if (ec) {
@@ -122,16 +128,23 @@ private:
                         std::move(*tcp_stream),
                         self->tls_ctx_->get_native_context());
 
-                if (!SSL_set_tlsext_host_name(
+                if (!host_is_ip_literal(req.host) && !SSL_set_tlsext_host_name(
                         ssl_stream->native_handle(), req.host.c_str())) {
                     response->ec = Err::tls_handshake_failed;
                     handler(response->ec, *response);
                     return;
                 }
 
+                // Enforce hostname verification on top of chain validation.
+                // No-op when the context uses verify_none.
+                if (self->tls_ctx_->is_verify_enabled()) {
+                    ssl_stream->set_verify_callback(
+                        asio::ssl::host_name_verification(req.host));
+                }
+
                 beast::get_lowest_layer(*ssl_stream).expires_after(self->get_timeout(self->timeout_ms_));
                 ssl_stream->async_handshake(asio::ssl::stream_base::client,
-                    [self, ssl_stream, response, handler, start_time, buffer, req](
+                    [self, ssl_stream, response, handler, start_time, req](
                         beast::error_code ec)
                     {
                         if (ec) {
@@ -141,14 +154,15 @@ private:
                         }
 
                         self->send_raw_tls(ssl_stream, req.body, response,
-                                           handler, start_time, buffer);
+                                           handler, start_time);
                     });
             });
     }
 
     void populate_response(
         std::shared_ptr<Response> response,
-        std::shared_ptr<beast::flat_buffer> buffer,
+        const char* data,
+        std::size_t bytes,
         beast::error_code ec,
         std::chrono::steady_clock::time_point start_time)
     {
@@ -161,9 +175,7 @@ private:
             response->ec = (ec == beast::error::timeout)
                 ? Err::timeout : Err::read_error;
         } else {
-            response->body.assign(
-                reinterpret_cast<const char*>(buffer->data().data()),
-                buffer->data().size());
+            response->body.assign(data, bytes);
             response->status_code = 1;
         }
     }
@@ -173,8 +185,7 @@ private:
         const std::string& body,
         std::shared_ptr<Response> response,
         std::function<void(std::error_code, Response)> handler,
-        std::chrono::steady_clock::time_point start_time,
-        std::shared_ptr<beast::flat_buffer> buffer)
+        std::chrono::steady_clock::time_point start_time)
     {
         auto self = shared_from_this();
         auto send_buf = std::make_shared<beast::flat_buffer>();
@@ -185,7 +196,7 @@ private:
 
         stream->expires_after(get_timeout(timeout_ms_));
         boost::asio::async_write(*stream, send_buf->data(),
-            [self, stream, send_buf, response, handler, start_time, buffer](
+            [self, stream, send_buf, response, handler, start_time](
                 beast::error_code ec, std::size_t)
             {
                 if (ec) {
@@ -194,13 +205,16 @@ private:
                     return;
                 }
 
+                auto recv = std::make_shared<std::array<char, 8192>>();
                 stream->expires_after(self->get_timeout(self->timeout_ms_));
-                boost::asio::async_read(*stream, *buffer,
+                boost::asio::async_read(*stream,
+                    boost::asio::buffer(*recv),
                     boost::asio::transfer_at_least(1),
-                    [self, stream, buffer, response, handler, start_time](
+                    [self, stream, recv, response, handler, start_time](
                         beast::error_code ec, std::size_t bytes)
                     {
-                        self->populate_response(response, buffer, ec, start_time);
+                        self->populate_response(response, recv->data(), bytes,
+                                                ec, start_time);
                         handler(response->ec, *response);
                     });
             });
@@ -211,8 +225,7 @@ private:
         const std::string& body,
         std::shared_ptr<Response> response,
         std::function<void(std::error_code, Response)> handler,
-        std::chrono::steady_clock::time_point start_time,
-        std::shared_ptr<beast::flat_buffer> buffer)
+        std::chrono::steady_clock::time_point start_time)
     {
         auto self = shared_from_this();
         auto send_buf = std::make_shared<beast::flat_buffer>();
@@ -223,7 +236,7 @@ private:
 
         beast::get_lowest_layer(*ssl_stream).expires_after(get_timeout(timeout_ms_));
         boost::asio::async_write(*ssl_stream, send_buf->data(),
-            [self, ssl_stream, send_buf, response, handler, start_time, buffer](
+            [self, ssl_stream, send_buf, response, handler, start_time](
                 beast::error_code ec, std::size_t)
             {
                 if (ec) {
@@ -232,13 +245,16 @@ private:
                     return;
                 }
 
+                auto recv = std::make_shared<std::array<char, 8192>>();
                 beast::get_lowest_layer(*ssl_stream).expires_after(self->get_timeout(self->timeout_ms_));
-                boost::asio::async_read(*ssl_stream, *buffer,
+                boost::asio::async_read(*ssl_stream,
+                    boost::asio::buffer(*recv),
                     boost::asio::transfer_at_least(1),
-                    [self, ssl_stream, buffer, response, handler, start_time](
+                    [self, ssl_stream, recv, response, handler, start_time](
                         beast::error_code ec, std::size_t bytes)
                     {
-                        self->populate_response(response, buffer, ec, start_time);
+                        self->populate_response(response, recv->data(), bytes,
+                                                ec, start_time);
                         handler(response->ec, *response);
                     });
             });

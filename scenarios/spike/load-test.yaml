@@ -49,7 +49,7 @@ scenarios:
             Accept: application/json
           assertions:
             - status_code == 200
-            - latency_p95 < 1000ms
+            - latency < 1000ms
 
 sla:
   error_rate: "< 1%"

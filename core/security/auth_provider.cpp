@@ -92,7 +92,7 @@ Result<http::response<http::string_body>, Err> do_sync_post(
             ssl_ctx.set_verify_mode(asio::ssl::verify_peer);
         });
         asio::ssl::stream<beast::tcp_stream> stream(ioc, ssl_ctx);
-        stream.set_verify_callback(asio::ssl::rfc2818_verification(host));
+        stream.set_verify_callback(asio::ssl::host_name_verification(host));
 
         if (!SSL_set_tlsext_host_name(stream.native_handle(), host.c_str()))
             return Result<http::response<http::string_body>, Err>::err(Err::tls_handshake_failed);
@@ -182,22 +182,26 @@ public:
 
 private:
     std::string get_token() const {
-        {
-            std::lock_guard<std::mutex> lock(mtx_);
-            if (std::chrono::system_clock::now() < token_expiry_) {
-                return current_token_;
-            }
-        }
-        auto result = fetch_token();
+        // Hold the lock across the refresh so only one thread performs the
+        // token POST (single-flight); the rest wait and reuse the fresh token.
         std::lock_guard<std::mutex> lock(mtx_);
-        if (!result && current_token_.empty()) {
-            throw std::runtime_error("OAuth2 token fetch failed: " +
-                make_error_code(result.error()).message());
+        if (std::chrono::system_clock::now() >= token_expiry_) {
+            auto result = fetch_token_locked();
+            if (!result && current_token_.empty()) {
+                throw std::runtime_error("OAuth2 token fetch failed: " +
+                    make_error_code(result.error()).message());
+            }
         }
         return current_token_;
     }
 
     Result<bool, Err> fetch_token() const {
+        std::lock_guard<std::mutex> lock(mtx_);
+        return fetch_token_locked();
+    }
+
+    // Performs the token POST and updates cached state. Caller must hold mtx_.
+    Result<bool, Err> fetch_token_locked() const {
         auto url = parse_url(config_.token_endpoint);
 
         std::string body = "grant_type=client_credentials"
@@ -219,13 +223,14 @@ private:
 
         try {
             auto j = json::parse(http_res.body());
-            {
-                std::lock_guard<std::mutex> lock(mtx_);
-                current_token_ = j.value("access_token", "");
-                auto expires_in = j.value("expires_in", core::kDefaultTokenExpirySec);
-                token_expiry_ = std::chrono::system_clock::now() +
-                    std::chrono::seconds(std::max(expires_in - core::kExpiryMarginSec, 1));
+            auto token = j.value("access_token", "");
+            if (token.empty()) {
+                return Result<bool, Err>::err(Err::auth_invalid_grant);
             }
+            current_token_ = token;
+            auto expires_in = j.value("expires_in", core::kDefaultTokenExpirySec);
+            token_expiry_ = std::chrono::system_clock::now() +
+                std::chrono::seconds(std::max(expires_in - core::kExpiryMarginSec, 1));
             return Result<bool, Err>::ok(true);
         } catch (const json::exception&) {
             return Result<bool, Err>::err(Err::auth_parse_error);
