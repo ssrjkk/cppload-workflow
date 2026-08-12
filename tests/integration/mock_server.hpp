@@ -66,12 +66,25 @@ public:
     void set_handler(Handler handler) { handler_ = std::move(handler); }
 
 private:
+    // Accept loop that must be interruptible from stop(): closing a listener
+    // does NOT wake a thread blocked in a blocking accept() on Linux, which
+    // made ~MockHttpServer() deadlock. A non-blocking acceptor returns
+    // would_block immediately, so the loop wakes up every few ms and can exit
+    // as soon as running_ flips.
     void run() {
+        beast::error_code ec;
+        acceptor_.non_blocking(true, ec);
         while (running_) {
-            beast::error_code ec;
             asio::ip::tcp::socket socket(ioc_);
+            ec.clear();
             acceptor_.accept(socket, ec);
+            if (ec == asio::error::would_block ||
+                ec == asio::error::try_again) {
+                std::this_thread::sleep_for(std::chrono::milliseconds(2));
+                continue;
+            }
             if (ec || !running_) break;
+            socket.non_blocking(false, ec);
             {
                 std::lock_guard<std::mutex> lock(sessions_mutex_);
                 sessions_.emplace_back([this, s = std::move(socket)]() mutable {

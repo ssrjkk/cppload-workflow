@@ -3,6 +3,7 @@
 #include "cppload/result.hpp"
 #include "cppload/core/constants.hpp"
 #include "cppload/core/url_parse.hpp"
+#include "net/beast_sync.hpp"
 #include <boost/beast/core.hpp>
 #include <boost/beast/http.hpp>
 #include <boost/asio/ip/tcp.hpp>
@@ -70,40 +71,53 @@ Result<http::response<http::string_body>, Err> do_request(
         asio::ssl::stream<beast::tcp_stream> stream(ioc, ssl_ctx);
         stream.set_verify_callback(asio::ssl::host_name_verification(host));
 
+        if (!SSL_set_tlsext_host_name(stream.native_handle(), host.c_str()))
+            return Result<http::response<http::string_body>, Err>::err(Err::tls_handshake_failed);
+
         beast::get_lowest_layer(stream).expires_after(sec);
-        beast::get_lowest_layer(stream).connect(results, ec);
+        ec = net::run_async(ioc, [&](auto h) {
+            beast::get_lowest_layer(stream).async_connect(results, h);
+        });
         if (ec == beast::error::timeout)
             return Result<http::response<http::string_body>, Err>::err(Err::connection_timeout);
         if (ec)
             return Result<http::response<http::string_body>, Err>::err(Err::connection_refused);
 
-        if (!SSL_set_tlsext_host_name(stream.native_handle(), host.c_str()))
-            return Result<http::response<http::string_body>, Err>::err(Err::tls_handshake_failed);
-
         stream.next_layer().expires_after(sec);
-        stream.handshake(asio::ssl::stream_base::client, ec);
+        ec = net::run_async(ioc, [&](auto h) {
+            stream.async_handshake(asio::ssl::stream_base::client, h);
+        });
         if (ec)
             return Result<http::response<http::string_body>, Err>::err(Err::tls_handshake_failed);
 
         auto req = build_request(method, target, body);
         stream.next_layer().expires_after(sec);
-        http::write(stream, req, ec);
+        ec = net::run_async(ioc, [&](auto h) {
+            http::async_write(stream, req, h);
+        });
         if (ec) return Result<http::response<http::string_body>, Err>::err(Err::write_error);
 
         beast::flat_buffer buffer;
         http::response<http::string_body> res;
         stream.next_layer().expires_after(sec);
-        http::read(stream, buffer, res, ec);
+        ec = net::run_async(ioc, [&](auto h) {
+            http::async_read(stream, buffer, res, h);
+        });
         if (ec && ec != http::error::end_of_stream)
             return Result<http::response<http::string_body>, Err>::err(Err::read_error);
 
-        stream.shutdown(ec);
+        stream.next_layer().expires_after(sec);
+        ec = net::run_async(ioc, [&](auto h) {
+            stream.async_shutdown(h);
+        });
         return Result<http::response<http::string_body>, Err>::ok(std::move(res));
     } else {
         beast::tcp_stream stream(ioc);
 
         stream.expires_after(sec);
-        stream.connect(results, ec);
+        ec = net::run_async(ioc, [&](auto h) {
+            stream.async_connect(results, h);
+        });
         if (ec == beast::error::timeout)
             return Result<http::response<http::string_body>, Err>::err(Err::connection_timeout);
         if (ec)
@@ -111,13 +125,17 @@ Result<http::response<http::string_body>, Err> do_request(
 
         auto req = build_request(method, target, body);
         stream.expires_after(sec);
-        http::write(stream, req, ec);
+        ec = net::run_async(ioc, [&](auto h) {
+            http::async_write(stream, req, h);
+        });
         if (ec) return Result<http::response<http::string_body>, Err>::err(Err::write_error);
 
         beast::flat_buffer buffer;
         http::response<http::string_body> res;
         stream.expires_after(sec);
-        http::read(stream, buffer, res, ec);
+        ec = net::run_async(ioc, [&](auto h) {
+            http::async_read(stream, buffer, res, h);
+        });
         if (ec && ec != http::error::end_of_stream)
             return Result<http::response<http::string_body>, Err>::err(Err::read_error);
 

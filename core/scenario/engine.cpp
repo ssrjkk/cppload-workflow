@@ -6,6 +6,7 @@
 #include "cppload/net/protocol_factory.hpp"
 #include "cppload/security/auth_provider.hpp"
 #include <boost/asio/io_context.hpp>
+#include <boost/asio/executor_work_guard.hpp>
 #include <atomic>
 #include <cctype>
 #include <mutex>
@@ -65,7 +66,7 @@ bool evaluate_assertion(const std::string& expr, const net::Response& response) 
     if (lhs == "latency") {
         long long expected_us = parse_duration_us(rhs);
         if (expected_us < 0) return false;
-        return compare_op(response.latency.count(), op, expected_us);
+        return compare_op(static_cast<long long>(response.latency.count()), op, expected_us);
     }
     return false;
 }
@@ -156,6 +157,13 @@ public:
     void run(StepCallback callback) {
         stopped_ = false;
         auto ioc = std::make_shared<boost::asio::io_context>();
+        // Keep the context alive for the whole run. Without a work guard the
+        // io_context auto-stops when the last outstanding operation completes
+        // (e.g. between slot-aligned worker requests); any async_request issued
+        // on a stopped context is queued but never executed, so the worker's
+        // run_one() loop spins until the stage deadline. The guard prevents the
+        // implicit stop; run_one() then returns 0 only after an explicit stop().
+        auto guard = boost::asio::make_work_guard(*ioc);
         {
             std::lock_guard<std::mutex> lock(ioc_mutex_);
             active_ioc_ = ioc.get();
@@ -267,6 +275,7 @@ public:
                             if (!first_slot) {
                                 next_slot += slot_period;
                                 if (now < next_slot) {
+                                    auto t_sleep0 = std::chrono::steady_clock::now();
                                     auto sleep_dur = next_slot - now;
                                     if (sleep_dur > std::chrono::milliseconds(2)) {
                                         auto wake_at = next_slot - std::chrono::milliseconds(2);
@@ -367,6 +376,7 @@ public:
             std::lock_guard<std::mutex> lock(ioc_mutex_);
             active_ioc_ = nullptr;
         }
+        guard.reset();
     }
 
     bool check_sla(const metrics::MetricsCollector& m) const {

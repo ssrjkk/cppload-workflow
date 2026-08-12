@@ -199,6 +199,30 @@ private:
             });
     }
 
+    // A cached connection is dead if the server already sent EOF: it closed
+    // the connection after the previous response (some servers do this without
+    // advertising Connection: close). Writing to such a connection can block
+    // indefinitely on Linux (a send on a socket whose peer sent FIN sits in
+    // the kernel until the reset is processed), so the cached path detects the
+    // EOF up front with a non-blocking peek and falls back to a fresh connect.
+    // Would_block/try_again means no data AND no EOF/error: the connection is
+    // still alive and safe to reuse.
+    static bool cached_connection_dead(beast::tcp_stream& stream,
+                                       beast::error_code& ec) {
+        char c = 0;
+        std::size_t n = stream.socket().receive(
+            asio::buffer(&c, 1),
+            asio::socket_base::message_peek, ec);
+        if (ec == asio::error::would_block ||
+            ec == asio::error::try_again) {
+            ec = {};
+            return false;
+        }
+        // Reset/not_connected/EOF (n == 0) or stray buffered bytes all mean
+        // the connection cannot be safely reused.
+        return true;
+    }
+
     void request_on_cached(
         std::shared_ptr<ReusableConn> conn,
         const Request& req,
@@ -211,6 +235,19 @@ private:
         auto req_msg = build_request(req, response);
         if (!req_msg) {
             handler(response->ec, *response);
+            return;
+        }
+
+        // Reject connections the server already closed instead of writing into
+        // a dead socket (which can hang on Linux).
+        beast::error_code peek_ec;
+        bool dead = conn->tls
+            ? cached_connection_dead(
+                  beast::get_lowest_layer(*conn->ssl), peek_ec)
+            : cached_connection_dead(*conn->tcp, peek_ec);
+        if (dead) {
+            drop_cached(conn);
+            request_fresh(req, handler, start_time);
             return;
         }
 

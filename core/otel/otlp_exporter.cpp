@@ -2,6 +2,7 @@
 #include "cppload/otel/exporter.hpp"
 #include "cppload/core/constants.hpp"
 #include "cppload/core/url_parse.hpp"
+#include "net/beast_sync.hpp"
 #include <boost/beast/core.hpp>
 #include <boost/beast/http.hpp>
 #include <boost/asio/ip/tcp.hpp>
@@ -72,7 +73,9 @@ void do_post_json(
     }
 
     stream.expires_after(timeout);
-    stream.connect(results, ec);
+    ec = net::run_async(ioc, [&](auto h) {
+        stream.async_connect(results, h);
+    });
     if (ec) {
         std::cerr << "OTLP: connect failed to " << host << ":" << port
                   << " - " << ec.message() << std::endl;
@@ -88,7 +91,9 @@ void do_post_json(
     req.prepare_payload();
 
     stream.expires_after(timeout);
-    http::write(stream, req, ec);
+    ec = net::run_async(ioc, [&](auto h) {
+        http::async_write(stream, req, h);
+    });
     if (ec) {
         std::cerr << "OTLP: write failed - " << ec.message() << std::endl;
         return;
@@ -97,7 +102,9 @@ void do_post_json(
     beast::flat_buffer buffer;
     http::response<http::string_body> res;
     stream.expires_after(timeout);
-    http::read(stream, buffer, res, ec);
+    ec = net::run_async(ioc, [&](auto h) {
+        http::async_read(stream, buffer, res, h);
+    });
     if (ec && ec != http::error::end_of_stream) {
         std::cerr << "OTLP: read failed - " << ec.message() << std::endl;
         return;
