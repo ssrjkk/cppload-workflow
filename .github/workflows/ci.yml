@@ -88,7 +88,7 @@ jobs:
           for t in test_http_client test_metrics test_token_bucket test_auth test_vault test_otlp test_yaml_parser test_prometheus test_sharded_metrics test_metrics_stress test_result test_url_parse test_protocol_factory test_io_context_pool test_tls_context; do
             if [ -x "./$t" ]; then
               printf "::group::%s\n" "$t"
-              ./$t 2>&1
+              timeout 120 ./$t 2>&1
               rc=$?
               if [ $rc -eq 0 ]; then
                 printf "::notice::%s PASSED\n" "$t"
@@ -278,7 +278,7 @@ jobs:
           for t in test_http_client test_metrics test_token_bucket test_auth test_vault test_otlp test_yaml_parser test_prometheus test_sharded_metrics test_metrics_stress test_result test_url_parse test_protocol_factory test_io_context_pool test_tls_context; do
             if [ -x "./$t" ]; then
               printf "::group::%s\n" "$t"
-              ./$t > test-tmp.log 2>&1; rc=$?
+              timeout 120 ./$t > test-tmp.log 2>&1; rc=$?
               cat test-tmp.log
               cat test-tmp.log >> test-asan.log
               if [ $rc -eq 0 ]; then
@@ -313,7 +313,8 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y \
             cmake ninja-build g++-13 ccache \
-            libboost-all-dev libssl-dev libyaml-cpp-dev
+            libboost-all-dev libssl-dev libyaml-cpp-dev \
+            python3
           echo "CC=gcc-13" >> $GITHUB_ENV
           echo "CXX=g++-13" >> $GITHUB_ENV
 
@@ -358,6 +359,41 @@ jobs:
       - name: Run benchmarks
         run: |
           cd build-bench && ctest --output-on-failure --timeout 120 -R Bench -j$(nproc)
+
+      - name: Run benchmarks (JSON, reproducible medians)
+        run: |
+          cd build-bench
+          mkdir -p results
+          for t in token_bucket_bench metrics_bench url_bench sharded_collector_bench http_client_bench; do
+            if [ -x "./$t" ]; then
+              ./$t --benchmark_format=json --benchmark_repetitions=5 \
+                --benchmark_display_aggregates_only > results/$t.json
+            fi
+          done
+          python3 -c 'import json,glob; d=[]; [d.extend(json.load(open(f))) for f in glob.glob("results/*.json")]; json.dump(d, open("results/current.json","w"))'
+
+      - name: Compare against baseline (generates it on first run)
+        run: |
+          python3 scripts/benchmark_compare.py \
+            --current build-bench/results/current.json \
+            --baseline benchmarks/baseline.json \
+            --tolerance 15 \
+            || ( rc=$?; if [ "$rc" -eq 2 ]; then
+              python3 scripts/benchmark_compare.py \
+                --current build-bench/results/current.json \
+                --save-baseline benchmarks/baseline.json
+              echo "::notice::Baseline generated — commit benchmarks/baseline.json to enable regression gating"
+            else
+              exit "$rc"
+            fi )
+
+      - name: Upload benchmark JSON results
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: benchmark-results-json
+          path: build-bench/results/
+          retention-days: 30
 
       - name: Upload benchmark results
         if: success()

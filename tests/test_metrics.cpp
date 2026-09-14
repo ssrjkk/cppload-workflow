@@ -138,3 +138,24 @@ TEST(MetricsCollectorTest, PercentileOutOfBounds) {
     EXPECT_EQ(collector.percentile(-0.1), 0u);
     EXPECT_EQ(collector.percentile(1.1), 0u);
 }
+
+TEST(MetricsCollectorTest, RingEvictsOldestAfterCapacity) {
+    cppload::metrics::MetricsCollector collector;
+    // Fill the ring past its capacity: the oldest samples must be evicted
+    // instead of silently dropping new ones (previously percentiles froze on
+    // the first 1M requests because head_ never advanced).
+    constexpr size_t kRingCapacity = 1u << 20;
+    constexpr size_t kExtra = 5000;
+    constexpr size_t kTotal = kRingCapacity + kExtra;
+    for (size_t i = 1; i <= kTotal; ++i) {
+        collector.record_request(
+            200, std::chrono::microseconds(static_cast<int64_t>(i)), 100, 500);
+    }
+
+    // The most recent sample must be visible.
+    EXPECT_EQ(collector.percentile(1.0), static_cast<uint64_t>(kTotal));
+    // And percentiles must reflect the recent window, not the first 1M
+    // requests buffered before the ring filled up.
+    auto m = collector.snapshot();
+    EXPECT_GT(m.p95_latency_us, static_cast<uint64_t>(kRingCapacity));
+}

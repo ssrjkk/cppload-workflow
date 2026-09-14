@@ -223,6 +223,73 @@ TEST_F(YamlParserTest, EnvVarSubstitution) {
     unset_env_var("CPLOAD_TEST_TARGET");
 }
 
+TEST_F(YamlParserTest, MissingEnvVarWithoutDefaultFailsConfig) {
+    unset_env_var("CPLOAD_TEST_TARGET");
+    {
+        std::ofstream f(test_file);
+        f << "version: \"1.0\"\n"
+          << "test_id: \"unit-test\"\n"
+          << "target:\n"
+          << "  base_url: \"${CPLOAD_TEST_TARGET}\"\n"
+          << "  protocol: http1.1\n";
+        f.close();
+    }
+    cppload::scenario::ScenarioEngine engine(test_file);
+    EXPECT_FALSE(engine.load_config());
+    EXPECT_NE(engine.last_error().find("CPLOAD_TEST_TARGET"), std::string::npos);
+}
+
+TEST_F(YamlParserTest, HugeDurationDoesNotOverflow) {
+    // A value that would overflow int64 when scaled to ms must be clamped,
+    // not trigger UB inside duration_cast.
+    {
+        std::ofstream f(test_file);
+        f << "version: \"1.0\"\n"
+          << "test_id: \"unit-test\"\n"
+          << "target:\n"
+          << "  base_url: http://localhost:8080\n"
+          << "load_profile:\n"
+          << "  - stage: rampup\n"
+          << "    duration: 999999999999999999999999s\n"
+          << "    target_rps: 100\n";
+        f.close();
+    }
+    cppload::scenario::ScenarioEngine engine(test_file);
+    ASSERT_TRUE(engine.load_config());
+    ASSERT_EQ(engine.config().load_profile.stages.size(), 1);
+    EXPECT_EQ(engine.config().load_profile.stages[0].duration,
+              std::chrono::milliseconds::max());
+}
+
+TEST_F(YamlParserTest, HugeSlaLatencyDoesNotOverflow) {
+    {
+        std::ofstream f(test_file);
+        f << "version: \"1.0\"\n"
+          << "test_id: \"unit-test\"\n"
+          << "target:\n"
+          << "  base_url: http://localhost:8080\n"
+          << "sla:\n"
+          << "  error_rate: \"< 1%\"\n"
+          << "  p99_latency: \"< 999999999999999999999999999s\"\n";
+        f.close();
+    }
+    cppload::scenario::ScenarioEngine engine(test_file);
+    ASSERT_TRUE(engine.load_config());
+    EXPECT_EQ(engine.config().sla.max_p99_latency,
+              std::chrono::milliseconds::max());
+}
+
+TEST_F(YamlParserTest, HugeLatencyAssertionIsRejected) {
+    // latency assertion with an overflow-scale value: parse_duration_us must
+    // return -1 (reject), not produce a wildly wrong comparison.
+    cppload::scenario::HttpStep step;
+    cppload::net::Response resp;
+    resp.status_code = 200;
+    resp.latency = std::chrono::microseconds(1000);
+    step.assertions = {"latency < 999999999999999999999999s"};
+    EXPECT_FALSE(cppload::scenario::evaluate_assertions(step, resp));
+}
+
 TEST_F(YamlParserTest, CheckSlaDefault) {
     cppload::scenario::ScenarioEngine engine(test_file);
     engine.load_config();

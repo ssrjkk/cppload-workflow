@@ -8,6 +8,10 @@ namespace {
     constexpr double kP95 = 0.95;
     constexpr double kP99 = 0.99;
     constexpr double kMinElapsedSeconds = 0.001;
+    // Upper bound on samples copied out of the ring per snapshot. Snapshot()
+    // is called on a timer (e.g. Prometheus, results), so the hit cost must
+    // stay bounded even when the 1M-slot ring is full.
+    constexpr uint64_t kMaxSnapshotSamples = 100000;
 }
 
 MetricsCollector::MetricsCollector()
@@ -49,11 +53,26 @@ void MetricsCollector::record_request(uint16_t status_code,
            !max_latency_us_.compare_exchange_weak(max_curr, lat_val,
                std::memory_order_relaxed)) {}
 
-    // Lock-free MPSC ring buffer push
+    // Lock-free MPSC ring buffer push with drop-oldest eviction.
+    // When the ring is full the oldest *published* slot is evicted so a
+    // long-running test keeps tracking the recent window instead of freezing
+    // percentiles on the first kRingCapacity samples. Slots whose payload is
+    // still being written (seq == i) must not be evicted: they will be
+    // published momentarily, so we simply retry.
     uint64_t t = tail_.load(std::memory_order_relaxed);
     while (true) {
         uint64_t h = head_.load(std::memory_order_acquire);
-        if (t - h >= kRingCapacity) return; // ring full, drop sample
+        if (t - h >= kRingCapacity) {
+            size_t old_idx = h & kRingMask;
+            if (ring_[old_idx].seq.load(std::memory_order_acquire) != h + 1) {
+                continue; // oldest slot is mid-write; retry
+            }
+            if (head_.compare_exchange_weak(h, h + 1,
+                    std::memory_order_acq_rel, std::memory_order_relaxed)) {
+                continue; // head advanced; retry push
+            }
+            continue;
+        }
         if (tail_.compare_exchange_weak(t, t + 1,
                 std::memory_order_acq_rel, std::memory_order_relaxed)) {
             size_t idx = t & kRingMask;
@@ -86,24 +105,46 @@ RequestMetrics MetricsCollector::snapshot() const {
     // returning the same buffered samples and never zero out p95/p99.
     auto sorted = collect_ring_samples();
     if (!sorted.empty()) {
-        std::sort(sorted.begin(), sorted.end());
+        // Nth_element partitions instead of fully sorting: for latency
+        // histograms we only need two order statistics, and the first pass
+        // also bounds the second (p95 index lies inside [0, p99_idx)).
         auto p95_idx = static_cast<size_t>(sorted.size() * kP95);
         auto p99_idx = static_cast<size_t>(sorted.size() * kP99);
-        m.p95_latency_us = static_cast<uint64_t>(sorted[std::min(p95_idx, sorted.size() - 1)]);
-        m.p99_latency_us = static_cast<uint64_t>(sorted[std::min(p99_idx, sorted.size() - 1)]);
+        p95_idx = std::min(p95_idx, sorted.size() - 1);
+        p99_idx = std::min(p99_idx, sorted.size() - 1);
+        if (p99_idx > p95_idx) {
+            std::nth_element(sorted.begin(), sorted.begin() + p99_idx, sorted.end());
+            std::nth_element(sorted.begin(), sorted.begin() + p95_idx,
+                             sorted.begin() + p99_idx);
+            m.p99_latency_us = static_cast<uint64_t>(sorted[p99_idx]);
+        } else {
+            std::nth_element(sorted.begin(), sorted.begin() + p95_idx, sorted.end());
+            m.p99_latency_us = static_cast<uint64_t>(sorted[p95_idx]);
+        }
+        m.p95_latency_us = static_cast<uint64_t>(sorted[p95_idx]);
     }
 
     return m;
 }
 
 std::vector<int64_t> MetricsCollector::collect_ring_samples() const {
+    // Only the head/tail bookkeeping is serialized; the scan itself runs
+    // lock-free (cells are published via the seq barrier). Holding the lock
+    // while copying up to kMaxSnapshotSamples entries made snapshot() stall
+    // writers behind the mutex (audit item #3).
+    uint64_t h, t;
+    {
+        std::lock_guard<std::mutex> lock(snapshot_mtx_);
+        h = head_.load(std::memory_order_acquire);
+        t = tail_.load(std::memory_order_acquire);
+    }
     std::vector<int64_t> samples;
-    std::lock_guard<std::mutex> lock(snapshot_mtx_);
-    uint64_t h = head_.load(std::memory_order_relaxed);
-    uint64_t t = tail_.load(std::memory_order_relaxed);
     if (t > h) {
-        samples.reserve(static_cast<size_t>(t - h));
-        for (uint64_t i = h; i < t; ++i) {
+        // Cap the window to the most recent samples so a full 1M-slot ring
+        // never forces a giant copy + sort on every snapshot() call.
+        uint64_t start = (t - h > kMaxSnapshotSamples) ? t - kMaxSnapshotSamples : h;
+        samples.reserve(static_cast<size_t>(t - start));
+        for (uint64_t i = start; i < t; ++i) {
             size_t idx = i & kRingMask;
             uint64_t seq = ring_[idx].seq.load(std::memory_order_acquire);
             if (seq != i + 1) break;
@@ -135,9 +176,10 @@ uint64_t MetricsCollector::percentile(double p) const {
 
     auto samples = collect_ring_samples();
     if (samples.empty()) return 0;
-    std::sort(samples.begin(), samples.end());
     auto idx = static_cast<size_t>(samples.size() * p);
-    return static_cast<uint64_t>(samples[std::min(idx, samples.size() - 1)]);
+    idx = std::min(idx, samples.size() - 1);
+    std::nth_element(samples.begin(), samples.begin() + idx, samples.end());
+    return static_cast<uint64_t>(samples[idx]);
 }
 
 void MetricsCollector::reset() {

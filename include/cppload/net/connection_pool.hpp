@@ -2,6 +2,7 @@
 #pragma once
 
 #include "cppload/net/http_client.hpp"
+#include "cppload/security/tls_context.hpp"
 #include <boost/asio/io_context.hpp>
 #include <chrono>
 #include <memory>
@@ -15,6 +16,10 @@ struct PoolConfig {
     size_t max_connections{100};
     std::chrono::seconds idle_timeout{30};
     bool keep_alive{true};
+    // TLS settings applied to every client created by the pool. Needed so a
+    // pooled client honors the same verify/mTLS policy as engine-created ones
+    // (otherwise pool integration would silently lose target.tls.verify).
+    security::TlsConfig tls_config;
 };
 
 class ConnectionPool {

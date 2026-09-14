@@ -83,6 +83,20 @@ TEST(SanitizePathTest, EmptyPath) {
     EXPECT_EQ(sanitize_path(""), "");
 }
 
+TEST(SanitizePathTest, NeutralizesTraversal) {
+    // ".." must never survive as a segment so Vault secret paths cannot
+    // escape their intended mount point (audit #16).
+    EXPECT_EQ(sanitize_path("../../secret/data"), "secret/data");
+    EXPECT_EQ(sanitize_path("a/../b"), "a/b");
+    EXPECT_EQ(sanitize_path("a/./b"), "a/b");
+    EXPECT_EQ(sanitize_path("/../x"), "/x");
+    EXPECT_EQ(sanitize_path("/v1/data/my-secret/../evil"), "/v1/data/my-secret/evil");
+    EXPECT_EQ(sanitize_path(".."), "");
+    EXPECT_EQ(sanitize_path("."), "");
+    // Dotted leaf names are still allowed.
+    EXPECT_EQ(sanitize_path("secrets/creds.db"), "secrets/creds.db");
+}
+
 TEST(UrlParseTest, UrlWithQueryString) {
     auto p = parse_url("http://example.com/path?key=val&foo=bar");
     EXPECT_EQ(p.host, "example.com");

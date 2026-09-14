@@ -90,6 +90,56 @@ TEST(OAuth2IntegrationTest, AutoRefreshOnExpiry) {
     EXPECT_GE(call_count, 2);
 }
 
+TEST(OAuth2IntegrationTest, RefreshFailureKeepsStaleToken) {
+    MockHttpServer server;
+    std::atomic<int> call_count{0};
+    server.set_handler([&call_count](const auto&) {
+        int current = call_count.fetch_add(1, std::memory_order_relaxed) + 1;
+        http::response<http::string_body> res;
+        if (current == 1) {
+            json resp_body;
+            resp_body["access_token"] = "s.stale-token";
+            resp_body["expires_in"] = 1;
+            resp_body["token_type"] = "Bearer";
+            res.result(http::status::ok);
+            res.set(http::field::content_type, "application/json");
+            res.body() = resp_body.dump();
+        } else {
+            // Subsequent refresh attempts fail (token endpoint is down).
+            res.result(http::status::internal_server_error);
+            res.body() = R"({"error":"auth server down"})";
+        }
+        res.prepare_payload();
+        return res;
+    });
+    ASSERT_TRUE(server.start());
+
+    cppload::security::AuthConfig cfg;
+    cfg.type = cppload::security::AuthType::OAUTH2;
+    cfg.client_id = "my-client";
+    cfg.client_secret = "my-secret";
+    cfg.token_endpoint = "http://127.0.0.1:" + std::to_string(server.port()) + "/oauth/token";
+
+    cppload::security::AuthProvider auth(cfg);
+    std::unordered_map<std::string, std::string> headers;
+    auth.apply_headers(headers);
+    EXPECT_EQ(headers["Authorization"], "Bearer s.stale-token");
+
+    // Let the short-lived token expire, then make the endpoint fail.
+    std::this_thread::sleep_for(std::chrono::seconds(2));
+    EXPECT_TRUE(auth.is_expired());
+
+    // apply_headers/get_auth_header must NOT throw on refresh failure; they
+    // fall back to the stale token instead of aborting the worker thread.
+    std::unordered_map<std::string, std::string> headers2;
+    EXPECT_NO_THROW(auth.apply_headers(headers2));
+    EXPECT_EQ(headers2["Authorization"], "Bearer s.stale-token");
+    std::string header;
+    EXPECT_NO_THROW(header = auth.get_auth_header());
+    EXPECT_EQ(header, "Authorization: Bearer s.stale-token");
+    EXPECT_GE(call_count, 2);
+}
+
 TEST(OAuth2IntegrationTest, ServerError) {
     MockHttpServer server;
     server.set_handler([](const auto&) {

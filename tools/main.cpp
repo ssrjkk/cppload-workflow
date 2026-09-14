@@ -427,10 +427,15 @@ int main(int argc, char* argv[]) {
     auto elapsed = std::chrono::duration_cast<std::chrono::seconds>(
         std::chrono::steady_clock::now() - test_start);
 
+    if (engine->run_failed()) {
+        std::cerr << "\nLoad test aborted: worker thread failed: "
+                  << engine->last_error() << "\n";
+    }
+
     // --- Results ---
     print_results(metrics, elapsed, engine->config().test_id);
 
-    bool sla_ok = engine->check_sla(metrics);
+    bool sla_ok = engine->check_sla(metrics) && !engine->run_failed();
     std::cout << "\nSLA: " << (sla_ok ? "PASSED" : "FAILED") << "\n";
 
     return sla_ok ? 0 : 2;

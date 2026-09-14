@@ -4,11 +4,13 @@
 #include "cppload/core/token_bucket.hpp"
 #include "cppload/core/url_parse.hpp"
 #include "cppload/net/protocol_factory.hpp"
+#include "cppload/net/connection_pool.hpp"
 #include "cppload/security/auth_provider.hpp"
 #include <boost/asio/io_context.hpp>
 #include <boost/asio/executor_work_guard.hpp>
 #include <atomic>
 #include <cctype>
+#include <limits>
 #include <mutex>
 #include <random>
 #include <thread>
@@ -32,12 +34,16 @@ long long parse_duration_us(const std::string& str) {
         return -1;
     }
     std::string unit = str.substr(pos);
-    if (unit == "us") return value;
-    if (unit == "ms") return value * 1000;
-    if (unit == "s") return value * 1000 * 1000;
-    if (unit == "m") return value * 60 * 1000 * 1000;
-    if (unit == "h") return value * 3600 * 1000 * 1000;
-    return -1;
+    long long mul = 1;
+    if (unit == "us") mul = 1;
+    else if (unit == "ms") mul = 1000;
+    else if (unit == "s") mul = 1000 * 1000;
+    else if (unit == "m") mul = 60 * 1000 * 1000;
+    else if (unit == "h") mul = 3600LL * 1000 * 1000;
+    else return -1;
+    // Reject values whose product would overflow int64 (previously UB).
+    if (value < 0 || value > std::numeric_limits<long long>::max() / mul) return -1;
+    return value * mul;
 }
 
 template <typename T>
@@ -185,6 +191,25 @@ public:
             concurrency = cfg.load_profile.stages[0].concurrent_users;
         }
 
+        worker_failures_.store(0, std::memory_order_relaxed);
+
+        // http1.1 sockets are pooled so keep-alive connections survive across
+        // stages and the aggregate socket count is capped. Each worker owns its
+        // client for the whole stage (Http11Client is not safe for concurrent
+        // sharing), so the cap must cover the peak stage concurrency.
+        std::shared_ptr<net::ConnectionPool> pool;
+        if (proto_name == "http1.1") {
+            size_t pool_max = concurrency;
+            for (const auto& s : cfg.load_profile.stages) {
+                uint32_t c = s.concurrent_users > 0 ? s.concurrent_users : concurrency;
+                pool_max = std::max(pool_max, static_cast<size_t>(c));
+            }
+            net::PoolConfig pool_cfg;
+            pool_cfg.max_connections = pool_max;
+            pool_cfg.tls_config = tls_cfg;
+            pool = std::make_shared<net::ConnectionPool>(*ioc, pool_cfg);
+        }
+
         metrics::MetricsCollector metrics;
 
         // Global cap on the whole test run (0 = disabled)
@@ -215,7 +240,13 @@ public:
             // test cap. When both are absent the stage runs until stop().
             auto stage_end = std::chrono::steady_clock::time_point::max();
             if (stage.duration.count() > 0) {
-                stage_end = std::chrono::steady_clock::now() + stage.duration;
+                // #4 clamps huge YAML durations to milliseconds::max(); adding
+                // that to steady_clock::now() would overflow its 64-bit rep, so
+                // clamp the horizon to a sane upper bound (~100 years).
+                constexpr auto kMaxHorizon = std::chrono::hours(24 * 365 * 100);
+                auto limit = std::chrono::steady_clock::time_point::max() - kMaxHorizon;
+                auto end = std::chrono::steady_clock::now() + stage.duration;
+                stage_end = end > limit ? limit : end;
             }
             if (global_end != std::chrono::steady_clock::time_point::max()) {
                 stage_end = std::min(stage_end, global_end);
@@ -223,14 +254,66 @@ public:
 
             std::vector<std::thread> workers;
             for (uint32_t w = 0; w < stage_concurrency; ++w) {
-                workers.emplace_back([this, ioc, &metrics, &callback, proto_name, cfg, tls_cfg, stage_end, stage_concurrency, w]() {
+                workers.emplace_back([this, ioc, pool, &metrics, &callback, proto_name, cfg, tls_cfg, stage_end, stage_concurrency, w]() {
                     try {
-                        auto client = net::ProtocolFactory::create(proto_name, *ioc, tls_cfg);
-                        if (!client) {
-                            {
-                                std::lock_guard<std::mutex> lock(last_error_mtx_);
-                                last_error_ = "unsupported protocol: " + proto_name;
+                        struct ClientGuard {
+                            std::unique_ptr<net::Http11Client> pooled;
+                            std::unique_ptr<net::ProtocolClient> created;
+                            net::ConnectionPool* pool{nullptr};
+                            std::string host;
+                            uint16_t port{0};
+                            bool drop{false};
+                            net::ProtocolClient* get() {
+                                return pooled
+                                    ? static_cast<net::ProtocolClient*>(pooled.get())
+                                    : created.get();
                             }
+                            ~ClientGuard() {
+                                // A client handed back with a request still
+                                // in-flight must never re-enter the pool: its
+                                // pending completion would run against a future
+                                // borrower. Dropping closes the socket instead.
+                                if (pooled && pool && !drop) {
+                                    pool->release(std::move(pooled), host, port);
+                                }
+                            }
+                        };
+
+                        auto fail_worker = [this](const std::string& msg) {
+                            std::lock_guard<std::mutex> lock(last_error_mtx_);
+                            if (last_error_.empty()) last_error_ = msg;
+                            worker_failures_.fetch_add(1, std::memory_order_relaxed);
+                        };
+
+                        ClientGuard guard;
+                        if (pool) {
+                            std::string host;
+                            uint16_t port{0};
+                            bool tls{false};
+                            resolve_url(cfg.target.base_url, host, port, tls, false);
+                            guard.host = std::move(host);
+                            guard.port = port;
+                            // Bounded retry: the pool cap is >= stage
+                            // concurrency, so this should never trigger; still,
+                            // never spin forever if something goes wrong.
+                            constexpr int kAcquireAttempts = 200;
+                            int attempts = 0;
+                            while (!guard.pooled && attempts < kAcquireAttempts) {
+                                guard.pooled = pool->acquire(guard.host, guard.port);
+                                if (!guard.pooled && ++attempts < kAcquireAttempts) {
+                                    std::this_thread::sleep_for(std::chrono::milliseconds(5));
+                                }
+                            }
+                            if (!guard.pooled) {
+                                fail_worker("connection pool exhausted for " + guard.host);
+                                return;
+                            }
+                        } else {
+                            guard.created = net::ProtocolFactory::create(proto_name, *ioc, tls_cfg);
+                        }
+                        net::ProtocolClient* client = guard.get();
+                        if (!client) {
+                            fail_worker("unsupported protocol: " + proto_name);
                             return;
                         }
 
@@ -238,12 +321,18 @@ public:
                         for (const auto& s : cfg.scenarios) {
                             if (!s.steps.empty()) { any_steps = true; break; }
                         }
-                        if (!any_steps) return;
+                        if (!any_steps) {
+                            fail_worker("scenario configuration has no steps to execute");
+                            return;
+                        }
 
                         std::mt19937 rng(static_cast<uint32_t>(
                             std::chrono::steady_clock::now().time_since_epoch().count()
                             ^ std::hash<std::thread::id>{}(std::this_thread::get_id())));
                         size_t step_ix = 0;
+                        // Tracks the most recent async request so that on exit
+                        // we never return an in-flight client to the pool.
+                        std::shared_ptr<std::atomic<bool>> last_done;
 
                         // Sustained load: loop until the stage deadline (or an
                         // external stop) while the shared token bucket keeps the
@@ -321,6 +410,7 @@ public:
 
                             auto capture_req = std::make_shared<net::Request>(std::move(req));
                             auto done = std::make_shared<std::atomic<bool>>(false);
+                            last_done = done;
                             client->async_request(*capture_req,
                                 [capture_req, &metrics, &callback, done, step](std::error_code ec, net::Response resp) mutable {
                                     uint16_t code = ec ? 0 : resp.status_code;
@@ -339,22 +429,31 @@ public:
                                 ioc->run_one();
                             }
                         }
+                        // Never pool a client with an unanswered request: drop
+                        // (close) it so its stale completion cannot race a
+                        // future borrower.
+                        guard.drop = last_done &&
+                            !last_done->load(std::memory_order_acquire);
                     } catch (const std::exception& e) {
                         std::lock_guard<std::mutex> lock(last_error_mtx_);
                         last_error_ = "worker thread error: " + std::string(e.what());
+                        worker_failures_.fetch_add(1, std::memory_order_relaxed);
                     }
                 });
             }
 
-            // Wait for the stage deadline (or global cap if closer). Workers
-            // exit by themselves once stage_end passes; stopping the ioc here
-            // unblocks any worker still parked in run_one().
+            // Wait for the stage deadline (or global cap if closer), aborting early
+            // when a worker thread has failed. Workers exit by themselves once
+            // stage_end passes; stopping the ioc here unblocks any worker still
+            // parked in run_one().
             bool externally_stopped = stopped_;
             if (stage_end != std::chrono::steady_clock::time_point::max() && !stopped_) {
-                while (std::chrono::steady_clock::now() < stage_end && !stopped_) {
+                while (std::chrono::steady_clock::now() < stage_end && !stopped_
+                       && worker_failures_.load(std::memory_order_relaxed) == 0) {
                     std::this_thread::sleep_for(std::chrono::milliseconds(100));
                 }
-                externally_stopped = stopped_;
+                externally_stopped = stopped_ ||
+                    worker_failures_.load(std::memory_order_relaxed) > 0;
                 stopped_ = true;
                 std::lock_guard<std::mutex> lock(ioc_mutex_);
                 if (active_ioc_) active_ioc_->stop();
@@ -365,8 +464,11 @@ public:
             }
 
             // Reset io_context for next stage. When the stop above was caused by
-            // stage completion (not a user stop or the global cap), keep going.
-            if (stage_idx + 1 < cfg.load_profile.stages.size() && !externally_stopped) {
+            // stage completion (and no worker failed), keep going; otherwise the
+            // run ends here (#5: worker errors must abort instead of silently
+            // continuing with zero-request stages).
+            if (stage_idx + 1 < cfg.load_profile.stages.size() && !externally_stopped
+                && worker_failures_.load(std::memory_order_relaxed) == 0) {
                 ioc->restart();
                 stopped_ = false;
             }
@@ -394,6 +496,10 @@ public:
     std::string last_error() const {
         std::lock_guard<std::mutex> lock(last_error_mtx_);
         return last_error_;
+    }
+
+    bool run_failed() const {
+        return worker_failures_.load(std::memory_order_relaxed) > 0;
     }
 
 private:
@@ -433,6 +539,7 @@ private:
     TokenBucket bucket_;
     std::atomic<uint32_t> target_rps_{100};
     std::atomic<int64_t> max_duration_ms_{0};
+    std::atomic<uint32_t> worker_failures_{0};
     std::shared_ptr<security::AuthProvider> auth_;
 };
 
@@ -465,6 +572,7 @@ void ScenarioEngine::set_max_duration(std::chrono::milliseconds duration) { impl
 std::chrono::milliseconds ScenarioEngine::max_duration() const { return impl_->max_duration(); }
 void ScenarioEngine::set_auth_provider(std::shared_ptr<security::AuthProvider> auth) { impl_->set_auth_provider(std::move(auth)); }
 bool ScenarioEngine::check_sla(const metrics::MetricsCollector& m) const { return impl_->check_sla(m); }
+bool ScenarioEngine::run_failed() const { return impl_->run_failed(); }
 std::string ScenarioEngine::last_error() const { return impl_->last_error(); }
 
 } // namespace cppload::scenario

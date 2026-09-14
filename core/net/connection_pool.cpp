@@ -33,7 +33,7 @@ public:
         if (total_created_ < config_.max_connections) {
             total_created_++;
             return std::make_unique<Http11Client>(
-                ioc_, cppload::security::TlsConfig{}, config_.keep_alive);
+                ioc_, config_.tls_config, config_.keep_alive);
         }
 
         return nullptr;

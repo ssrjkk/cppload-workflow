@@ -69,7 +69,27 @@ inline std::string sanitize_path(const std::string& path) {
             result += c;
         }
     }
-    return result;
+    // Neutralize path traversal even though "." and "~" are valid characters
+    // inside a name: drop "." and ".." as whole segments so
+    // "../../secret/data" resolves to "secret/data" instead of escaping the
+    // intended mount. Legitimate dotted names ("a-b_c.d~e") are preserved.
+    if (result.find('.') == std::string::npos) return result;
+    std::string out;
+    out.reserve(result.size());
+    size_t pos = 0;
+    while (pos <= result.size()) {
+        size_t slash = result.find('/', pos);
+        std::string seg = (slash == std::string::npos)
+            ? result.substr(pos)
+            : result.substr(pos, slash - pos);
+        if (seg != "." && seg != "..") {
+            out += seg;
+            if (slash != std::string::npos) out += '/';
+        }
+        if (slash == std::string::npos) break;
+        pos = slash + 1;
+    }
+    return out;
 }
 
 } // namespace cppload::core

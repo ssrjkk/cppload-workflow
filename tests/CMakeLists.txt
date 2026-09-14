@@ -12,85 +12,90 @@ if(NOT GTest_FOUND)
     FetchContent_MakeAvailable(googletest)
 endif()
 
+# Self-contained gtest main (avoids dependency on a distro-provided
+# libgtest_main shared library, which some security policies block).
+add_library(cppload_gtest_main OBJECT gt_main.cpp)
+target_link_libraries(cppload_gtest_main PUBLIC GTest::gtest)
+
 add_executable(test_http_client test_http_client.cpp)
 target_link_libraries(test_http_client
-    PRIVATE cppload_core GTest::gtest_main
+    PRIVATE cppload_core cppload_gtest_main
 )
 
 add_executable(test_metrics test_metrics.cpp)
 target_link_libraries(test_metrics
-    PRIVATE cppload_core GTest::gtest_main
+    PRIVATE cppload_core cppload_gtest_main
 )
 
 add_executable(test_token_bucket test_token_bucket.cpp)
 target_link_libraries(test_token_bucket
-    PRIVATE cppload_core GTest::gtest_main
+    PRIVATE cppload_core cppload_gtest_main
 )
 
 add_executable(test_auth test_auth.cpp)
 target_link_libraries(test_auth
-    PRIVATE cppload_core GTest::gtest_main
+    PRIVATE cppload_core cppload_gtest_main
 )
 
 add_executable(test_vault test_vault.cpp)
 target_link_libraries(test_vault
-    PRIVATE cppload_core GTest::gtest_main
+    PRIVATE cppload_core cppload_gtest_main
 )
 
 add_executable(test_otlp test_otlp.cpp)
 target_link_libraries(test_otlp
-    PRIVATE cppload_core GTest::gtest_main
+    PRIVATE cppload_core cppload_gtest_main
 )
 
 add_executable(test_yaml_parser test_yaml_parser.cpp)
 target_link_libraries(test_yaml_parser
-    PRIVATE cppload_core GTest::gtest_main
+    PRIVATE cppload_core cppload_gtest_main
     PRIVATE yaml-cpp::yaml-cpp
 )
 
 add_executable(test_url_parse test_url_parse.cpp)
 target_link_libraries(test_url_parse
-    PRIVATE cppload_core GTest::gtest_main
+    PRIVATE cppload_core cppload_gtest_main
 )
 
 add_executable(test_result test_result.cpp)
 target_link_libraries(test_result
-    PRIVATE cppload_core GTest::gtest_main
+    PRIVATE cppload_core cppload_gtest_main
 )
 
 add_executable(test_prometheus test_prometheus.cpp)
 target_link_libraries(test_prometheus
-    PRIVATE cppload_core GTest::gtest_main
+    PRIVATE cppload_core cppload_gtest_main
 )
 add_test(NAME PrometheusTest COMMAND test_prometheus)
 
 add_executable(test_sharded_metrics test_sharded_metrics.cpp)
 target_link_libraries(test_sharded_metrics
-    PRIVATE cppload_core GTest::gtest_main
+    PRIVATE cppload_core cppload_gtest_main
 )
 add_test(NAME ShardedMetricsTest COMMAND test_sharded_metrics)
 
 add_executable(test_metrics_stress test_metrics_stress.cpp)
 target_link_libraries(test_metrics_stress
-    PRIVATE cppload_core GTest::gtest_main
+    PRIVATE cppload_core cppload_gtest_main
 )
 add_test(NAME MetricsStressTest COMMAND test_metrics_stress)
 
 add_executable(test_protocol_factory test_protocol_factory.cpp)
 target_link_libraries(test_protocol_factory
-    PRIVATE cppload_core GTest::gtest_main
+    PRIVATE cppload_core cppload_gtest_main
 )
 add_test(NAME ProtocolFactoryTest COMMAND test_protocol_factory)
 
 add_executable(test_io_context_pool test_io_context_pool.cpp)
 target_link_libraries(test_io_context_pool
-    PRIVATE cppload_core GTest::gtest_main
+    PRIVATE cppload_core cppload_gtest_main
 )
 add_test(NAME IoContextPoolTest COMMAND test_io_context_pool)
 
 add_executable(test_tls_context test_tls_context.cpp)
 target_link_libraries(test_tls_context
-    PRIVATE cppload_core GTest::gtest_main
+    PRIVATE cppload_core cppload_gtest_main
 )
 add_test(NAME TlsContextTest COMMAND test_tls_context)
 

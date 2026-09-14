@@ -1,27 +1,27 @@
 # @author ssrjkk | cppload
 add_executable(test_http_client_integration test_http_client_integration.cpp)
 target_link_libraries(test_http_client_integration
-    PRIVATE cppload_core GTest::gtest_main
+    PRIVATE cppload_core cppload_gtest_main
 )
 
 add_executable(test_vault_integration test_vault_integration.cpp)
 target_link_libraries(test_vault_integration
-    PRIVATE cppload_core GTest::gtest_main nlohmann_json::nlohmann_json
+    PRIVATE cppload_core cppload_gtest_main nlohmann_json::nlohmann_json
 )
 
 add_executable(test_oauth2_integration test_oauth2_integration.cpp)
 target_link_libraries(test_oauth2_integration
-    PRIVATE cppload_core GTest::gtest_main nlohmann_json::nlohmann_json
+    PRIVATE cppload_core cppload_gtest_main nlohmann_json::nlohmann_json
 )
 
 add_executable(test_connection_pool_integration test_connection_pool_integration.cpp)
 target_link_libraries(test_connection_pool_integration
-    PRIVATE cppload_core GTest::gtest_main
+    PRIVATE cppload_core cppload_gtest_main
 )
 
 add_executable(test_engine_integration test_engine_integration.cpp)
 target_link_libraries(test_engine_integration
-    PRIVATE cppload_core GTest::gtest_main
+    PRIVATE cppload_core cppload_gtest_main
 )
 
 # Self-signed certificates for TLS integration tests. Generated once at
@@ -52,7 +52,7 @@ endif()
 
 add_executable(test_tls_integration test_tls_integration.cpp)
 target_link_libraries(test_tls_integration
-    PRIVATE cppload_core GTest::gtest_main
+    PRIVATE cppload_core cppload_gtest_main
 )
 target_compile_definitions(test_tls_integration PRIVATE
     CPPLOAD_TEST_CERT_DIR="${CPPLOAD_TEST_CERT_DIR}")

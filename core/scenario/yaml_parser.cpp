@@ -8,6 +8,7 @@
 #include <string>
 #include <chrono>
 #include <cctype>
+#include <cstdint>
 #include <cstdlib>
 #include <algorithm>
 #include <mutex>
@@ -16,35 +17,41 @@ namespace cppload::scenario {
 
 namespace {
 
+// Scales a parsed numeric value into milliseconds with overflow clamping.
+// A magnitude beyond the representable range (LLONG_MAX ms) is capped instead
+// of being converted through duration_cast, which would have been UB when the
+// scaled value overflowed int64 (e.g. seconds{LLONG_MAX} -> milliseconds).
+std::chrono::milliseconds scale_to_ms(double value, double multiplier) {
+    double ms = value * multiplier;
+    if (ms < 0.0) return std::chrono::milliseconds{0};
+    if (ms >= 9.0e15) return std::chrono::milliseconds::max();
+    return std::chrono::milliseconds{static_cast<int64_t>(ms)};
+}
+
+double parse_number(const std::string& str) {
+    try {
+        return std::stod(str);
+    } catch (const std::exception&) {
+        return -1.0;
+    }
+}
+
 std::chrono::milliseconds parse_duration(const std::string& str) {
     if (str.empty()) return std::chrono::milliseconds{0};
     // Try multi-character suffixes first
     if (str.size() >= 3 && str.substr(str.size() - 3) == "min") {
-        std::string num_str = str.substr(0, str.size() - 3);
-        try { return std::chrono::duration_cast<std::chrono::milliseconds>(
-            std::chrono::minutes{std::stoll(num_str)}); }
-        catch (...) { return std::chrono::milliseconds{0}; }
+        return scale_to_ms(parse_number(str.substr(0, str.size() - 3)), 60000.0);
     }
     if (str.size() >= 2 && str.substr(str.size() - 2) == "ms") {
-        std::string num_str = str.substr(0, str.size() - 2);
-        try { return std::chrono::milliseconds{std::stoll(num_str)}; }
-        catch (...) { return std::chrono::milliseconds{0}; }
+        return scale_to_ms(parse_number(str.substr(0, str.size() - 2)), 1.0);
     }
     char unit = str.back();
-    std::string num_str = str.substr(0, str.length() - 1);
-    long long value = 0;
-    try {
-        value = std::stoll(num_str);
-    } catch (const std::exception&) {
-        return std::chrono::milliseconds{0};
-    }
+    double value = parse_number(str.substr(0, str.length() - 1));
+    if (value < 0.0) return std::chrono::milliseconds{0};
     switch (unit) {
-        case 's': return std::chrono::duration_cast<std::chrono::milliseconds>(
-            std::chrono::seconds{value});
-        case 'm': return std::chrono::duration_cast<std::chrono::milliseconds>(
-            std::chrono::minutes{value});
-        case 'h': return std::chrono::duration_cast<std::chrono::milliseconds>(
-            std::chrono::hours{value});
+        case 's': return scale_to_ms(value, 1000.0);
+        case 'm': return scale_to_ms(value, 60000.0);
+        case 'h': return scale_to_ms(value, 3600000.0);
         default:
             std::cerr << "Warning: unrecognized duration unit '" << unit
                       << "' in \"" << str << "\", treating as 0s" << std::endl;
@@ -70,23 +77,27 @@ std::chrono::milliseconds parse_latency(const std::string& str) {
     if (start == std::string::npos) return core::kDefaultLatencyMs;
     size_t num_end = start;
     while (num_end < str.length() && std::isdigit(static_cast<unsigned char>(str[num_end]))) ++num_end;
-    long long value = 0;
+    double value = 0.0;
     try {
-        value = std::stoll(str.substr(start, num_end - start));
+        value = std::stod(str.substr(start, num_end - start));
     } catch (const std::exception&) {
         return core::kDefaultLatencyMs;
     }
-    if (str.find("ms") != std::string::npos) return std::chrono::milliseconds{value};
-    if (str.find("s") != std::string::npos) return std::chrono::seconds{value};
-    return std::chrono::milliseconds{value};
+    if (str.find("ms") != std::string::npos) return scale_to_ms(value, 1.0);
+    if (str.find("s") != std::string::npos) return scale_to_ms(value, 1000.0);
+    return scale_to_ms(value, 1.0);
 }
 
-void substitute_env(YAML::Node node) {
+// Substitutes ${VAR} and ${VAR:-default} occurrences in all scalar leaves.
+// Returns (via out) the first variable that had no default and no value, so
+// callers can turn a silently-empty result into a precise config error.
+void substitute_env(YAML::Node node, std::string& first_missing) {
     static std::mutex env_mtx;
     if (!node.IsDefined()) return;
     if (node.IsScalar()) {
         std::string val = node.Scalar();
         std::string result;
+        result.reserve(val.size());
         size_t pos = 0;
         while (pos < val.length()) {
             auto dollar = val.find("${", pos);
@@ -95,7 +106,7 @@ void substitute_env(YAML::Node node) {
                 break;
             }
             result += val.substr(pos, dollar - pos);
-            auto end = val.find("}", dollar);
+            auto end = val.find('}', dollar + 2);
             if (end == std::string::npos) {
                 result += val.substr(dollar);
                 break;
@@ -112,6 +123,12 @@ void substitute_env(YAML::Node node) {
                 std::lock_guard<std::mutex> lock(env_mtx);
                 const char* env_raw = std::getenv(var_name.c_str());
                 if (env_raw) env_val = env_raw;
+                // Unset variables without a default become a config error the
+                // caller can report instead of silently resolving to "".
+                if (env_val.empty() && colon == std::string::npos &&
+                    first_missing.empty()) {
+                    first_missing = var_name;
+                }
             }
             result += env_val.empty() ? default_val : env_val;
             pos = end + 1;
@@ -121,11 +138,11 @@ void substitute_env(YAML::Node node) {
         }
     } else if (node.IsMap()) {
         for (auto it = node.begin(); it != node.end(); ++it) {
-            substitute_env(it->second);
+            substitute_env(it->second, first_missing);
         }
     } else if (node.IsSequence()) {
         for (auto it = node.begin(); it != node.end(); ++it) {
-            substitute_env(*it);
+            substitute_env(*it, first_missing);
         }
     }
 }
@@ -147,7 +164,8 @@ bool parse_config_file(const std::string& path, ScenarioConfig& config, std::str
         return false;
     }
 
-    substitute_env(root);
+    std::string missing_var;
+    substitute_env(root, missing_var);
 
     // Use a const view for lookups so operator[] never inserts missing keys
     // into the document while validating.
@@ -175,6 +193,13 @@ bool parse_config_file(const std::string& path, ScenarioConfig& config, std::str
         if (target["protocol"]) config.target.protocol = target["protocol"].as<std::string>();
         if (target["tls"] && target["tls"]["verify"]) {
             config.target.tls.verify = target["tls"]["verify"].as<bool>();
+        }
+        // An unresolvable ${VAR} (no default) that left the base URL empty is a
+        // configuration error with a precise message, not a silent empty URL.
+        if (!missing_var.empty() && config.target.base_url.empty()) {
+            error = "target.base_url is empty; environment variable \"${" +
+                missing_var + "}\" is not set and has no default";
+            return false;
         }
     } catch (const YAML::Exception& e) {
         error = std::string("YAML target parse error: ") + e.what();

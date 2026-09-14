@@ -12,6 +12,7 @@
 #include <nlohmann/json.hpp>
 #include <string>
 #include <sstream>
+#include <thread>
 
 namespace beast = boost::beast;
 namespace http = beast::http;
@@ -25,7 +26,7 @@ namespace {
 using core::parse_url;
 using core::sanitize_path;
 
-Result<http::response<http::string_body>, Err> do_request(
+Result<http::response<http::string_body>, Err> do_request_once(
     http::verb method,
     const std::string& host,
     const std::string& port,
@@ -55,6 +56,17 @@ Result<http::response<http::string_body>, Err> do_request(
         return req;
     };
 
+    // Deterministically close the transport on every exit path. The callers
+    // rely on the sequencing of the sync wrapper, so issuing the shutdown
+    // before returning keeps TLS records flushed on error paths too instead
+    // of leaving the socket open until the stream destructor runs.
+    auto close_transport = [](auto& stream) {
+        beast::error_code ignored;
+        beast::get_lowest_layer(stream).socket().shutdown(
+            asio::ip::tcp::socket::shutdown_both, ignored);
+        beast::get_lowest_layer(stream).socket().close(ignored);
+    };
+
     if (use_tls) {
         static asio::ssl::context ssl_ctx(asio::ssl::context::tlsv12_client);
         static std::once_flag ssl_flag;
@@ -71,31 +83,42 @@ Result<http::response<http::string_body>, Err> do_request(
         asio::ssl::stream<beast::tcp_stream> stream(ioc, ssl_ctx);
         stream.set_verify_callback(asio::ssl::host_name_verification(host));
 
-        if (!SSL_set_tlsext_host_name(stream.native_handle(), host.c_str()))
+        if (!SSL_set_tlsext_host_name(stream.native_handle(), host.c_str())) {
+            close_transport(stream);
             return Result<http::response<http::string_body>, Err>::err(Err::tls_handshake_failed);
+        }
 
         beast::get_lowest_layer(stream).expires_after(sec);
         ec = net::run_async(ioc, [&](auto h) {
             beast::get_lowest_layer(stream).async_connect(results, h);
         });
-        if (ec == beast::error::timeout)
+        if (ec == beast::error::timeout) {
+            close_transport(stream);
             return Result<http::response<http::string_body>, Err>::err(Err::connection_timeout);
-        if (ec)
+        }
+        if (ec) {
+            close_transport(stream);
             return Result<http::response<http::string_body>, Err>::err(Err::connection_refused);
+        }
 
         stream.next_layer().expires_after(sec);
         ec = net::run_async(ioc, [&](auto h) {
             stream.async_handshake(asio::ssl::stream_base::client, h);
         });
-        if (ec)
+        if (ec) {
+            close_transport(stream);
             return Result<http::response<http::string_body>, Err>::err(Err::tls_handshake_failed);
+        }
 
         auto req = build_request(method, target, body);
         stream.next_layer().expires_after(sec);
         ec = net::run_async(ioc, [&](auto h) {
             http::async_write(stream, req, h);
         });
-        if (ec) return Result<http::response<http::string_body>, Err>::err(Err::write_error);
+        if (ec) {
+            close_transport(stream);
+            return Result<http::response<http::string_body>, Err>::err(Err::write_error);
+        }
 
         beast::flat_buffer buffer;
         http::response<http::string_body> res;
@@ -103,13 +126,16 @@ Result<http::response<http::string_body>, Err> do_request(
         ec = net::run_async(ioc, [&](auto h) {
             http::async_read(stream, buffer, res, h);
         });
-        if (ec && ec != http::error::end_of_stream)
+        if (ec && ec != http::error::end_of_stream) {
+            close_transport(stream);
             return Result<http::response<http::string_body>, Err>::err(Err::read_error);
+        }
 
         stream.next_layer().expires_after(sec);
         ec = net::run_async(ioc, [&](auto h) {
             stream.async_shutdown(h);
         });
+        close_transport(stream);
         return Result<http::response<http::string_body>, Err>::ok(std::move(res));
     } else {
         beast::tcp_stream stream(ioc);
@@ -139,15 +165,44 @@ Result<http::response<http::string_body>, Err> do_request(
         if (ec && ec != http::error::end_of_stream)
             return Result<http::response<http::string_body>, Err>::err(Err::read_error);
 
-        beast::error_code shutdown_ec;
-        stream.socket().shutdown(asio::ip::tcp::socket::shutdown_both, shutdown_ec);
+        close_transport(stream);
         return Result<http::response<http::string_body>, Err>::ok(std::move(res));
     }
+}
+
+// Retries transient transport-level success with a rate-limit response, so a
+// Vault server under pressure (HTTP 429) does not fail the request outright.
+// Client-side throttling is intentionally NOT applied: this client reads
+// credentials during startup, not per load-test request, so it must stay
+// unthrottled to feed the pump at full speed.
+Result<http::response<http::string_body>, Err> do_request(
+    http::verb method,
+    const std::string& host,
+    const std::string& port,
+    const std::string& target,
+    const std::string& body,
+    const std::unordered_map<std::string, std::string>& headers,
+    uint32_t timeout_sec,
+    bool use_tls)
+{
+    constexpr int kMaxAttempts = 3;
+    for (int attempt = 0; attempt < kMaxAttempts; ++attempt) {
+        auto res = do_request_once(method, host, port, target, body, headers,
+                                   timeout_sec, use_tls);
+        if (!res || res.value().result() != http::status::too_many_requests) {
+            return res;
+        }
+        if (attempt + 1 < kMaxAttempts) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(100 * (1 << attempt)));
+        }
+    }
+    return Result<http::response<http::string_body>, Err>::err(Err::vault_server_error);
 }
 
 Result<int, Err> check_response(const http::response<http::string_body>& res) {
     auto code = res.result_int();
     if (code >= 200 && code < 300) return Result<int, Err>::ok(code);
+    if (code == 429) return Result<int, Err>::err(Err::vault_server_error);
     if (code == 404) return Result<int, Err>::err(Err::vault_not_found);
     if (code == 403) return Result<int, Err>::err(Err::vault_permission_denied);
     if (code == 401) return Result<int, Err>::err(Err::vault_token_invalid);

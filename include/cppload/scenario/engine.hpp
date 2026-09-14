@@ -136,6 +136,12 @@ public:
 
     [[nodiscard]] bool check_sla(const metrics::MetricsCollector& metrics) const;
 
+    // True when the last run() aborted because at least one worker thread
+    // failed (protocol error, pool exhaustion, unexpected exception). Callers
+    // should surface this alongside last_error() instead of reporting a
+    // "successful" run with zero requests.
+    [[nodiscard]] bool run_failed() const;
+
     [[nodiscard]] std::string last_error() const;
 
 private:

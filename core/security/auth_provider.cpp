@@ -167,7 +167,11 @@ public:
             headers["Authorization"] = "Bearer " + config_.token;
         } else if (config_.type == AuthType::OAUTH2) {
             auto token = get_token();
-            headers["Authorization"] = "Bearer " + token;
+            // A missing/empty token must not abort the request chain (the
+            // server will answer 401, which is clearly visible in metrics).
+            if (!token.empty()) {
+                headers["Authorization"] = "Bearer " + token;
+            }
         } else if (config_.type == AuthType::MTLS) {
             headers["X-SSL-Cert"] = "mtls";
         }
@@ -179,7 +183,9 @@ public:
         } else if (config_.type == AuthType::BEARER_TOKEN) {
             return "Authorization: Bearer " + config_.token;
         } else if (config_.type == AuthType::OAUTH2) {
-            return "Authorization: Bearer " + get_token();
+            auto token = get_token();
+            if (token.empty()) return "";
+            return "Authorization: Bearer " + token;
         } else if (config_.type == AuthType::MTLS) {
             return "X-SSL-Cert: mtls";
         }
@@ -205,9 +211,16 @@ private:
         std::lock_guard<std::mutex> lock(mtx_);
         if (std::chrono::system_clock::now() >= token_expiry_) {
             auto result = fetch_token_locked();
-            if (!result && current_token_.empty()) {
-                throw std::runtime_error("OAuth2 token fetch failed: " +
-                    make_error_code(result.error()).message());
+            if (!result) {
+                // Refresh failed (network error, transient server error, ...).
+                // Never throw from here: this runs inside apply_headers() from
+                // worker threads and an exception would abort the whole load
+                // loop. Fall back to the previous token — the server will
+                // reject it with 401, which is surfaced in the metrics.
+                if (!current_token_.empty()) {
+                    return current_token_;
+                }
+                return "";
             }
         }
         return current_token_;
