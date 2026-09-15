@@ -364,10 +364,12 @@ jobs:
         run: |
           cd build-bench
           mkdir -p results
+          # Benchmarks are built under tests/benchmarks/ (add_subdirectory
+          # lives in tests/CMakeLists.txt), so resolve binaries from there.
           for t in token_bucket_bench metrics_bench url_bench sharded_collector_bench http_client_bench; do
-            if [ -x "./$t" ]; then
-              ./$t --benchmark_format=json --benchmark_repetitions=5 \
-                --benchmark_display_aggregates_only > results/$t.json
+            if [ -x "./tests/benchmarks/$t" ]; then
+              ./tests/benchmarks/$t --benchmark_format=json --benchmark_repetitions=5 \
+                --benchmark_display_aggregates_only=true > results/$t.json
             fi
           done
           python3 -c 'import json,glob; d=[]; [d.extend(json.load(open(f))) for f in glob.glob("results/*.json")]; json.dump(d, open("results/current.json","w"))'
