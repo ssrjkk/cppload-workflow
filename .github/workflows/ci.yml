@@ -372,7 +372,7 @@ jobs:
                 --benchmark_display_aggregates_only=true > results/$t.json
             fi
           done
-          python3 -c 'import json,glob; d=[]; [d.extend(json.load(open(f))) for f in glob.glob("results/*.json")]; json.dump(d, open("results/current.json","w"))'
+          python3 -c 'import json,glob; d=[]; [d.extend(json.load(open(f)).get("benchmarks", [])) for f in glob.glob("results/*.json")]; json.dump(d, open("results/current.json","w"))'
 
       - name: Compare against baseline (generates it on first run)
         run: |

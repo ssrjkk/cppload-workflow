@@ -17,8 +17,15 @@ import sys
 
 def median_map(path):
     data = json.load(open(path, encoding="utf-8"))
+    # Accept either a merged list of runs or a single google/benchmark
+    # document ({"context": ..., "benchmarks": [...]}) to be robust against
+    # differently-shaped merge outputs.
+    if isinstance(data, dict):
+        data = data.get("benchmarks", [])
     out = {}
     for b in data:
+        if not isinstance(b, dict):
+            continue
         if b.get("run_type") == "aggregate" and b.get("aggregate_name") == "median":
             out[b["name"]] = b.get("real_time")
     return out
