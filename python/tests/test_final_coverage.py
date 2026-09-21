@@ -22,7 +22,8 @@ class TestFinalCoverage:
             cli_path.touch()
 
             # Patch the paths list to include our temp directory
-            with patch('cppload.core.Path') as mock_path:
+            with patch("cppload.core.Path") as mock_path:
+
                 def path_side_effect(p):
                     if "cppload-cli" in str(p) and tmpdir in str(p):
                         return cli_path
@@ -35,10 +36,10 @@ class TestFinalCoverage:
                 result = _find_cli()
                 assert isinstance(result, str)
 
-    @patch('cppload.HttpClient.request')
+    @patch("cppload.HttpClient.request")
     def test_loadtest_worker_client_none(self, mock_request):
         """Test LoadTest _worker when client is None."""
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.yaml', delete=False) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
             f.write("""
 test_id: client_none_test
 target:
@@ -61,7 +62,7 @@ scenarios:
             test = LoadTest(config_path)
 
             # Mock pool.acquire to return None
-            with patch.object(test.pool, 'acquire', return_value=None):
+            with patch.object(test.pool, "acquire", return_value=None):
                 scenarios = test.config.get("scenarios", [])
                 test._worker(scenarios, "http://example.com")
 
@@ -72,7 +73,7 @@ scenarios:
 
     def test_validate_sla_error_rate_exception(self):
         """Test validate_sla with invalid error_rate format."""
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.yaml', delete=False) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
             f.write("""
 test_id: sla_exception_test
 target:
@@ -102,7 +103,7 @@ load_profile:
 
     def test_validate_sla_p99_exception(self):
         """Test validate_sla with invalid p99_latency format."""
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.yaml', delete=False) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
             f.write("""
 test_id: sla_p99_exception_test
 target:
@@ -132,7 +133,7 @@ load_profile:
 
     def test_validate_sla_no_sla_config(self):
         """Test validate_sla with no SLA configuration."""
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.yaml', delete=False) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
             f.write("""
 test_id: no_sla_test
 target:

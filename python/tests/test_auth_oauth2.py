@@ -10,7 +10,7 @@ from cppload import AuthProvider, AuthConfig, AuthType
 class TestAuthProviderOAuth2:
     """Test AuthProvider OAuth2 functionality."""
 
-    @patch('urllib.request.urlopen')
+    @patch("urllib.request.urlopen")
     def test_oauth2_init_fetches_token(self, mock_urlopen):
         """Test OAuth2 initialization fetches token."""
         mock_response = Mock()
@@ -22,14 +22,14 @@ class TestAuthProviderOAuth2:
             type=AuthType.OAUTH2,
             client_id="test_client",
             client_secret="test_secret",
-            token_endpoint="http://auth.example.com/token"
+            token_endpoint="http://auth.example.com/token",
         )
         provider = AuthProvider(config)
 
         assert provider._current_token == "test_token"
         assert provider._token_expiry > time.time()
 
-    @patch('urllib.request.urlopen')
+    @patch("urllib.request.urlopen")
     def test_oauth2_apply_headers(self, mock_urlopen):
         """Test OAuth2 applies bearer token to headers."""
         mock_response = Mock()
@@ -41,7 +41,7 @@ class TestAuthProviderOAuth2:
             type=AuthType.OAUTH2,
             client_id="client",
             client_secret="secret",
-            token_endpoint="http://auth.example.com/token"
+            token_endpoint="http://auth.example.com/token",
         )
         provider = AuthProvider(config)
 
@@ -49,7 +49,7 @@ class TestAuthProviderOAuth2:
         provider.apply_headers(headers)
         assert headers["Authorization"] == "Bearer oauth_token"
 
-    @patch('urllib.request.urlopen')
+    @patch("urllib.request.urlopen")
     def test_oauth2_token_refresh_on_expiry(self, mock_urlopen):
         """Test OAuth2 refreshes expired token."""
         mock_response = Mock()
@@ -61,7 +61,7 @@ class TestAuthProviderOAuth2:
             type=AuthType.OAUTH2,
             client_id="client",
             client_secret="secret",
-            token_endpoint="http://auth.example.com/token"
+            token_endpoint="http://auth.example.com/token",
         )
         provider = AuthProvider(config)
         provider._token_expiry = time.time() - 100  # Expired
@@ -80,7 +80,7 @@ class TestAuthProviderOAuth2:
         provider._token_expiry = time.time() + 100
         assert provider._is_expired() is False
 
-    @patch('urllib.request.urlopen')
+    @patch("urllib.request.urlopen")
     def test_refresh_token_success(self, mock_urlopen):
         """Test successful token refresh."""
         mock_response = Mock()
@@ -92,7 +92,7 @@ class TestAuthProviderOAuth2:
             type=AuthType.OAUTH2,
             client_id="client",
             client_secret="secret",
-            token_endpoint="http://auth.example.com/token"
+            token_endpoint="http://auth.example.com/token",
         )
         provider = AuthProvider(config)
 
@@ -106,7 +106,7 @@ class TestAuthProviderOAuth2:
         result = provider.refresh_token()
         assert result is True
 
-    @patch('urllib.request.urlopen')
+    @patch("urllib.request.urlopen")
     def test_refresh_token_failure(self, mock_urlopen):
         """Test token refresh failure."""
         mock_urlopen.side_effect = Exception("Network error")
@@ -115,10 +115,12 @@ class TestAuthProviderOAuth2:
             type=AuthType.OAUTH2,
             client_id="client",
             client_secret="secret",
-            token_endpoint="http://auth.example.com/token"
+            token_endpoint="http://auth.example.com/token",
         )
 
-        with patch('cppload.core.AuthProvider._fetch_token', side_effect=Exception("Network error")):
+        with patch(
+            "cppload.core.AuthProvider._fetch_token", side_effect=Exception("Network error")
+        ):
             provider = AuthProvider.__new__(AuthProvider)
             provider.config = config
             provider._current_token = ""
@@ -126,7 +128,7 @@ class TestAuthProviderOAuth2:
             result = provider.refresh_token()
             assert result is False
 
-    @patch('urllib.request.urlopen')
+    @patch("urllib.request.urlopen")
     def test_fetch_token_with_expiry_buffer(self, mock_urlopen):
         """Test token expiry includes 60s buffer."""
         mock_response = Mock()
@@ -138,14 +140,14 @@ class TestAuthProviderOAuth2:
             type=AuthType.OAUTH2,
             client_id="client",
             client_secret="secret",
-            token_endpoint="http://auth.example.com/token"
+            token_endpoint="http://auth.example.com/token",
         )
         provider = AuthProvider(config)
 
         expected_expiry = time.time() + 3540  # 3600 - 60
         assert abs(provider._token_expiry - expected_expiry) < 5
 
-    @patch('urllib.request.urlopen')
+    @patch("urllib.request.urlopen")
     def test_fetch_token_min_expiry(self, mock_urlopen):
         """Test token expiry has minimum of 1 second."""
         mock_response = Mock()
@@ -157,7 +159,7 @@ class TestAuthProviderOAuth2:
             type=AuthType.OAUTH2,
             client_id="client",
             client_secret="secret",
-            token_endpoint="http://auth.example.com/token"
+            token_endpoint="http://auth.example.com/token",
         )
         provider = AuthProvider(config)
 

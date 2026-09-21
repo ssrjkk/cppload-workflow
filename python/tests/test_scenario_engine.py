@@ -20,7 +20,7 @@ class TestScenarioEngine:
 
     def test_load_config_success(self):
         """Test successful config loading."""
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.yaml', delete=False) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
             f.write("test_id: test_001\ntarget:\n  base_url: http://example.com\n")
             f.flush()
             config_path = f.name
@@ -45,7 +45,7 @@ class TestScenarioEngine:
 
     def test_load_config_invalid_yaml(self):
         """Test loading invalid YAML."""
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.yaml', delete=False) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
             f.write("invalid: yaml: content:\n  - broken\n")
             f.flush()
             config_path = f.name
@@ -67,14 +67,14 @@ class TestScenarioEngine:
 
         assert engine.config == {"test": "value"}
 
-    @patch('subprocess.run')
-    @patch('cppload.core._find_cli')
+    @patch("subprocess.run")
+    @patch("cppload.core._find_cli")
     def test_run_without_callback(self, mock_find_cli, mock_run):
         """Test run without callback."""
         mock_find_cli.return_value = "cppload-cli"
         mock_run.return_value = Mock(returncode=0, stdout="Success", stderr="")
 
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.yaml', delete=False) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
             f.write("test_id: test_001\n")
             f.flush()
             config_path = f.name
@@ -91,8 +91,8 @@ class TestScenarioEngine:
         finally:
             os.unlink(config_path)
 
-    @patch('subprocess.run')
-    @patch('cppload.core._find_cli')
+    @patch("subprocess.run")
+    @patch("cppload.core._find_cli")
     def test_run_with_callback(self, mock_find_cli, mock_run):
         """Test run with callback."""
         mock_find_cli.return_value = "cppload-cli"
@@ -101,7 +101,7 @@ class TestScenarioEngine:
 
         callback = Mock()
 
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.yaml', delete=False) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
             f.write("test_id: test_002\n")
             f.flush()
             config_path = f.name
@@ -132,7 +132,7 @@ class TestLoadTest:
 
     def test_loadtest_init(self):
         """Test LoadTest initialization."""
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.yaml', delete=False) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
             f.write("""
 test_id: load_test_001
 target:
@@ -161,7 +161,7 @@ load_profile:
 
     def test_loadtest_with_oauth2(self):
         """Test LoadTest with OAuth2 authentication."""
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.yaml', delete=False) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
             f.write("""
 test_id: oauth_test
 target:
@@ -181,7 +181,7 @@ load_profile:
             config_path = f.name
 
         try:
-            with patch('urllib.request.urlopen') as mock_urlopen:
+            with patch("urllib.request.urlopen") as mock_urlopen:
                 mock_response = Mock()
                 mock_response.read.return_value = b'{"access_token": "token", "expires_in": 3600}'
                 mock_urlopen.return_value.__enter__ = Mock(return_value=mock_response)
@@ -196,7 +196,7 @@ load_profile:
 
     def test_loadtest_with_tracing(self):
         """Test LoadTest with tracing configuration."""
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.yaml', delete=False) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
             f.write("""
 test_id: trace_test
 target:
@@ -223,7 +223,7 @@ load_profile:
 
     def test_loadtest_validate_sla_pass(self):
         """Test SLA validation passes."""
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.yaml', delete=False) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
             f.write("""
 test_id: sla_test
 target:
@@ -253,7 +253,7 @@ load_profile:
 
     def test_loadtest_validate_sla_fail_error_rate(self):
         """Test SLA validation fails on error rate."""
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.yaml', delete=False) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
             f.write("""
 test_id: sla_fail_test
 target:
@@ -284,7 +284,7 @@ load_profile:
 
     def test_loadtest_validate_sla_fail_latency(self):
         """Test SLA validation fails on latency."""
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.yaml', delete=False) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
             f.write("""
 test_id: sla_latency_test
 target:
@@ -313,7 +313,7 @@ load_profile:
 
     def test_loadtest_print_results(self):
         """Test _print_results method."""
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.yaml', delete=False) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
             f.write("""
 test_id: results_test
 target:

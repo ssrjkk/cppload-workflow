@@ -133,9 +133,7 @@ def test_http_post_with_body(http_server):
     """Test HTTP POST request with body"""
     host, port = http_server.split(":")
     client = HttpClient()
-    req = HttpRequest(
-        method="POST", target="/post", host=host, port=port, body="test data"
-    )
+    req = HttpRequest(method="POST", target="/post", host=host, port=port, body="test data")
 
     resp = client.request(req)
 
@@ -234,9 +232,7 @@ def test_http_timeout():
     """Test HTTP request timeout"""
     client = HttpClient()
     client.timeout_ms = 100
-    req = HttpRequest(
-        method="GET", target="/", host="192.0.2.1", port="80"
-    )
+    req = HttpRequest(method="GET", target="/", host="192.0.2.1", port="80")
 
     start = time.time()
     resp = client.request(req)

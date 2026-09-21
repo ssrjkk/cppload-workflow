@@ -156,6 +156,7 @@ class TestMetricsCollectorEdgeCases:
     def test_requests_per_second_after_requests(self):
         """Test RPS after recording requests."""
         import time
+
         collector = MetricsCollector()
 
         # Wait a tiny bit to ensure elapsed time > 0.001

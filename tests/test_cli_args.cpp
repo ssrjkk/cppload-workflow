@@ -16,7 +16,7 @@
 #ifdef CPLOAD_TEST_CLI_PATH
 static const char* kCliPath = CPLOAD_TEST_CLI_PATH;
 #else
-static const char* kCliPath = "python tools/mock_cli.py";
+static const char* kCliPath = "python3 tools/mock_cli.py";
 #endif
 
 namespace {

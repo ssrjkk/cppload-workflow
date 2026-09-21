@@ -19,9 +19,7 @@ class TestTracer:
     def test_tracer_custom_config(self):
         """Test Tracer custom configuration."""
         config = TraceConfig(
-            endpoint="http://custom:4317",
-            sample_rate=0.5,
-            service_name="test-service"
+            endpoint="http://custom:4317", sample_rate=0.5, service_name="test-service"
         )
         tracer = Tracer(config)
         assert tracer.config.endpoint == "http://custom:4317"

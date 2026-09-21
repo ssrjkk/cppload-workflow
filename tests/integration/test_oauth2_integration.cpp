@@ -49,7 +49,7 @@ TEST(OAuth2IntegrationTest, GetBearerToken) {
 TEST(OAuth2IntegrationTest, AutoRefreshOnExpiry) {
     MockHttpServer server;
     std::atomic<int> call_count{0};
-    server.set_handler([&call_count](const auto& req) {
+    server.set_handler([&call_count](const auto& /*req*/) {
         int current = call_count.fetch_add(1, std::memory_order_relaxed) + 1;
         json resp_body;
         resp_body["access_token"] = "s.token-" + std::to_string(current);

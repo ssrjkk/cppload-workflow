@@ -11,17 +11,17 @@ from cppload import LoadTest
 class TestLoadTestRun:
     """Test LoadTest run and worker methods."""
 
-    @patch('cppload.HttpClient.request')
+    @patch("cppload.HttpClient.request")
     def test_loadtest_run(self, mock_request):
         """Test LoadTest run method."""
         mock_request.return_value = {
             "status_code": 200,
             "body": "OK",
             "headers": {},
-            "latency_us": 1000
+            "latency_us": 1000,
         }
 
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.yaml', delete=False) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
             f.write("""
 test_id: run_test
 target:
@@ -51,17 +51,17 @@ scenarios:
         finally:
             os.unlink(config_path)
 
-    @patch('cppload.HttpClient.request')
+    @patch("cppload.HttpClient.request")
     def test_loadtest_worker(self, mock_request):
         """Test LoadTest _worker method."""
         mock_request.return_value = {
             "status_code": 200,
             "body": "OK",
             "headers": {},
-            "latency_us": 1000
+            "latency_us": 1000,
         }
 
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.yaml', delete=False) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
             f.write("""
 test_id: worker_test
 target:
@@ -90,17 +90,17 @@ scenarios:
         finally:
             os.unlink(config_path)
 
-    @patch('cppload.HttpClient.request')
+    @patch("cppload.HttpClient.request")
     def test_loadtest_worker_with_rate_limit(self, mock_request):
         """Test LoadTest _worker with rate limiting."""
         mock_request.return_value = {
             "status_code": 200,
             "body": "OK",
             "headers": {},
-            "latency_us": 1000
+            "latency_us": 1000,
         }
 
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.yaml', delete=False) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
             f.write("""
 test_id: rate_limit_test
 target:
@@ -132,7 +132,7 @@ scenarios:
 
     def test_loadtest_validate_sla_invalid_format(self):
         """Test SLA validation with invalid format."""
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.yaml', delete=False) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
             f.write("""
 test_id: sla_invalid_test
 target:
@@ -163,7 +163,7 @@ load_profile:
 
     def test_loadtest_no_load_profile(self):
         """Test LoadTest with no load profile."""
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.yaml', delete=False) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
             f.write("""
 test_id: no_profile_test
 target:

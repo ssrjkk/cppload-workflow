@@ -16,9 +16,7 @@ def temp_config():
     configs = {}
 
     def _create(name, content):
-        with tempfile.NamedTemporaryFile(
-            mode="w", suffix=".yaml", delete=False
-        ) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
             yaml.dump(content, f)
             configs[name] = f.name
         return configs[name]
@@ -79,9 +77,7 @@ def test_scenario_engine_load_invalid_config():
 
 def test_scenario_engine_load_malformed_yaml(temp_config):
     """Test loading a malformed YAML file"""
-    with tempfile.NamedTemporaryFile(
-        mode="w", suffix=".yaml", delete=False
-    ) as f:
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
         f.write("invalid: yaml: content: [unterminated")
         malformed_path = f.name
 
@@ -248,10 +244,7 @@ def test_scenario_engine_with_authentication(temp_config):
 
     assert result is True
     assert engine.config["authentication"]["type"] == "oauth2"
-    assert (
-        engine.config["authentication"]["client_credentials"]["client_id"]
-        == "test-client"
-    )
+    assert engine.config["authentication"]["client_credentials"]["client_id"] == "test-client"
 
 
 def test_scenario_engine_with_observability(temp_config):
