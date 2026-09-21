@@ -115,7 +115,7 @@ TEST(ResultVoidTest, TransformErrorOk) {
 
 TEST(ResultVoidTest, TransformErrorErr) {
     Result<void, Err> r = Result<void, Err>::err(Err::timeout);
-    auto transformed = r.transform_error([](Err e) -> std::string {
+    auto transformed = r.transform_error([](Err /*e*/) -> std::string {
         return "timeout";
     });
     EXPECT_FALSE(transformed.has_value());
