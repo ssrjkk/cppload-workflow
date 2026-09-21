@@ -64,9 +64,9 @@ target_link_libraries(cppload_core
         OpenSSL::SSL
         OpenSSL::Crypto
         Threads::Threads
+        nlohmann_json::nlohmann_json
     PRIVATE
         yaml-cpp::yaml-cpp
-        nlohmann_json::nlohmann_json
 )
 
 if(WIN32)
