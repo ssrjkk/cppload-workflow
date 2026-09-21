@@ -107,7 +107,7 @@ TEST(ResultVoidTest, Error) {
 
 TEST(ResultVoidTest, TransformErrorOk) {
     Result<void, Err> r = Result<void, Err>::ok();
-    auto transformed = r.transform_error([](Err e) -> std::string {
+    auto transformed = r.transform_error([](Err /*e*/) -> std::string {
         return "error";
     });
     EXPECT_TRUE(transformed.has_value());
@@ -139,7 +139,7 @@ TEST(ResultTest, OrElseVoidFunctorOk) {
 TEST(ResultTest, OrElseVoidFunctorErr) {
     bool called = false;
     Result<int, Err> r = Result<int, Err>::err(Err::timeout);
-    r.or_else([&called](Err e) { called = true; });
+    r.or_else([&called](Err /*e*/) { called = true; });
     EXPECT_TRUE(called);
 }
 
@@ -153,7 +153,7 @@ TEST(ResultVoidTest, OrElseVoidFunctorOk) {
 TEST(ResultVoidTest, OrElseVoidFunctorErr) {
     bool called = false;
     Result<void, Err> r = Result<void, Err>::err(Err::timeout);
-    r.or_else([&called](Err e) { called = true; });
+    r.or_else([&called](Err /*e*/) { called = true; });
     EXPECT_TRUE(called);
 }
 

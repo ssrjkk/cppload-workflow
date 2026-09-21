@@ -187,7 +187,7 @@ TEST_F(YamlParserTest, InvalidYaml) {
 
 TEST_F(YamlParserTest, SetTargetRps) {
     cppload::scenario::ScenarioEngine engine(test_file);
-    engine.load_config();
+    EXPECT_TRUE(engine.load_config());
     engine.set_target_rps(500);
     EXPECT_EQ(engine.target_rps(), 500u);
 }
@@ -292,7 +292,7 @@ TEST_F(YamlParserTest, HugeLatencyAssertionIsRejected) {
 
 TEST_F(YamlParserTest, CheckSlaDefault) {
     cppload::scenario::ScenarioEngine engine(test_file);
-    engine.load_config();
+    EXPECT_TRUE(engine.load_config());
     cppload::metrics::MetricsCollector metrics;
     // No requests - should pass
     EXPECT_TRUE(engine.check_sla(metrics));
