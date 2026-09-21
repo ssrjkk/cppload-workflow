@@ -98,10 +98,11 @@ public:
     }
 };
 
-[[nodiscard]] inline const std::error_category& err_category() {
-    static ErrCategory category;
-    return category;
-}
+// Non-inline on purpose: an inline function with a function-local static would
+// yield a distinct ErrCategory instance per module (DLL/EXE), and error_code
+// equality compares category pointers. A single out-of-line definition makes
+// every comparison across the DLL boundary observe the same category.
+[[nodiscard]] const std::error_category& err_category();
 
 [[nodiscard]] inline std::error_code make_error_code(Err e) {
     return std::error_code(static_cast<int>(e), err_category());

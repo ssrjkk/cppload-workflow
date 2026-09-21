@@ -19,7 +19,7 @@ public:
         boost::asio::io_context& ioc,
         const security::TlsConfig& tls_config = {});
 
-    ~WsClient() override;
+    ~WsClient() noexcept override;
 
     WsClient(const WsClient&) = delete;
     WsClient& operator=(const WsClient&) = delete;

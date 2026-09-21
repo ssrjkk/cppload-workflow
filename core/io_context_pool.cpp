@@ -21,7 +21,7 @@ IoContextPool::IoContextPool(std::size_t pool_size) {
     }
 }
 
-IoContextPool::~IoContextPool() {
+IoContextPool::~IoContextPool() noexcept {
     stop();
 }
 

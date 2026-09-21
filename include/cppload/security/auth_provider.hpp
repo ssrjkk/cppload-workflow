@@ -32,7 +32,7 @@ struct AuthConfig {
 class AuthProvider {
 public:
     explicit AuthProvider(const AuthConfig& config = {});
-    ~AuthProvider();
+    ~AuthProvider() noexcept;
 
     AuthProvider(const AuthProvider&) = delete;
     AuthProvider& operator=(const AuthProvider&) = delete;

@@ -10,9 +10,9 @@ TEST(MetricsCollectorTest, RecordsRequests) {
     collector.record_request(201, std::chrono::microseconds(150), 120, 600);
     
     auto m = collector.snapshot();
-    EXPECT_EQ(m.total_requests, 2);
-    EXPECT_EQ(m.successful_requests, 2);
-    EXPECT_EQ(m.failed_requests, 0);
+    EXPECT_EQ(m.total_requests, 2ull);
+    EXPECT_EQ(m.successful_requests, 2ull);
+    EXPECT_EQ(m.failed_requests, 0ull);
 }
 
 TEST(MetricsCollectorTest, CalculatesErrorRate) {
@@ -45,17 +45,17 @@ TEST(MetricsCollectorTest, Percentiles) {
     
     auto m = collector.snapshot();
     // p95: index = 20 * 0.95 = 19 → sorted[19] = 2000
-    EXPECT_EQ(m.p95_latency_us, 2000);
+    EXPECT_EQ(m.p95_latency_us, 2000ull);
     // p99: index = 20 * 0.99 = 19 → sorted[19] = 2000
-    EXPECT_EQ(m.p99_latency_us, 2000);
+    EXPECT_EQ(m.p99_latency_us, 2000ull);
 }
 
 TEST(MetricsCollectorTest, PercentilesSingleValue) {
     cppload::metrics::MetricsCollector collector;
     collector.record_request(200, std::chrono::microseconds(500), 100, 500);
     auto m = collector.snapshot();
-    EXPECT_EQ(m.p95_latency_us, 500);
-    EXPECT_EQ(m.p99_latency_us, 500);
+    EXPECT_EQ(m.p95_latency_us, 500ull);
+    EXPECT_EQ(m.p99_latency_us, 500ull);
 }
 
 TEST(MetricsCollectorTest, SnapshotIsNonDestructive) {
@@ -83,16 +83,16 @@ TEST(MetricsCollectorTest, SnapshotIsNonDestructive) {
 TEST(MetricsCollectorTest, PercentilesZeroRequests) {
     cppload::metrics::MetricsCollector collector;
     auto m = collector.snapshot();
-    EXPECT_EQ(m.p95_latency_us, 0);
-    EXPECT_EQ(m.p99_latency_us, 0);
+    EXPECT_EQ(m.p95_latency_us, 0ull);
+    EXPECT_EQ(m.p99_latency_us, 0ull);
 }
 
 TEST(MetricsCollectorTest, SnapshotZeroNoRequests) {
     cppload::metrics::MetricsCollector collector;
     auto m = collector.snapshot();
-    EXPECT_EQ(m.total_requests, 0);
-    EXPECT_EQ(m.p95_latency_us, 0);
-    EXPECT_EQ(m.p99_latency_us, 0);
+    EXPECT_EQ(m.total_requests, 0ull);
+    EXPECT_EQ(m.p95_latency_us, 0ull);
+    EXPECT_EQ(m.p99_latency_us, 0ull);
 }
 
 TEST(MetricsCollectorTest, RequestsPerSecond) {
@@ -106,12 +106,12 @@ TEST(MetricsCollectorTest, RequestsPerSecond) {
 TEST(MetricsCollectorTest, ResetClearsCounters) {
     cppload::metrics::MetricsCollector collector;
     collector.record_request(500, std::chrono::microseconds(200), 100, 200);
-    EXPECT_EQ(collector.snapshot().total_requests, 1);
+    EXPECT_EQ(collector.snapshot().total_requests, 1ull);
     collector.reset();
     auto m = collector.snapshot();
-    EXPECT_EQ(m.total_requests, 0);
-    EXPECT_EQ(m.failed_requests, 0);
-    EXPECT_EQ(m.p95_latency_us, 0);
+    EXPECT_EQ(m.total_requests, 0ull);
+    EXPECT_EQ(m.failed_requests, 0ull);
+    EXPECT_EQ(m.p95_latency_us, 0ull);
 }
 
 TEST(MetricsCollectorTest, ArbitraryPercentile) {

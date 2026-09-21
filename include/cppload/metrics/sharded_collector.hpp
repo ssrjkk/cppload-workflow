@@ -29,7 +29,7 @@ struct ShardedMetrics {
 class ShardedMetricsCollector {
 public:
     ShardedMetricsCollector();
-    ~ShardedMetricsCollector();
+    ~ShardedMetricsCollector() noexcept;
 
     ShardedMetricsCollector(const ShardedMetricsCollector&) = delete;
     ShardedMetricsCollector& operator=(const ShardedMetricsCollector&) = delete;

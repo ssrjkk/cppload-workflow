@@ -12,8 +12,8 @@ constexpr int kHttpVersion = 11;
 
 constexpr auto kDefaultTimeout = std::chrono::milliseconds{5000};
 
-constexpr std::string_view kUserAgent = "cppload-pro/1.0";
-constexpr std::string_view kVersion = "1.0.0";
+constexpr std::string_view kUserAgent = "cppload-pro/1.1.0";
+constexpr std::string_view kVersion = "1.1.0";
 
 constexpr size_t kOtlpBatchSize = 64;
 constexpr size_t kOtlpMaxBufferedSpans = 4096;
@@ -30,5 +30,15 @@ constexpr double kDefaultErrorRate = 0.1;
 constexpr auto kDefaultLatencyMs = std::chrono::milliseconds{500};
 
 constexpr size_t kMinShards = 4;
+
+enum class ExitCode : int {
+    OK = 0,
+    ConfigOrUsageError = 1,
+    SlaFailed = 2,
+    RuntimeError = 3,
+};
+
+constexpr size_t kDefaultMaxBodyBytes = 100ULL * 1024ULL * 1024ULL; // 100 MB
+constexpr size_t kDefaultRecvBufferSize = 8192;
 
 } // namespace cppload::core

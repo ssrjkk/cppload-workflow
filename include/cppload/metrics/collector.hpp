@@ -29,7 +29,7 @@ struct RequestMetrics {
 class MetricsCollector {
 public:
     MetricsCollector();
-    ~MetricsCollector();
+    ~MetricsCollector() noexcept;
 
     MetricsCollector(const MetricsCollector&) = delete;
     MetricsCollector& operator=(const MetricsCollector&) = delete;

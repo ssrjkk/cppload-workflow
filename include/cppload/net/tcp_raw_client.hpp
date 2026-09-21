@@ -18,7 +18,7 @@ public:
         boost::asio::io_context& ioc,
         const security::TlsConfig& tls_config = {});
 
-    ~TcpRawClient() override;
+    ~TcpRawClient() noexcept override;
 
     TcpRawClient(const TcpRawClient&) = delete;
     TcpRawClient& operator=(const TcpRawClient&) = delete;

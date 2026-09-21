@@ -14,7 +14,7 @@ namespace cppload {
 class IoContextPool {
 public:
     explicit IoContextPool(std::size_t pool_size = 0);
-    ~IoContextPool();
+    ~IoContextPool() noexcept;
 
     IoContextPool(const IoContextPool&) = delete;
     IoContextPool& operator=(const IoContextPool&) = delete;

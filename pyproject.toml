@@ -5,9 +5,12 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "cppload-pro"
 dynamic = ["version"]
-description = "Enterprise Load Testing Platform - Python SDK"
+description = "Load-testing tool with a C++20 core - Python SDK"
 readme = "README.md"
 requires-python = ">=3.10"
+dependencies = [
+    "PyYAML>=6.0",
+]
 license = {text = "Apache-2.0"}
 authors = [
     {name = "cppload-pro contributors"},

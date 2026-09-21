@@ -1,6 +1,8 @@
 // @author ssrjkk | cppload
 #include "cppload/net/tcp_raw_client.hpp"
+#include "cppload/net/utils.hpp"
 #include "cppload/net/connection.hpp"
+#include "cppload/core/constants.hpp"
 #include <boost/beast/core.hpp>
 #include <boost/asio/ip/tcp.hpp>
 #include <boost/asio/ssl.hpp>
@@ -13,17 +15,9 @@
 
 namespace beast = boost::beast;
 namespace asio = boost::asio;
+namespace core = ::cppload::core;
 
 namespace cppload::net {
-
-static bool host_is_ip_literal(const std::string& host) {
-    if (host.find(':') != std::string::npos) return true;
-    if (host.empty()) return false;
-    for (char c : host) {
-        if (!(c == '.' || (c >= '0' && c <= '9'))) return false;
-    }
-    return true;
-}
 
 class TcpRawClient::Impl : public std::enable_shared_from_this<Impl> {
 public:
@@ -205,7 +199,7 @@ private:
                     return;
                 }
 
-                auto recv = std::make_shared<std::array<char, 8192>>();
+                auto recv = std::make_shared<std::array<char, core::kDefaultRecvBufferSize>>();
                 stream->expires_after(self->get_timeout(self->timeout_ms_));
                 boost::asio::async_read(*stream,
                     boost::asio::buffer(*recv),
@@ -245,7 +239,7 @@ private:
                     return;
                 }
 
-                auto recv = std::make_shared<std::array<char, 8192>>();
+                auto recv = std::make_shared<std::array<char, core::kDefaultRecvBufferSize>>();
                 beast::get_lowest_layer(*ssl_stream).expires_after(self->get_timeout(self->timeout_ms_));
                 boost::asio::async_read(*ssl_stream,
                     boost::asio::buffer(*recv),
@@ -265,7 +259,7 @@ private:
     }
 
     asio::io_context& ioc_;
-    std::atomic<int64_t> timeout_ms_{5000};
+    std::atomic<int64_t> timeout_ms_{core::kDefaultTimeout.count()};
     std::unique_ptr<security::TlsContext> tls_ctx_;
 };
 
@@ -276,7 +270,7 @@ TcpRawClient::TcpRawClient(
 {
 }
 
-TcpRawClient::~TcpRawClient() = default;
+TcpRawClient::~TcpRawClient() noexcept = default;
 
 TcpRawClient::TcpRawClient(TcpRawClient&&) noexcept = default;
 TcpRawClient& TcpRawClient::operator=(TcpRawClient&&) noexcept = default;

@@ -90,6 +90,7 @@ struct ScenarioConfig {
         struct {
             bool verify{true};
         } tls;
+        size_t max_body_bytes{0};  // 0 = engine default (core::kDefaultMaxBodyBytes)
     } target;
 
     ScenarioAuthConfig authentication;
@@ -111,6 +112,11 @@ public:
 
     [[nodiscard]] bool load_config();
     [[nodiscard]] bool validate() const;
+
+    // Schema validation: required keys, types, ranges, assertion format.
+    // Returns true on success; on failure sets last_error() with a
+    // human-readable path + hint + example. Does not touch network.
+    [[nodiscard]] bool validate_schema() const;
 
     [[nodiscard]] const ScenarioConfig& config() const;
 

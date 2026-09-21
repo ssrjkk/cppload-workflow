@@ -1,0 +1,50 @@
+# @author ssrjkk | cppload
+# GraphQL query load scenario: mixed read (query) and write (mutation) workloads.
+# Requires a GraphQL endpoint at /graphql.
+version: "1.0"
+test_id: "graphql-query"
+
+target:
+  base_url: ${TARGET_URL:-http://127.0.0.1:8080}
+  protocol: http1.1
+  tls:
+    verify: true
+
+load_profile:
+  - stage: rampup
+    duration: 1m
+    target_rps: 100
+    concurrent_users: 10
+  - stage: peak
+    duration: 5m
+    target_rps: 400
+    concurrent_users: 40
+
+scenarios:
+  - name: "query_items"
+    weight: 70
+    steps:
+      - http:
+          method: POST
+          path: "/graphql"
+          headers:
+            Content-Type: application/json
+          body: '{"query": "query { items(first: 20) { id name price } }"}'
+          assertions:
+            - status_code == 200
+
+  - name: "mutation_place_order"
+    weight: 30
+    steps:
+      - http:
+          method: POST
+          path: "/graphql"
+          headers:
+            Content-Type: application/json
+          body: '{"query": "mutation { createOrder(itemId: \"${ORDER_ITEM_ID:-1}\") { id } }"}'
+          assertions:
+            - status_code == 200
+
+sla:
+  error_rate: "< 1%"
+  p99_latency: "< 600ms"

@@ -8,6 +8,7 @@ if(NOT GTest_FOUND)
     FetchContent_Declare(
         googletest
         URL https://github.com/google/googletest/archive/refs/tags/v1.14.0.zip
+        URL_HASH SHA256=1f357c27ca988c3f7c6b4bf68a9395005ac6761f034046e9dde0896e3aba00e4
     )
     FetchContent_MakeAvailable(googletest)
 endif()
@@ -108,6 +109,28 @@ add_test(NAME OtlpExporterTest COMMAND test_otlp)
 add_test(NAME YamlParserTest COMMAND test_yaml_parser)
 add_test(NAME UrlParseTest COMMAND test_url_parse)
 add_test(NAME ResultTest COMMAND test_result)
+
+add_executable(test_cli_args test_cli_args.cpp)
+target_link_libraries(test_cli_args
+    PRIVATE cppload_core cppload_gtest_main
+)
+if(TARGET cppload-cli)
+    target_compile_definitions(test_cli_args
+        PRIVATE CPLOAD_TEST_CLI_PATH="$<TARGET_FILE:cppload-cli>")
+endif()
+add_test(NAME CliArgsTest COMMAND test_cli_args)
+
+add_executable(test_redact test_redact.cpp)
+target_link_libraries(test_redact
+    PRIVATE cppload_core cppload_gtest_main
+)
+add_test(NAME RedactTest COMMAND test_redact)
+
+add_executable(test_term test_term.cpp)
+target_link_libraries(test_term
+    PRIVATE cppload_core cppload_gtest_main
+)
+add_test(NAME TermColorTest COMMAND test_term)
 
 # Benchmarks (performance regression tests)
 if(CPLOAD_BUILD_BENCHMARKS)

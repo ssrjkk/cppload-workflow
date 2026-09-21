@@ -277,7 +277,7 @@ private:
 AuthProvider::AuthProvider(const AuthConfig& config)
     : impl_(std::make_unique<Impl>(config)) {}
 
-AuthProvider::~AuthProvider() = default;
+AuthProvider::~AuthProvider() noexcept = default;
 
 void AuthProvider::apply_headers(std::unordered_map<std::string, std::string>& headers) {
     impl_->apply_headers(headers);

@@ -1,5 +1,6 @@
 // @author ssrjkk | cppload
 #include "cppload/net/http_client.hpp"
+#include "cppload/net/utils.hpp"
 #include "cppload/net/connection.hpp"
 #include "cppload/core/constants.hpp"
 #include "cppload/core/url_encode.hpp"
@@ -35,16 +36,6 @@ static std::string url_encode_path(const std::string& raw) {
         }
     }
     return out;
-}
-
-// True for both IPv4 dotted-quad literals and IPv6 literals (contain ':').
-static bool host_is_ip_literal(const std::string& host) {
-    if (host.find(':') != std::string::npos) return true;
-    if (host.empty()) return false;
-    for (char c : host) {
-        if (!(c == '.' || (c >= '0' && c <= '9'))) return false;
-    }
-    return true;
 }
 
 // RFC 7230 §6.3.2: a request sent on a reused connection that turns out to be
@@ -114,6 +105,11 @@ public:
     void set_keep_alive(bool keep_alive) {
         keep_alive_.store(keep_alive, std::memory_order_relaxed);
         if (!keep_alive) cached_.reset();
+    }
+
+    void set_max_body_bytes(size_t bytes) {
+        max_body_bytes_.store(bytes > 0 ? bytes : core::kDefaultMaxBodyBytes,
+                              std::memory_order_relaxed);
     }
 
 private:
@@ -209,6 +205,16 @@ private:
     // still alive and safe to reuse.
     static bool cached_connection_dead(beast::tcp_stream& stream,
                                        beast::error_code& ec) {
+        // Never peek on a blocking socket: async I/O leaves the OS socket in
+        // blocking mode on Windows IOCP, so a synchronous receive() with
+        // nothing pending would sit in the kernel forever. Non-blocking mode
+        // is required for correct would_block handling and is harmless for
+        // the async write/read paths that follow (overlapped I/O on Windows
+        // is independent of the blocking flag; on Linux asio already uses
+        // non-blocking sockets).
+        stream.socket().non_blocking(true, ec);
+        if (ec) return true;
+        ec = {};
         char c = 0;
         std::size_t n = stream.socket().receive(
             asio::buffer(&c, 1),
@@ -483,10 +489,22 @@ private:
             std::chrono::duration_cast<std::chrono::microseconds>(
                 end_time - start_time);
 
+        size_t cap = max_body_bytes_.load(std::memory_order_relaxed);
+        if (cap == 0) cap = core::kDefaultMaxBodyBytes;
+
+        auto copy_body_capped = [&](const std::string& src) {
+            if (src.size() > cap) {
+                response->body.assign(src.data(), cap);
+                response->body_truncated = true;
+            } else {
+                response->body = src;
+            }
+        };
+
         if (ec) {
             if (ec == http::error::end_of_stream) {
                 response->status_code = static_cast<uint16_t>(res->result_int());
-                response->body = res->body();
+                copy_body_capped(res->body());
                 for (const auto& field : *res) {
                     response->headers[std::string(field.name_string())] =
                         std::string(field.value());
@@ -496,7 +514,7 @@ private:
             }
         } else {
             response->status_code = static_cast<uint16_t>(res->result_int());
-            response->body = res->body();
+            copy_body_capped(res->body());
             for (const auto& field : *res) {
                 response->headers[std::string(field.name_string())] =
                     std::string(field.value());
@@ -611,6 +629,7 @@ private:
     asio::io_context& ioc_;
     std::atomic<int64_t> timeout_ms_{core::kDefaultTimeout.count()};
     std::atomic<bool> keep_alive_{true};
+    std::atomic<size_t> max_body_bytes_{core::kDefaultMaxBodyBytes};
     std::unique_ptr<security::TlsContext> tls_ctx_;
     std::shared_ptr<ReusableConn> cached_;
 };
@@ -623,7 +642,7 @@ Http11Client::Http11Client(
 {
 }
 
-Http11Client::~Http11Client() = default;
+Http11Client::~Http11Client() noexcept = default;
 
 Http11Client::Http11Client(Http11Client&&) noexcept = default;
 Http11Client& Http11Client::operator=(Http11Client&&) noexcept = default;
@@ -637,6 +656,10 @@ void Http11Client::async_request(
 
 void Http11Client::set_timeout(std::chrono::milliseconds ms) {
     impl_->set_timeout(ms);
+}
+
+void Http11Client::set_max_body_bytes(size_t bytes) {
+    impl_->set_max_body_bytes(bytes);
 }
 
 void Http11Client::set_keep_alive(bool keep_alive) {

@@ -3,7 +3,7 @@ apiVersion: v2
 name: cppload-pro
 version: 1.0.0
 appVersion: "1.0.0"
-description: Enterprise Load Testing Platform with C++20 core
+description: Load-testing tool with a C++20 core
 type: application
 
 maintainers:

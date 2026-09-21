@@ -12,6 +12,9 @@ on:
         - staging
         - production
 
+permissions:
+  contents: read
+
 env:
   REGISTRY: ghcr.io
   PYTHON_VERSION: "3.11"
@@ -22,7 +25,6 @@ jobs:
     name: Code Quality
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    continue-on-error: true
     
     steps:
       - uses: actions/checkout@v7
@@ -37,11 +39,11 @@ jobs:
       
       - name: Check Python formatting
         run: |
-          black --check python/ || echo "Warning: formatting issues"
+          black --check python/
       
       - name: Lint Python
         run: |
-          flake8 python/ --max-line-length=120 || echo "Warning: lint issues"
+          flake8 python/ --max-line-length=120
       
       - name: Validate YAML
         run: |
@@ -133,7 +135,7 @@ jobs:
       
       - name: Run tests
         run: |
-          cd build && ctest --output-on-failure --timeout 30 || echo "Tests completed"
+          cd build && ctest --output-on-failure --timeout 30
 
   docker:
     name: Docker Build

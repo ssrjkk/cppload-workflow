@@ -1,0 +1,54 @@
+# @author ssrjkk | cppload
+# Health-check monitoring scenario: low-rate synthetic probes of /health + key endpoints.
+# Suited for CI smoke checks and always-on monitoring.
+version: "1.0"
+test_id: "health-checks"
+
+target:
+  base_url: ${TARGET_URL:-http://127.0.0.1:8081}
+  protocol: http1.1
+  tls:
+    verify: false
+
+load_profile:
+  - stage: steady
+    duration: 1m
+    target_rps: 5
+    concurrent_users: 1
+
+scenarios:
+  - name: "liveness"
+    weight: 40
+    steps:
+      - http:
+          method: GET
+          path: "/health"
+          assertions:
+            - status_code == 200
+      - http:
+          method: GET
+          path: "/healthz"
+          assertions:
+            - status_code == 200
+
+  - name: "readiness"
+    weight: 40
+    steps:
+      - http:
+          method: GET
+          path: "/ready"
+          assertions:
+            - status_code == 200
+
+  - name: "metrics_probe"
+    weight: 20
+    steps:
+      - http:
+          method: GET
+          path: "/metrics"
+          assertions:
+            - status_code == 200
+
+sla:
+  error_rate: "< 0.1%"
+  p99_latency: "< 200ms"

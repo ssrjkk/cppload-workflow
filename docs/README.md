@@ -3,7 +3,7 @@
 
 ## Architecture Overview
 
-Enterprise load testing platform with C++20 core for maximum performance.
+Load-testing tool for HTTP services. C++20 core (Boost.Beast/ASIO).
 
 ### Components
 
@@ -16,7 +16,7 @@ Enterprise load testing platform with C++20 core for maximum performance.
 
 ### Performance Targets
 
-- 50k+ RPS per node (HTTP/1.1)
+- 10k+ RPS per node (HTTP/1.1, small payloads, localhost)
 - <1ms overhead per request
 
 ## Building

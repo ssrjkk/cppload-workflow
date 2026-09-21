@@ -4,6 +4,9 @@ on:
   pull_request:
     branches: [main]
 
+permissions:
+  contents: read
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -15,10 +18,10 @@ jobs:
       - name: Install system dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y cmake ninja-build g++ libboost-all-dev libssl-dev
+          sudo apt-get install -y cmake ninja-build g++ libboost-all-dev libssl-dev libyaml-cpp-dev python3-pip python3-venv
 
       - name: Install Conan
-        run: pip install conan
+        run: pip install conan --break-system-packages
 
       - name: Cache Conan packages
         uses: actions/cache@v6
@@ -34,19 +37,40 @@ jobs:
           cmake -B build -G Ninja \
             -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_TOOLCHAIN_FILE=build-conan/conan_toolchain.cmake \
-            -DCPLOAD_BUILD_TESTS=OFF \
+            -DCPLOAD_BUILD_TESTS=ON \
             -DCPLOAD_BUILD_PYTHON=OFF \
-            -DCPLOAD_BUILD_WORKERS=OFF
+            -DCPLOAD_BUILD_WORKERS=OFF \
+            -DCPLOAD_BUILD_TOOLS=ON \
+            -DCPLOAD_BUILD_BENCHMARKS=OFF \
+            -DCPLOAD_BUILD_INTEGRATION_TESTS=OFF
 
       - name: Build
         run: cmake --build build -j$(nproc)
 
-      - name: Python check
+      - name: Run tests
         run: |
-          python3 -c "
-          import os
-          for root, dirs, files in os.walk('.'):
-              name = os.path.basename(root)
-              if root.count(os.sep) - root.replace('.','').count(os.sep) < 2:
-                  print(f'{name}/')
-          "
+          cd build && ctest --output-on-failure --timeout 60 -j$(nproc)
+
+  python:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.11"
+
+      - name: Install tools
+        run: pip install black mypy
+
+      - name: Check formatting
+        run: black --check python/
+
+      - name: Type check
+        run: mypy python/ --ignore-missing-imports
+
+      - name: Syntax check
+        run: python3 -m py_compile python/cppload/core.py

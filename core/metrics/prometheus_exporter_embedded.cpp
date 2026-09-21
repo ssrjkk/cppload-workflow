@@ -1,6 +1,8 @@
 // @author ssrjkk | cppload
 #include "cppload/metrics/prometheus_exporter.hpp"
 #include "cppload/metrics/collector.hpp"
+#include "cppload/core/constants.hpp"
+#include "cppload/net/utils.hpp"
 #include <boost/asio.hpp>
 #include <boost/beast.hpp>
 #include <atomic>
@@ -23,13 +25,14 @@
 namespace asio = boost::asio;
 namespace beast = boost::beast;
 namespace http = boost::beast::http;
+namespace core = ::cppload::core;
 
 namespace cppload::metrics {
 
 namespace {
 
 struct BindAddress {
-    std::string host{"0.0.0.0"};
+    std::string host{"127.0.0.1"};
     uint16_t port{9090};
 };
 
@@ -44,7 +47,7 @@ BindAddress parse_bind_address(const std::string& address) {
         } catch (const std::exception&) {
         }
     }
-    if (result.host.empty()) result.host = "0.0.0.0";
+    if (result.host.empty()) result.host = "127.0.0.1";
     return result;
 }
 
@@ -123,9 +126,18 @@ private:
         acceptor_->async_accept(*socket,
             [this, socket](const boost::system::error_code& ec) {
                 if (!ec) {
-                    std::thread t([this, socket]() { handle_request(socket); });
-                    std::lock_guard<std::mutex> lock(threads_mtx_);
-                    handler_threads_.push_back(std::move(t));
+                    if (active_connections_.load(std::memory_order_acquire) >= kMaxConnections) {
+                        boost::system::error_code ec_close;
+                        socket->close(ec_close);
+                    } else {
+                        active_connections_.fetch_add(1, std::memory_order_relaxed);
+                        std::thread t([this, socket]() {
+                            handle_request(socket);
+                            active_connections_.fetch_sub(1, std::memory_order_relaxed);
+                        });
+                        std::lock_guard<std::mutex> lock(threads_mtx_);
+                        handler_threads_.push_back(std::move(t));
+                    }
                 }
                 do_accept();
             });
@@ -136,12 +148,15 @@ private:
             // Bound reads so a stalled client cannot block the handler thread
             // forever (stop() joins these threads).
 #if defined(_WIN32)
-            unsigned long rcv_timeout_ms = 5000;
+            unsigned long rcv_timeout_ms = static_cast<unsigned long>(core::kDefaultTimeout.count());
             ::setsockopt(socket->native_handle(), SOL_SOCKET, SO_RCVTIMEO,
                          reinterpret_cast<const char*>(&rcv_timeout_ms),
                          static_cast<int>(sizeof(rcv_timeout_ms)));
 #else
-            struct timeval tv { 5, 0 };
+            struct timeval tv;
+            auto timeout = core::kDefaultTimeout;
+            tv.tv_sec = std::chrono::duration_cast<std::chrono::seconds>(timeout).count();
+            tv.tv_usec = std::chrono::microseconds(timeout % std::chrono::seconds(1)).count();
             ::setsockopt(socket->native_handle(), SOL_SOCKET, SO_RCVTIMEO,
                          reinterpret_cast<const char*>(&tv),
                          static_cast<socklen_t>(sizeof(tv)));
@@ -168,6 +183,8 @@ private:
             http::write(*socket, res, ec);
             socket->shutdown(asio::ip::tcp::socket::shutdown_send, ec);
         } catch (const std::exception&) {
+            // Client-side errors (broken pipe, reset by peer) are expected
+            // during normal operation and are not actionable.
         }
     }
 
@@ -208,6 +225,8 @@ private:
     std::vector<std::thread> handler_threads_;
     mutable std::mutex threads_mtx_;
     std::atomic<bool> running_{false};
+    std::atomic<size_t> active_connections_{0};
+    static constexpr size_t kMaxConnections = 100;
     mutable std::mutex metrics_mtx_;
     RequestMetrics metrics_{};
     double rps_{0.0};

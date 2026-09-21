@@ -12,6 +12,7 @@
 #include <cstdlib>
 #include <algorithm>
 #include <mutex>
+#include <limits>
 
 namespace cppload::scenario {
 
@@ -70,6 +71,35 @@ double parse_error_rate(const std::string& str) {
         }
     }
     return core::kDefaultErrorRate;
+}
+
+// Parses "N[k|m|g]" (case-insensitive suffix) into a byte count. Bare numbers
+// are treated as bytes. Returns 0 on an unparseable input so the engine falls
+// back to its default cap.
+size_t parse_bytesize(const std::string& str) {
+    if (str.empty()) return 0;
+    size_t num_end = 0;
+    while (num_end < str.length() &&
+           std::isdigit(static_cast<unsigned char>(str[num_end]))) ++num_end;
+    if (num_end == 0) return 0;
+    double value = 0.0;
+    try {
+        value = std::stod(str.substr(0, num_end));
+    } catch (const std::exception&) {
+        return 0;
+    }
+    if (value < 0.0) return 0;
+    std::string unit = str.substr(num_end);
+    std::transform(unit.begin(), unit.end(), unit.begin(),
+        [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+    double multiplier = 1.0;
+    if (unit == "k" || unit == "kb") multiplier = 1024.0;
+    else if (unit == "m" || unit == "mb") multiplier = 1024.0 * 1024.0;
+    else if (unit == "g" || unit == "gb") multiplier = 1024.0 * 1024.0 * 1024.0;
+    if (value * multiplier > static_cast<double>(std::numeric_limits<size_t>::max())) {
+        return std::numeric_limits<size_t>::max();
+    }
+    return static_cast<size_t>(value * multiplier);
 }
 
 std::chrono::milliseconds parse_latency(const std::string& str) {
@@ -194,6 +224,9 @@ bool parse_config_file(const std::string& path, ScenarioConfig& config, std::str
         if (target["tls"] && target["tls"]["verify"]) {
             config.target.tls.verify = target["tls"]["verify"].as<bool>();
         }
+        if (target["max_body_bytes"]) {
+            config.target.max_body_bytes = parse_bytesize(target["max_body_bytes"].as<std::string>());
+        }
         // An unresolvable ${VAR} (no default) that left the base URL empty is a
         // configuration error with a precise message, not a silent empty URL.
         if (!missing_var.empty() && config.target.base_url.empty()) {
@@ -300,6 +333,112 @@ bool parse_config_file(const std::string& path, ScenarioConfig& config, std::str
         }
     }
 
+    return true;
+}
+
+namespace {
+
+bool check_assertion_format(const std::string& expr, std::string& err) {
+    if (expr.empty()) {
+        err = "empty assertion";
+        return false;
+    }
+    size_t i = 0;
+    while (i < expr.size() && (std::isalnum(static_cast<unsigned char>(expr[i])) || expr[i] == '_')) {
+        ++i;
+    }
+    if (i == 0) {
+        err = "missing left-hand side identifier";
+        return false;
+    }
+    size_t op_start = i;
+    while (i < expr.size() && std::isspace(static_cast<unsigned char>(expr[i]))) ++i;
+    size_t j = i;
+    while (j < expr.size() && (expr[j] == '=' || expr[j] == '!' || expr[j] == '<' || expr[j] == '>' || std::isspace(static_cast<unsigned char>(expr[j])))) {
+        ++j;
+    }
+    if (j == i) {
+        err = "missing operator (==, !=, >=, <=, >, <)";
+        return false;
+    }
+    std::string op_token;
+    for (size_t k = i; k < j; ++k) {
+        if (!std::isspace(static_cast<unsigned char>(expr[k]))) op_token.push_back(expr[k]);
+    }
+    static constexpr const char* kValid[] = {"==","!=",">=","<=",">","<"};
+    bool op_ok = false;
+    for (auto v : kValid) if (op_token == v) { op_ok = true; break; }
+    if (!op_ok) {
+        err = "invalid operator '" + op_token + "', expected one of ==, !=, >=, <=, >, <";
+        return false;
+    }
+    (void)op_start;
+    return true;
+}
+
+} // anonymous namespace
+
+bool validate_scenario_config(const ScenarioConfig& cfg, std::string& error) {
+    if (cfg.test_id.empty()) {
+        error = "field 'test_id' is required (string). Example: test_id: \"my-load-test-2026\"";
+        return false;
+    }
+    if (cfg.target.base_url.empty()) {
+        error = "field 'target.base_url' is required (string). Example: base_url: \"http://localhost:8080\"";
+        return false;
+    }
+    if (cfg.scenarios.empty()) {
+        error = "field 'scenarios' must contain at least one scenario";
+        return false;
+    }
+    for (size_t si = 0; si < cfg.scenarios.size(); ++si) {
+        const auto& s = cfg.scenarios[si];
+        if (s.weight > 1000) {
+            error = "field 'scenarios[" + std::to_string(si) + "].weight' out of range: "
+                    + std::to_string(s.weight) + " expected 0..1000. Example: weight: 70";
+            return false;
+        }
+        if (s.steps.empty()) {
+            error = "scenario '" + s.name + "' (index " + std::to_string(si) +
+                    ") has no steps; add at least one http step";
+            return false;
+        }
+        for (size_t sti = 0; sti < s.steps.size(); ++sti) {
+            const auto& step = s.steps[sti];
+            if (step.method.empty()) {
+                error = "field 'scenarios[" + std::to_string(si) + "].steps[" + std::to_string(sti) +
+                        "].http.method' is required. Example: method: GET";
+                return false;
+            }
+            if (step.path.empty()) {
+                error = "field 'scenarios[" + std::to_string(si) + "].steps[" + std::to_string(sti) +
+                        "].http.path' is required. Example: path: \"/api/v1/health\"";
+                return false;
+            }
+            for (size_t ai = 0; ai < step.assertions.size(); ++ai) {
+                std::string aerr;
+                if (!check_assertion_format(step.assertions[ai], aerr)) {
+                    error = "field 'scenarios[" + std::to_string(si) + "].steps[" + std::to_string(sti) +
+                            "].assertions[" + std::to_string(ai) + "] " + aerr +
+                            ". Example: status_code == 201";
+                    return false;
+                }
+            }
+        }
+    }
+    for (size_t li = 0; li < cfg.load_profile.stages.size(); ++li) {
+        const auto& st = cfg.load_profile.stages[li];
+        if (st.target_rps > 1000000) {
+            error = "field 'load_profile[" + std::to_string(li) + "].target_rps' out of range: "
+                    + std::to_string(st.target_rps) + " expected 0..1000000";
+            return false;
+        }
+        if (st.concurrent_users > 100000) {
+            error = "field 'load_profile[" + std::to_string(li) + "].concurrent_users' out of range: "
+                    + std::to_string(st.concurrent_users) + " expected 0..100000";
+            return false;
+        }
+    }
     return true;
 }
 

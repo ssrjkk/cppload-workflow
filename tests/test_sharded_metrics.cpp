@@ -15,11 +15,11 @@ TEST(ShardedMetricsCollectorTest, RecordRequest) {
     cppload::metrics::ShardedMetricsCollector collector;
     collector.record_request(200, std::chrono::microseconds(100), 512, 1024);
     auto m = collector.snapshot();
-    EXPECT_EQ(m.total_requests, 1);
-    EXPECT_EQ(m.successful_requests, 1);
-    EXPECT_EQ(m.failed_requests, 0);
-    EXPECT_EQ(m.total_bytes_sent, 512);
-    EXPECT_EQ(m.total_bytes_received, 1024);
+    EXPECT_EQ(m.total_requests, 1ull);
+    EXPECT_EQ(m.successful_requests, 1ull);
+    EXPECT_EQ(m.failed_requests, 0ull);
+    EXPECT_EQ(m.total_bytes_sent, 512ull);
+    EXPECT_EQ(m.total_bytes_received, 1024ull);
 }
 
 TEST(ShardedMetricsCollectorTest, ErrorCounting) {
@@ -28,9 +28,9 @@ TEST(ShardedMetricsCollectorTest, ErrorCounting) {
     collector.record_request(500, std::chrono::microseconds(200), 100, 200);
     collector.record_request(404, std::chrono::microseconds(50), 100, 200);
     auto m = collector.snapshot();
-    EXPECT_EQ(m.total_requests, 3);
-    EXPECT_EQ(m.successful_requests, 1);
-    EXPECT_EQ(m.failed_requests, 2);
+    EXPECT_EQ(m.total_requests, 3ull);
+    EXPECT_EQ(m.successful_requests, 1ull);
+    EXPECT_EQ(m.failed_requests, 2ull);
     EXPECT_DOUBLE_EQ(collector.error_rate(), 2.0 / 3.0 * 100.0);
 }
 
@@ -39,8 +39,8 @@ TEST(ShardedMetricsCollectorTest, LatencyMinMax) {
     collector.record_request(200, std::chrono::microseconds(50), 100, 200);
     collector.record_request(200, std::chrono::microseconds(5000), 100, 200);
     auto m = collector.snapshot();
-    EXPECT_LE(m.min_latency_us, 50);
-    EXPECT_GE(m.max_latency_us, 5000);
+    EXPECT_LE(m.min_latency_us, 50ull);
+    EXPECT_GE(m.max_latency_us, 5000ull);
 }
 
 TEST(ShardedMetricsCollectorTest, MeanLatency) {
@@ -59,7 +59,7 @@ TEST(ShardedMetricsCollectorTest, Percentiles) {
         collector.record_request(200, std::chrono::microseconds(i * 100), 100, 200);
     }
     auto m = collector.snapshot();
-    EXPECT_EQ(m.total_requests, 100);
+    EXPECT_EQ(m.total_requests, 100ull);
     EXPECT_EQ(m.min_latency_us, 100u);
     EXPECT_EQ(m.max_latency_us, 10000u);
     EXPECT_DOUBLE_EQ(m.mean_latency_us, 5050.0);
@@ -106,20 +106,20 @@ TEST(ShardedMetricsCollectorTest, RequestsPerSecond) {
 TEST(ShardedMetricsCollectorTest, Reset) {
     cppload::metrics::ShardedMetricsCollector collector;
     collector.record_request(500, std::chrono::microseconds(200), 100, 200);
-    EXPECT_EQ(collector.snapshot().total_requests, 1);
+    EXPECT_EQ(collector.snapshot().total_requests, 1ull);
     collector.reset();
     auto m = collector.snapshot();
-    EXPECT_EQ(m.total_requests, 0);
-    EXPECT_EQ(m.failed_requests, 0);
-    EXPECT_EQ(m.p95_latency_us, 0);
+    EXPECT_EQ(m.total_requests, 0ull);
+    EXPECT_EQ(m.failed_requests, 0ull);
+    EXPECT_EQ(m.p95_latency_us, 0ull);
 }
 
 TEST(ShardedMetricsCollectorTest, SnapshotZeroRequests) {
     cppload::metrics::ShardedMetricsCollector collector;
     auto m = collector.snapshot();
-    EXPECT_EQ(m.total_requests, 0);
-    EXPECT_EQ(m.p95_latency_us, 0);
-    EXPECT_EQ(m.p99_latency_us, 0);
+    EXPECT_EQ(m.total_requests, 0ull);
+    EXPECT_EQ(m.p95_latency_us, 0ull);
+    EXPECT_EQ(m.p99_latency_us, 0ull);
 }
 
 TEST(ShardedMetricsCollectorTest, ConcurrentRecord) {
@@ -143,9 +143,9 @@ TEST(ShardedMetricsCollectorTest, ConcurrentRecord) {
     for (auto& t : threads) t.join();
 
     auto m = collector.snapshot();
-    EXPECT_EQ(m.total_requests, kThreads * kPerThread);
-    EXPECT_EQ(m.successful_requests, kThreads * kPerThread);
-    EXPECT_EQ(m.failed_requests, 0);
+    EXPECT_EQ(m.total_requests, static_cast<uint64_t>(kThreads) * kPerThread);
+    EXPECT_EQ(m.successful_requests, static_cast<uint64_t>(kThreads) * kPerThread);
+    EXPECT_EQ(m.failed_requests, 0ull);
     EXPECT_EQ(m.min_latency_us, 100u);
     EXPECT_GE(m.max_latency_us, 500u);
 }
@@ -168,7 +168,7 @@ TEST(ShardedMetricsCollectorTest, ConcurrentRecordAndSnapshot) {
     std::thread reader([&]() {
         while (!stop.load(std::memory_order_relaxed)) {
             auto m = collector.snapshot();
-            EXPECT_LE(m.total_requests, kWriters * kPerWriter);
+            EXPECT_LE(m.total_requests, static_cast<uint64_t>(kWriters) * kPerWriter);
         }
     });
 
@@ -177,7 +177,7 @@ TEST(ShardedMetricsCollectorTest, ConcurrentRecordAndSnapshot) {
     reader.join();
 
     auto m = collector.snapshot();
-    EXPECT_EQ(m.total_requests, kWriters * kPerWriter);
+    EXPECT_EQ(m.total_requests, static_cast<uint64_t>(kWriters) * kPerWriter);
 }
 
 TEST(ShardedMetricsCollectorTest, ConcurrentRecordAndReset) {

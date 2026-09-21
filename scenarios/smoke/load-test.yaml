@@ -1,0 +1,38 @@
+# @author ssrjkk | cppload
+# Smoke e2e scenario for the demo services (services/orders, services/products).
+# SMOKE_PATH selects the service-specific endpoint verified with an assertion:
+#   orders:   SMOKE_PATH=/orders
+#   products: SMOKE_PATH=/products
+version: "1.0"
+test_id: "smoke-e2e"
+
+target:
+  base_url: ${TARGET_URL:-http://127.0.0.1:8081}
+  protocol: http1.1
+  tls:
+    verify: false
+
+load_profile:
+  - stage: steady
+    duration: 5s
+    target_rps: 200
+    concurrent_users: 4
+
+scenarios:
+  - name: "service_flow"
+    weight: 100
+    steps:
+      - http:
+          method: GET
+          path: "/health"
+          assertions:
+            - status_code == 200
+      - http:
+          method: GET
+          path: ${SMOKE_PATH:-/health}
+          assertions:
+            - status_code == 200
+
+sla:
+  error_rate: "< 5%"
+  p99_latency: "< 500ms"

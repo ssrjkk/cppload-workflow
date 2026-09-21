@@ -24,7 +24,7 @@ MetricsCollector::MetricsCollector()
     tail_.store(0, std::memory_order_relaxed);
 }
 
-MetricsCollector::~MetricsCollector() = default;
+MetricsCollector::~MetricsCollector() noexcept = default;
 
 void MetricsCollector::record_request(uint16_t status_code,
                                       std::chrono::microseconds latency,
@@ -65,12 +65,19 @@ void MetricsCollector::record_request(uint16_t status_code,
         if (t - h >= kRingCapacity) {
             size_t old_idx = h & kRingMask;
             if (ring_[old_idx].seq.load(std::memory_order_acquire) != h + 1) {
-                continue; // oldest slot is mid-write; retry
+                // Oldest slot is mid-write; refresh tail (other writers keep
+                // advancing it) so the eviction check below makes progress.
+                t = tail_.load(std::memory_order_relaxed);
+                continue;
             }
             if (head_.compare_exchange_weak(h, h + 1,
                     std::memory_order_acq_rel, std::memory_order_relaxed)) {
-                continue; // head advanced; retry push
+                // head advanced; reload tail so we never race a fast-moving
+                // producer forever with a stale t - h >= capacity test.
+                t = tail_.load(std::memory_order_relaxed);
+                continue;
             }
+            t = tail_.load(std::memory_order_relaxed);
             continue;
         }
         if (tail_.compare_exchange_weak(t, t + 1,

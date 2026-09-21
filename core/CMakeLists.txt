@@ -1,6 +1,7 @@
 # @author ssrjkk | cppload
 # Core library sources
 set(CORE_SOURCES
+    error.cpp
     net/http_client.cpp
     net/connection_pool.cpp
     net/connection.cpp
@@ -26,6 +27,8 @@ set(CORE_HEADERS
     ${CMAKE_SOURCE_DIR}/include/cppload/core/token_bucket.hpp
     ${CMAKE_SOURCE_DIR}/include/cppload/core/url_parse.hpp
     ${CMAKE_SOURCE_DIR}/include/cppload/core/url_encode.hpp
+    ${CMAKE_SOURCE_DIR}/include/cppload/core/term.hpp
+    ${CMAKE_SOURCE_DIR}/include/cppload/core/redact.hpp
     ${CMAKE_SOURCE_DIR}/include/cppload/net/protocol.hpp
     ${CMAKE_SOURCE_DIR}/include/cppload/net/connection.hpp
     ${CMAKE_SOURCE_DIR}/include/cppload/net/http_client.hpp

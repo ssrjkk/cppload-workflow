@@ -8,7 +8,8 @@
 namespace cppload::otel {
 
 struct TraceConfig {
-    std::string endpoint{"http://localhost:4318"};
+    // Export is disabled until an endpoint is configured.
+    std::string endpoint{};
     double sample_rate{1.0};
     std::string service_name{"cppload-pro"};
     std::string service_version{"1.0.0"};

@@ -8,7 +8,7 @@
 
 static constexpr int kNumThreads = 100;
 static constexpr int kRecordsPerThread = 10000;
-static constexpr int64_t kExpectedTotal = kNumThreads * kRecordsPerThread;
+static constexpr uint64_t kExpectedTotal = static_cast<uint64_t>(kNumThreads) * kRecordsPerThread;
 
 TEST(MetricsCollectorStressTest, ConcurrentRecordAndSnapshot) {
     cppload::metrics::MetricsCollector collector;
@@ -87,7 +87,7 @@ TEST(MetricsCollectorStressTest, ConcurrentRecordAndReset) {
     auto elapsed_us = std::chrono::duration_cast<std::chrono::microseconds>(
         std::chrono::steady_clock::now() - start_time).count();
     constexpr double kMaxPerWriterPerSec = 2'000'000.0;
-    auto cap = static_cast<int64_t>(
+    auto cap = static_cast<uint64_t>(
         10.0 * kMaxPerWriterPerSec * static_cast<double>(elapsed_us) / 1'000'000.0
         + 100'000);
     EXPECT_LE(m.total_requests, cap);

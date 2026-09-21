@@ -168,7 +168,7 @@ void run_load_test(const AssignTaskResponse& task) {
             done.store(true, std::memory_order_release);
         });
 
-        if (!done) ioc.run_one();
+        if (!done.load(std::memory_order_acquire)) ioc.run_one();
 
         bucket.consume();
     }

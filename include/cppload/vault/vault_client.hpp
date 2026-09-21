@@ -20,7 +20,7 @@ struct VaultConfig {
 class VaultClient {
 public:
     explicit VaultClient(const VaultConfig& config = {});
-    ~VaultClient();
+    ~VaultClient() noexcept;
 
     VaultClient(const VaultClient&) = delete;
     VaultClient& operator=(const VaultClient&) = delete;

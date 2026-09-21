@@ -1,6 +1,32 @@
 <!-- @author ssrjkk | cppload -->
 # Changelog
 
+## [Unreleased]
+
+### Fixed
+- OpenTelemetry OTLP exporter now exports on a background thread; an
+  unreachable collector can no longer stall the request hot path at ~1s per
+  batch. Export is disabled by default until an OTLP endpoint is configured,
+  and failed exports back off (200ms..5s) instead of spamming stderr
+- Demo services (`services/orders`, `services/products`) now speak HTTP/1.1
+  with connection keep-alive, eliminating connection churn and the high error
+  rate seen during local e2e runs
+- E2E smoke scenario no longer asserts a service-specific path (e.g. `/orders`
+  against the products service); the verified endpoint is selected per service
+  via the `SMOKE_PATH` environment variable
+
+### Changed
+- Removed marketing/enterprise wording from the README, package metadata,
+  docs, CLI `--help` text, and Helm chart description
+- Python SDK CLI discovery now also checks `build-shared` and picks up the
+  `.exe` suffix on Windows; `PyYAML` is declared as a runtime dependency
+
+### Added
+- E2E smoke CI job: builds the CLI and runs the YAML scenario against both
+  demo services, failing on SLA breach
+- Performance benchmark job in CI regenerates and commits
+  `benchmarks/baseline.json` on pushes to `main` (`[skip ci]`)
+
 ## [1.0.0] - 2026-07-02
 
 ### Added

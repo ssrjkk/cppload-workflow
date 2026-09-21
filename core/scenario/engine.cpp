@@ -1,6 +1,7 @@
 // @author ssrjkk | cppload
 #include "cppload/scenario/engine.hpp"
 #include "cppload/core/constants.hpp"
+#include "cppload/core/term.hpp"
 #include "cppload/core/token_bucket.hpp"
 #include "cppload/core/url_parse.hpp"
 #include "cppload/net/protocol_factory.hpp"
@@ -16,8 +17,13 @@
 #include <thread>
 #include <memory>
 #include <sstream>
+#include <iostream>
 
 namespace cppload::scenario {
+
+// Defined in yaml_parser.cpp
+bool parse_config_file(const std::string& path, ScenarioConfig& config, std::string& error);
+bool validate_scenario_config(const ScenarioConfig& config, std::string& error);
 
 namespace {
 
@@ -158,6 +164,16 @@ public:
         return true;
     }
 
+    bool validate_schema() const {
+        std::string error;
+        if (!validate_scenario_config(config_, error)) {
+            std::lock_guard<std::mutex> lock(last_error_mtx_);
+            last_error_ = error;
+            return false;
+        }
+        return true;
+    }
+
     const ScenarioConfig& config() const { return config_; }
 
     void run(StepCallback callback) {
@@ -186,10 +202,33 @@ public:
         tls_cfg.verify_peer = cfg.target.tls.verify;
         net::ProtocolFactory::set_tls_config(tls_cfg);
 
+        if (cfg.load_profile.stages.empty()) {
+            LoadProfile::Stage default_stage;
+            default_stage.name = "default";
+            auto dur_ms = max_duration_ms_.load(std::memory_order_relaxed);
+            default_stage.duration = dur_ms > 0
+                ? std::chrono::milliseconds(dur_ms)
+                : std::chrono::seconds(60);
+            default_stage.target_rps = target_rps_.load(std::memory_order_relaxed);
+            if (default_stage.target_rps == 0) default_stage.target_rps = 100;
+            default_stage.concurrent_users = core::kDefaultConcurrency;
+            cfg.load_profile.stages.push_back(std::move(default_stage));
+            if (last_error_.empty()) {
+                std::cerr << core::term::warn_label()
+                          << "No load_profile in config; using default stage: "
+                          << "duration=" << cfg.load_profile.stages.back().duration.count() << "ms"
+                          << ", rps=" << cfg.load_profile.stages.back().target_rps
+                          << ", users=" << cfg.load_profile.stages.back().concurrent_users
+                          << std::endl;
+            }
+        }
+
         uint32_t concurrency = core::kDefaultConcurrency;
         if (!cfg.load_profile.stages.empty()) {
             concurrency = cfg.load_profile.stages[0].concurrent_users;
+            if (concurrency == 0) concurrency = core::kDefaultConcurrency;
         }
+        concurrency = std::min(std::max(concurrency, 1u), 100000u);
 
         worker_failures_.store(0, std::memory_order_relaxed);
 
@@ -235,6 +274,7 @@ public:
 
             uint32_t stage_concurrency = stage.concurrent_users > 0
                 ? stage.concurrent_users : concurrency;
+            stage_concurrency = std::min(std::max(stage_concurrency, 1u), 100000u);
 
             // Worker deadline: explicit stage duration capped by the global
             // test cap. When both are absent the stage runs until stop().
@@ -316,6 +356,7 @@ public:
                             fail_worker("unsupported protocol: " + proto_name);
                             return;
                         }
+                        client->set_max_body_bytes(cfg.target.max_body_bytes);
 
                         bool any_steps = false;
                         for (const auto& s : cfg.scenarios) {
@@ -349,9 +390,10 @@ public:
                         // bursts under scheduler jitter.
                         double rate = static_cast<double>(target_rps_.load(std::memory_order_relaxed));
                         if (rate <= 0.0) rate = 1.0;
-                        auto slot_period = std::chrono::nanoseconds(static_cast<int64_t>(
-                            stage_concurrency / rate * 1'000'000'000.0));
-                        if (slot_period.count() <= 0) slot_period = std::chrono::nanoseconds(1);
+                        double period_ns_d = stage_concurrency / rate * 1'000'000'000.0;
+                        if (period_ns_d < 1.0) period_ns_d = 1.0;
+                        if (period_ns_d > 1e18) period_ns_d = 1e18;
+                        auto slot_period = std::chrono::nanoseconds(static_cast<int64_t>(period_ns_d));
                         auto next_slot = std::chrono::steady_clock::now() +
                             slot_period * static_cast<int64_t>(w) /
                             static_cast<int64_t>(stage_concurrency);
@@ -543,9 +585,6 @@ private:
     std::shared_ptr<security::AuthProvider> auth_;
 };
 
-// Defined in yaml_parser.cpp
-bool parse_config_file(const std::string& path, ScenarioConfig& config, std::string& error);
-
 bool ScenarioEngine::Impl::load_config() {
     std::string error;
     if (!parse_config_file(config_path_, config_, error)) {
@@ -563,6 +602,7 @@ ScenarioEngine::~ScenarioEngine() noexcept = default;
 
 bool ScenarioEngine::load_config() { return impl_->load_config(); }
 bool ScenarioEngine::validate() const { return impl_->validate(); }
+bool ScenarioEngine::validate_schema() const { return impl_->validate_schema(); }
 const ScenarioConfig& ScenarioEngine::config() const { return impl_->config(); }
 void ScenarioEngine::run(StepCallback callback) { impl_->run(callback); }
 void ScenarioEngine::stop() { impl_->stop(); }

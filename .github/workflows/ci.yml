@@ -7,6 +7,9 @@ on:
   pull_request:
     branches: [main]
 
+permissions:
+  contents: read
+
 concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
@@ -50,10 +53,11 @@ jobs:
             -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
             -DCPLOAD_BUILD_TESTS=ON \
             -DCPLOAD_BUILD_PYTHON=OFF \
-            -DCPLOAD_BUILD_WORKERS=OFF \
-            -DCPLOAD_BUILD_TOOLS=OFF \
+            -DCPLOAD_BUILD_WORKERS=ON \
+            -DCPLOAD_BUILD_TOOLS=ON \
             -DCPLOAD_BUILD_BENCHMARKS=OFF \
-            -DCPLOAD_BUILD_INTEGRATION_TESTS=OFF
+            -DCPLOAD_BUILD_INTEGRATION_TESTS=OFF \
+            -DCPLOAD_WARNINGS_AS_ERRORS=ON
 
       - name: Build
         run: |
@@ -79,13 +83,14 @@ jobs:
         with:
           name: build-log
           path: build.log
+          retention-days: 7
 
       - name: Run tests (sequential, verbose)
         if: success()
         run: |
           cd build
           all_passed=true
-          for t in test_http_client test_metrics test_token_bucket test_auth test_vault test_otlp test_yaml_parser test_prometheus test_sharded_metrics test_metrics_stress test_result test_url_parse test_protocol_factory test_io_context_pool test_tls_context; do
+          for t in test_http_client test_metrics test_token_bucket test_auth test_vault test_otlp test_yaml_parser test_prometheus test_sharded_metrics test_metrics_stress test_result test_url_parse test_protocol_factory test_io_context_pool test_tls_context test_cli_args test_redact test_term; do
             if [ -x "./$t" ]; then
               printf "::group::%s\n" "$t"
               timeout 120 ./$t 2>&1
@@ -140,7 +145,8 @@ jobs:
             -DCPLOAD_BUILD_WORKERS=OFF \
             -DCPLOAD_BUILD_TOOLS=OFF \
             -DCPLOAD_BUILD_BENCHMARKS=OFF \
-            -DCPLOAD_BUILD_INTEGRATION_TESTS=OFF
+            -DCPLOAD_BUILD_INTEGRATION_TESTS=OFF \
+            -DCPLOAD_WARNINGS_AS_ERRORS=ON
 
       - name: Build
         run: |
@@ -166,11 +172,11 @@ jobs:
         with:
           name: build-cov-log
           path: build-cov.log
+          retention-days: 7
 
       - name: Run tests
         run: |
           cd build-cov && ctest --output-on-failure --timeout 60 -j$(nproc)
-        continue-on-error: true
 
       - name: Capture coverage info
         continue-on-error: true
@@ -188,6 +194,7 @@ jobs:
         with:
           name: lcov-log
           path: lcov.log
+          retention-days: 7
 
       - name: Generate HTML report
         continue-on-error: true
@@ -231,9 +238,6 @@ jobs:
             ccache-${{ runner.os }}-${{ github.job }}-
 
       - name: Configure CMake (ASan)
-        env:
-          CXXFLAGS: -fsanitize=address -fno-omit-frame-pointer -g -O1
-          LDFLAGS: -fsanitize=address
         run: |
           cmake -B build-asan -G Ninja \
             -DCMAKE_BUILD_TYPE=Debug \
@@ -243,7 +247,9 @@ jobs:
             -DCPLOAD_BUILD_WORKERS=OFF \
             -DCPLOAD_BUILD_TOOLS=OFF \
             -DCPLOAD_BUILD_BENCHMARKS=OFF \
-            -DCPLOAD_BUILD_INTEGRATION_TESTS=OFF
+            -DCPLOAD_BUILD_INTEGRATION_TESTS=OFF \
+            -DCPLOAD_ENABLE_ASAN=ON \
+            -DCPLOAD_WARNINGS_AS_ERRORS=ON
 
       - name: Build
         run: |
@@ -269,13 +275,14 @@ jobs:
         with:
           name: build-asan-log
           path: build-asan.log
+          retention-days: 7
 
       - name: Run tests
         if: success()
         run: |
           cd build-asan
           all_passed=true
-          for t in test_http_client test_metrics test_token_bucket test_auth test_vault test_otlp test_yaml_parser test_prometheus test_sharded_metrics test_metrics_stress test_result test_url_parse test_protocol_factory test_io_context_pool test_tls_context; do
+          for t in test_http_client test_metrics test_token_bucket test_auth test_vault test_otlp test_yaml_parser test_prometheus test_sharded_metrics test_metrics_stress test_result test_url_parse test_protocol_factory test_io_context_pool test_tls_context test_cli_args test_redact test_term; do
             if [ -x "./$t" ]; then
               printf "::group::%s\n" "$t"
               timeout 120 ./$t > test-tmp.log 2>&1; rc=$?
@@ -299,12 +306,110 @@ jobs:
         with:
           name: test-asan-log
           path: build-asan/test-asan.log
+          retention-days: 7
+
+  tsan:
+    name: ThreadSanitizer
+    runs-on: ubuntu-24.04
+    needs: build
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            cmake ninja-build g++-13 ccache \
+            libboost-all-dev libssl-dev libyaml-cpp-dev
+          echo "CC=gcc-13" >> $GITHUB_ENV
+          echo "CXX=g++-13" >> $GITHUB_ENV
+
+      - name: Cache ccache
+        uses: actions/cache@v6
+        with:
+          path: ~/.ccache
+          key: ccache-${{ runner.os }}-${{ github.job }}-${{ github.ref }}-${{ github.sha }}
+          restore-keys: |
+            ccache-${{ runner.os }}-${{ github.job }}-${{ github.ref }}-
+            ccache-${{ runner.os }}-${{ github.job }}-
+
+      - name: Configure CMake (TSan)
+        run: |
+          cmake -B build-tsan -G Ninja \
+            -DCMAKE_BUILD_TYPE=Debug \
+            -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
+            -DCPLOAD_BUILD_TESTS=ON \
+            -DCPLOAD_BUILD_PYTHON=OFF \
+            -DCPLOAD_BUILD_WORKERS=OFF \
+            -DCPLOAD_BUILD_TOOLS=OFF \
+            -DCPLOAD_BUILD_BENCHMARKS=OFF \
+            -DCPLOAD_BUILD_INTEGRATION_TESTS=OFF \
+            -DCPLOAD_ENABLE_TSAN=ON \
+            -DCPLOAD_WARNINGS_AS_ERRORS=ON
+
+      - name: Build
+        run: |
+          set -o pipefail
+          cmake --build build-tsan -j$(nproc) 2>&1 | tee build-tsan.log
+          ccache --show-stats
+
+      - name: Show build errors
+        if: failure()
+        run: |
+          echo "=== TSAN BUILD ERRORS ==="
+          grep -iE '(FAILED|error:|undefined reference|fatal error|no matching|note:)' build-tsan.log || true
+          echo "=== FULL BUILD LOG ==="
+          cat build-tsan.log
+
+      - name: Upload build log
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: build-tsan-log
+          path: build-tsan.log
+          retention-days: 7
+
+      - name: Run tests
+        if: success()
+        env:
+          TSAN_OPTIONS: halt_on_error=1:second_deadlock_stack=1
+        run: |
+          cd build-tsan
+          all_passed=true
+          for t in test_metrics test_token_bucket test_sharded_metrics test_metrics_stress test_io_context_pool test_protocol_factory; do
+            if [ -x "./$t" ]; then
+              printf "::group::%s\n" "$t"
+              timeout 180 ./$t > test-tmp.log 2>&1; rc=$?
+              cat test-tmp.log
+              cat test-tmp.log >> test-tsan.log
+              if [ $rc -eq 0 ]; then
+                printf "::notice::%s PASSED\n" "$t"
+              else
+                printf "::error::%s FAILED (exit=%d)\n" "$t" "$rc"
+                all_passed=false
+              fi
+              printf "::endgroup::\n"
+            fi
+          done
+          rm -f test-tmp.log
+          if [ "$all_passed" = "false" ]; then printf "Test failures detected\n"; exit 1; fi
+
+      - name: Upload TSan test log
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: test-tsan-log
+          path: build-tsan/test-tsan.log
+          retention-days: 7
 
   benchmark:
     name: Performance Regression
     runs-on: ubuntu-24.04
     needs: build
     timeout-minutes: 30
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v7
 
@@ -337,10 +442,12 @@ jobs:
             -DCPLOAD_BUILD_WORKERS=OFF \
             -DCPLOAD_BUILD_TOOLS=OFF \
             -DCPLOAD_BUILD_BENCHMARKS=ON \
-            -DCPLOAD_BUILD_INTEGRATION_TESTS=OFF
+            -DCPLOAD_BUILD_INTEGRATION_TESTS=OFF \
+            -DCPLOAD_WARNINGS_AS_ERRORS=ON
 
       - name: Build benchmarks
         run: |
+          set -o pipefail
           cmake --build build-bench -j$(nproc) 2>&1 | tee build-bench.log
           ccache --show-stats
 
@@ -375,6 +482,7 @@ jobs:
           python3 -c 'import json,glob; d=[]; [d.extend(json.load(open(f)).get("benchmarks", [])) for f in glob.glob("results/*.json")]; json.dump(d, open("results/current.json","w"))'
 
       - name: Compare against baseline (generates it on first run)
+        id: bench
         run: |
           python3 scripts/benchmark_compare.py \
             --current build-bench/results/current.json \
@@ -384,10 +492,20 @@ jobs:
               python3 scripts/benchmark_compare.py \
                 --current build-bench/results/current.json \
                 --save-baseline benchmarks/baseline.json
-              echo "::notice::Baseline generated — commit benchmarks/baseline.json to enable regression gating"
+              echo "generated=1" >> "$GITHUB_OUTPUT"
+              echo "::notice::Baseline generated — committing benchmarks/baseline.json"
             else
               exit "$rc"
             fi )
+
+      - name: Commit generated baseline
+        if: steps.bench.outputs.generated == '1' && github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add benchmarks/baseline.json
+          git commit -m "chore(bench): update performance baseline [skip ci]"
+          git push origin HEAD:${GITHUB_REF#refs/heads/}
 
       - name: Upload benchmark JSON results
         if: always()
@@ -441,7 +559,8 @@ jobs:
             -DCPLOAD_BUILD_WORKERS=OFF \
             -DCPLOAD_BUILD_TOOLS=OFF \
             -DCPLOAD_BUILD_BENCHMARKS=OFF \
-            -DCPLOAD_BUILD_INTEGRATION_TESTS=ON
+            -DCPLOAD_BUILD_INTEGRATION_TESTS=ON \
+            -DCPLOAD_WARNINGS_AS_ERRORS=ON
 
       - name: Build integration tests
         run: |
@@ -475,6 +594,75 @@ jobs:
         with:
           name: test-int-log
           path: build-int/test-int.log
+          retention-days: 7
+
+  smoke:
+    name: E2E Smoke (demo services)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            cmake ninja-build g++-13 ccache \
+            libboost-all-dev libssl-dev libyaml-cpp-dev \
+            python3 curl
+
+      - name: Configure CMake (CLI only)
+        run: |
+          cmake -B build-smoke -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCPLOAD_BUILD_TESTS=OFF \
+            -DCPLOAD_BUILD_PYTHON=OFF \
+            -DCPLOAD_BUILD_WORKERS=OFF \
+            -DCPLOAD_BUILD_TOOLS=ON \
+            -DCPLOAD_BUILD_BENCHMARKS=OFF \
+            -DCPLOAD_BUILD_INTEGRATION_TESTS=OFF \
+            -DCPLOAD_WARNINGS_AS_ERRORS=ON
+
+      - name: Build cppload-cli
+        run: cmake --build build-smoke -j$(nproc)
+
+      - name: Start demo services
+        run: |
+          PORT=8081 python3 services/orders/app.py &
+          PORT=8082 python3 services/products/app.py &
+          for i in $(seq 1 30); do
+            curl -fsS http://localhost:8081/health >/dev/null 2>&1 && \
+            curl -fsS http://localhost:8082/health >/dev/null 2>&1 && break
+            sleep 1
+          done
+          curl -fsS http://localhost:8081/health
+          curl -fsS http://localhost:8082/health
+
+      - name: Run e2e smoke (orders)
+        run: |
+          TARGET_URL=http://127.0.0.1:8081 SMOKE_PATH=/orders \
+          ./build-smoke/tools/cppload-cli \
+            --config=scenarios/smoke/load-test.yaml \
+            --rps=200 --duration=5
+          rc=$?
+          if [ $rc -ne 0 ]; then
+            echo "::error::smoke: orders service failed (exit=$rc)"
+            exit 1
+          fi
+          echo "Cppload CLI exit=$rc (expected 0: SLA passed)"
+
+      - name: Run e2e smoke (products)
+        run: |
+          TARGET_URL=http://127.0.0.1:8082 SMOKE_PATH=/products \
+          ./build-smoke/tools/cppload-cli \
+            --config=scenarios/smoke/load-test.yaml \
+            --rps=200 --duration=5
+          rc=$?
+          if [ $rc -ne 0 ]; then
+            echo "::error::smoke: products service failed (exit=$rc)"
+            exit 1
+          fi
+          echo "Cppload CLI exit=$rc (expected 0: SLA passed)"
 
   lint:
     name: Lint
@@ -498,11 +686,11 @@ jobs:
 
       - name: Check Python formatting
         run: |
-          black --check python/ || echo "Warning: Python code not formatted"
+          black --check python/
 
       - name: Lint Python code
         run: |
-          flake8 python/ --max-line-length=120 || echo "Warning: Flake8 issues found"
+          flake8 python/ --max-line-length=120
 
       - name: Validate YAML
         run: |
@@ -529,7 +717,10 @@ jobs:
 
       - name: Validate Dockerfile
         run: |
-          grep -n '^[^#]*FROM' deploy/docker/Dockerfile || true
+          set -e
+          test -f deploy/docker/Dockerfile
+          grep -q '^[^#]*FROM' deploy/docker/Dockerfile
+          grep -q 'USER' deploy/docker/Dockerfile || echo "::warning::Dockerfile has no USER instruction"
           echo "Dockerfile validation passed"
 
       - name: Generate compile_commands.json
@@ -542,7 +733,8 @@ jobs:
             -DCPLOAD_BUILD_WORKERS=OFF \
             -DCPLOAD_BUILD_TOOLS=OFF \
             -DCPLOAD_BUILD_BENCHMARKS=OFF \
-            -DCPLOAD_BUILD_INTEGRATION_TESTS=OFF
+            -DCPLOAD_BUILD_INTEGRATION_TESTS=OFF \
+            -DCPLOAD_WARNINGS_AS_ERRORS=ON
 
       - name: Run clang-tidy
         continue-on-error: true
@@ -559,3 +751,4 @@ jobs:
         with:
           name: clang-tidy-log
           path: clang-tidy.log
+          retention-days: 7

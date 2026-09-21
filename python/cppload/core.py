@@ -1,5 +1,5 @@
 # @author ssrjkk | cppload
-"""Core Python SDK for cppload-pro - Enterprise Load Testing Platform"""
+"""Core Python SDK for cppload-pro"""
 
 import os
 import yaml
@@ -15,6 +15,7 @@ from enum import Enum
 
 class AuthType(Enum):
     """Supported authentication types."""
+
     NONE = "none"
     API_KEY = "api_key"
     BEARER_TOKEN = "bearer_token"
@@ -25,6 +26,7 @@ class AuthType(Enum):
 @dataclass
 class AuthConfig:
     """Configuration for authentication providers."""
+
     type: AuthType = AuthType.NONE
     api_key: str = ""
     token: str = ""
@@ -39,6 +41,7 @@ class AuthConfig:
 @dataclass
 class VaultConfig:
     """Configuration for HashiCorp Vault client."""
+
     address: str = "http://127.0.0.1:8200"
     token: str = ""
     engine_path: str = "secret"
@@ -48,26 +51,29 @@ class VaultConfig:
 @dataclass
 class TraceConfig:
     """Configuration for OpenTelemetry tracing."""
+
     endpoint: str = "http://localhost:4317"
     sample_rate: float = 1.0
     service_name: str = "cppload-pro"
-    service_version: str = "1.0.0"
+    service_version: str = "1.1.0"
 
 
 @dataclass
 class LoadProfile:
     """A single stage in a load test profile."""
+
     stage: str
     duration: str
     target_rps: int
 
-    def to_dict(self) -> dict:
+    def to_dict(self) -> dict[str, object]:
         return {"stage": self.stage, "duration": self.duration, "target_rps": self.target_rps}
 
 
 @dataclass
 class PoolConfig:
     """Configuration for connection pool."""
+
     min_connections: int = 5
     max_connections: int = 100
     idle_timeout: int = 30
@@ -77,6 +83,7 @@ class PoolConfig:
 @dataclass
 class HttpRequest:
     """An HTTP request to be executed by the client."""
+
     method: str = "GET"
     target: str = "/"
     body: str = ""
@@ -88,24 +95,25 @@ class HttpRequest:
 @dataclass
 class Scenario:
     """A named load test scenario with HTTP steps."""
+
     name: str
     weight: int = 100
     steps: List[Dict[str, Any]] = field(default_factory=list)
 
-    def to_dict(self) -> dict:
+    def to_dict(self) -> dict[str, object]:
         return {"name": self.name, "weight": self.weight, "steps": self.steps}
 
 
 class MetricsCollector:
     """Thread-safe HTTP request metrics collector with percentile computation."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self._total_requests = 0
         self._successful_requests = 0
         self._failed_requests = 0
         self._total_bytes_sent = 0
         self._total_bytes_received = 0
-        self._latencies: List[int] = []
+        self._latencies: list[int] = []
         self._lock = threading.Lock()
         self._start_time = time.time()
 
@@ -157,8 +165,26 @@ class MetricsCollector:
             idx = int(len(sorted_lats) * 0.99)
             return sorted_lats[min(idx, len(sorted_lats) - 1)]
 
-    def snapshot(self) -> dict:
+    def snapshot(self) -> dict[str, object]:
         with self._lock:
+            sorted_lats = sorted(self._latencies)
+            elapsed = time.time() - self._start_time
+            p95 = (
+                sorted_lats[min(int(len(sorted_lats) * 0.95), len(sorted_lats) - 1)]
+                if sorted_lats
+                else 0
+            )
+            p99 = (
+                sorted_lats[min(int(len(sorted_lats) * 0.99), len(sorted_lats) - 1)]
+                if sorted_lats
+                else 0
+            )
+            rps = self._total_requests / elapsed if elapsed >= 0.001 else 0.0
+            error_rate = (
+                self._failed_requests / self._total_requests * 100.0
+                if self._total_requests
+                else 0.0
+            )
             return {
                 "total_requests": self._total_requests,
                 "successful_requests": self._successful_requests,
@@ -170,10 +196,10 @@ class MetricsCollector:
                 ),
                 "min_latency_us": min(self._latencies) if self._latencies else 0,
                 "max_latency_us": max(self._latencies) if self._latencies else 0,
-                "p95_latency_us": self.p95_latency_us,
-                "p99_latency_us": self.p99_latency_us,
-                "requests_per_second": self.requests_per_second,
-                "error_rate": self.error_rate,
+                "p95_latency_us": p95,
+                "p99_latency_us": p99,
+                "requests_per_second": rps,
+                "error_rate": error_rate,
             }
 
     def reset(self) -> None:
@@ -199,7 +225,7 @@ class TokenBucket:
         if rate <= 0:
             raise ValueError("TokenBucket: rate must be > 0")
 
-    def _refill(self):
+    def _refill(self) -> None:
         now = time.monotonic()
         elapsed = now - self.last_refill
         if elapsed > 0:
@@ -232,11 +258,11 @@ class TokenBucket:
 class HttpClient:
     """Simple synchronous HTTP client using urllib."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.timeout_ms = 5000
         self.keep_alive = True
 
-    def request(self, req: HttpRequest) -> dict:
+    def request(self, req: HttpRequest) -> Dict[str, Any]:
         import urllib.request
         import urllib.error
 
@@ -290,7 +316,7 @@ class ConnectionPool:
                 return clients.pop()
         return HttpClient()
 
-    def release(self, client: HttpClient, host: str, port: str = "80"):
+    def release(self, client: HttpClient, host: str, port: str = "80") -> None:
         key = f"{host}:{port}"
         with self._lock:
             if key not in self._pool:
@@ -387,7 +413,8 @@ class VaultClient:
             with urllib.request.urlopen(req, timeout=self.config.timeout_seconds) as resp:
                 body = json.loads(resp.read())
                 data = body.get("data", {}).get("data", {})
-                return data.get(key)
+                value = data.get(key)
+                return value if isinstance(value, str) else None
         except Exception:
             return None
 
@@ -403,11 +430,16 @@ class VaultClient:
         try:
             with urllib.request.urlopen(req, timeout=self.config.timeout_seconds) as resp:
                 body = json.loads(resp.read())
-                return body.get("data", {}).get("data", {})
+                data = body.get("data", {}).get("data", {})
+                result: Dict[str, str] = {}
+                for k, v in data.items():
+                    if isinstance(v, str):
+                        result[str(k)] = v
+                return result
         except Exception:
             return {}
 
-    def _health_check(self):
+    def _health_check(self) -> None:
         import urllib.request
 
         req = urllib.request.Request(f"{self.config.address}/v1/sys/health")
@@ -421,13 +453,13 @@ class VaultClient:
 class Tracer:
     """OpenTelemetry-compatible distributed tracer."""
 
-    def __init__(self, config: Optional[TraceConfig] = None):
+    def __init__(self, config: Optional[TraceConfig] = None) -> None:
         self.config = config or TraceConfig()
-        self._trace_id = None
-        self._spans: List[dict] = []
-        self._active_span = None
+        self._trace_id: Optional[str] = None
+        self._spans: List[Dict[str, object]] = []
+        self._active_span: Optional[Dict[str, object]] = None
 
-    def start_span(self, name: str):
+    def start_span(self, name: str) -> None:
         import uuid
 
         if self._active_span:
@@ -441,18 +473,22 @@ class Tracer:
             "attributes": {},
         }
         if self._trace_id is None:
-            self._trace_id = self._active_span["trace_id"]
+            trace_id = self._active_span["trace_id"]
+            if isinstance(trace_id, str):
+                self._trace_id = trace_id
 
-    def end_span(self):
+    def end_span(self) -> None:
         if not self._active_span:
             return
         self._active_span["end_time"] = time.time_ns()
         self._spans.append(self._active_span)
         self._active_span = None
 
-    def add_attribute(self, key: str, value: str):
+    def add_attribute(self, key: str, value: str) -> None:
         if self._active_span:
-            self._active_span["attributes"][key] = value
+            attrs = self._active_span.setdefault("attributes", {})
+            assert isinstance(attrs, dict)
+            attrs[key] = value
 
     @property
     def trace_id(self) -> str:
@@ -460,11 +496,15 @@ class Tracer:
 
 
 def _find_cli() -> str:
+    import sys
+
+    exe_suffix = ".exe" if sys.platform == "win32" else ""
     paths = [
-        Path("./build/tools/cppload-cli"),
-        Path("./build-release/tools/cppload-cli"),
-        Path("/usr/local/bin/cppload-cli"),
-        Path("/usr/bin/cppload-cli"),
+        Path(f"./build/tools/cppload-cli{exe_suffix}"),
+        Path(f"./build-release/tools/cppload-cli{exe_suffix}"),
+        Path(f"./build-shared/tools/cppload-cli{exe_suffix}"),
+        Path(f"/usr/local/bin/cppload-cli{exe_suffix}"),
+        Path(f"/usr/bin/cppload-cli{exe_suffix}"),
     ]
     for p in paths:
         if p.exists():
@@ -475,7 +515,7 @@ def _find_cli() -> str:
 class ScenarioEngine:
     """YAML-based scenario loader and executor."""
 
-    def __init__(self, config_path: str):
+    def __init__(self, config_path: str) -> None:
         self._config_path = config_path
         self._config: Dict[str, Any] = {}
 
@@ -489,10 +529,10 @@ class ScenarioEngine:
             return False
 
     @property
-    def config(self) -> dict:
+    def config(self) -> Dict[str, Any]:
         return self._config
 
-    def run(self, callback: Optional[Callable] = None):
+    def run(self, callback: Optional[Callable[[Any], None]] = None) -> None:
         print(f"Running test: {self._config.get('test_id', 'unknown')}")
         cli = _find_cli()
         cmd = [cli, "--config", self._config_path]
@@ -504,7 +544,7 @@ class ScenarioEngine:
 class LoadTest:
     """High-level load test orchestrator with metrics, auth, and tracing."""
 
-    def __init__(self, config_path: str):
+    def __init__(self, config_path: str) -> None:
         with open(config_path) as f:
             self.config = yaml.safe_load(f)
 
@@ -521,7 +561,7 @@ class LoadTest:
 
         self._setup_integrations()
 
-    def _setup_integrations(self):
+    def _setup_integrations(self) -> None:
         auth_cfg = self.config.get("authentication", {})
         if auth_cfg.get("type") == "oauth2":
             self.auth = AuthProvider(
@@ -547,7 +587,7 @@ class LoadTest:
             target_rps = profiles[0].get("target_rps", 100)
             self.token_bucket = TokenBucket(target_rps)
 
-    def _worker(self, scenarios: list, base_url: str):
+    def _worker(self, scenarios: List[Dict[str, Any]], base_url: str) -> None:
         from urllib.parse import urlparse
 
         parsed = urlparse(base_url)
@@ -568,14 +608,16 @@ class LoadTest:
                     self.token_bucket.consume()
 
                 client = self.pool.acquire(host, port)
+                if client is None:
+                    continue
                 resp = client.request(req)
                 self.pool.release(client, host, port)
                 self.metrics.record_request(
-                    resp["status_code"],
-                    resp.get("latency_us", 0),
+                    int(resp["status_code"]),
+                    int(resp.get("latency_us", 0)),
                 )
 
-    def run(self):
+    def run(self) -> None:
         print(f"Running test: {self.test_id}")
         print(f"Target: {self.target_url}")
 
@@ -600,8 +642,8 @@ class LoadTest:
 
     def validate_sla(self) -> bool:
         sla = self.config.get("sla", {})
-        max_error_rate = 0.1
-        max_p99_ms = 500
+        max_error_rate: float = 0.1
+        max_p99_ms: float = 500
 
         error_str = sla.get("error_rate", "< 0.1%")
         if "<" in error_str:
@@ -631,7 +673,7 @@ class LoadTest:
 
         return sla_pass
 
-    def _print_results(self):
+    def _print_results(self) -> None:
         m = self.metrics.snapshot()
         print("\nResults:")
         print(f"  Total requests: {m['total_requests']}")

@@ -405,7 +405,7 @@ private:
 VaultClient::VaultClient(const VaultConfig& config)
     : impl_(std::make_unique<Impl>(config)) {}
 
-VaultClient::~VaultClient() = default;
+VaultClient::~VaultClient() noexcept = default;
 
 bool VaultClient::is_connected() const { return impl_->is_connected(); }
 

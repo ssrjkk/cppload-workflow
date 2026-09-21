@@ -19,7 +19,7 @@ public:
         const security::TlsConfig& tls_config = {},
         bool keep_alive = true);
 
-    ~Http11Client() override;
+    ~Http11Client() noexcept override;
 
     Http11Client(const Http11Client&) = delete;
     Http11Client& operator=(const Http11Client&) = delete;
@@ -31,6 +31,7 @@ public:
         std::function<void(std::error_code, Response)> handler) override;
 
     void set_timeout(std::chrono::milliseconds ms) override;
+    void set_max_body_bytes(size_t bytes) override;
     void set_keep_alive(bool keep_alive);
 
     std::string_view name() const override { return "http1.1"; }

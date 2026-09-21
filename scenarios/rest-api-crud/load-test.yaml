@@ -1,0 +1,64 @@
+# @author ssrjkk | cppload
+# REST API CRUD flow: full lifecycle of a resource (create -> read -> update -> delete).
+# Requires a running service exposing /api/items with POST/GET/PUT/DELETE.
+version: "1.0"
+test_id: "rest-api-crud"
+
+target:
+  base_url: ${TARGET_URL:-http://127.0.0.1:8080}
+  protocol: http1.1
+  tls:
+    verify: false
+
+load_profile:
+  - stage: warmup
+    duration: 30s
+    target_rps: 50
+    concurrent_users: 5
+  - stage: steady
+    duration: 3m
+    target_rps: 200
+    concurrent_users: 20
+
+scenarios:
+  - name: "create_item"
+    weight: 30
+    steps:
+      - http:
+          method: POST
+          path: "/api/items"
+          headers:
+            Content-Type: application/json
+          body: '{"name": "item-${TEST_ITERATION}", "qty": 1}'
+          assertions:
+            - status_code == 201
+      - http:
+          method: GET
+          path: "/api/items/${LAST_ID}"
+          assertions:
+            - status_code == 200
+
+  - name: "update_item"
+    weight: 20
+    steps:
+      - http:
+          method: PUT
+          path: "/api/items/${LAST_ID}"
+          headers:
+            Content-Type: application/json
+          body: '{"qty": 2}'
+          assertions:
+            - status_code == 200
+
+  - name: "delete_item"
+    weight: 10
+    steps:
+      - http:
+          method: DELETE
+          path: "/api/items/${LAST_ID}"
+          assertions:
+            - status_code == 204
+
+sla:
+  error_rate: "< 1%"
+  p99_latency: "< 400ms"

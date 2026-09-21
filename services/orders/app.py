@@ -14,6 +14,8 @@ requests_total = 0
 
 
 class Handler(BaseHTTPRequestHandler):
+    protocol_version = "HTTP/1.1"
+
     def _json(self, payload, code=200):
         body = json.dumps(payload).encode("utf-8")
         self.send_response(code)

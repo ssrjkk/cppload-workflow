@@ -1,7 +1,7 @@
 # @author ssrjkk | cppload
-"""cppload-pro: Enterprise Load Testing Platform"""
+"""cppload-pro: load-testing tool with a C++20 core"""
 
-__version__ = "1.0.0"
+__version__ = "1.1.0"
 
 from .core import (
     LoadTest,

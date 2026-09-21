@@ -21,7 +21,7 @@ ShardedMetricsCollector::ShardedMetricsCollector()
 {
 }
 
-ShardedMetricsCollector::~ShardedMetricsCollector() = default;
+ShardedMetricsCollector::~ShardedMetricsCollector() noexcept = default;
 
 size_t ShardedMetricsCollector::get_shard_index() const {
     if (t_shard_index == SIZE_MAX) {

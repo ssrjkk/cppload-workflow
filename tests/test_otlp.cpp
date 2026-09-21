@@ -27,13 +27,13 @@ TEST(OtlpExporterTest, NestedSpans) {
     tracer.start_span("child");
     tracer.end_span(); // child
     tracer.end_span(); // parent
-    EXPECT_EQ(tracer.trace_id().length(), 32);
+    EXPECT_EQ(tracer.trace_id().length(), 32u);
 }
 
 TEST(OtlpExporterTest, TraceIdNotEmpty) {
     cppload::otel::Tracer tracer;
     EXPECT_FALSE(tracer.trace_id().empty());
-    EXPECT_EQ(tracer.trace_id().length(), 32); // 128-bit hex
+    EXPECT_EQ(tracer.trace_id().length(), 32u); // 128-bit hex
 }
 
 TEST(OtlpExporterTest, AutoEndOnDestroy) {
@@ -54,5 +54,5 @@ TEST(OtlpExporterTest, MultipleSpans) {
         tracer.add_attribute("idx", std::to_string(i));
         tracer.end_span();
     }
-    EXPECT_EQ(tracer.trace_id().length(), 32);
+    EXPECT_EQ(tracer.trace_id().length(), 32u);
 }

@@ -1,5 +1,7 @@
 // @author ssrjkk | cppload
 #include "cppload/net/ws_client.hpp"
+#include "cppload/net/utils.hpp"
+#include "cppload/core/constants.hpp"
 #include <boost/beast/websocket.hpp>
 #include <boost/beast/websocket/ssl.hpp>
 #include <boost/asio/ip/tcp.hpp>
@@ -11,22 +13,14 @@
 namespace beast = boost::beast;
 namespace websocket = beast::websocket;
 namespace asio = boost::asio;
+namespace core = ::cppload::core;
 
 namespace cppload::net {
-
-static bool host_is_ip_literal(const std::string& host) {
-    if (host.find(':') != std::string::npos) return true;
-    if (host.empty()) return false;
-    for (char c : host) {
-        if (!(c == '.' || (c >= '0' && c <= '9'))) return false;
-    }
-    return true;
-}
 
 class WsClient::Impl : public std::enable_shared_from_this<Impl> {
 public:
     Impl(asio::io_context& ioc, const security::TlsConfig& tls_config)
-        : ioc_(ioc), timeout_ms_(5000)
+        : ioc_(ioc), timeout_ms_(core::kDefaultTimeout.count())
     {
         tls_ctx_ = std::make_unique<security::TlsContext>(tls_config);
     }
@@ -278,7 +272,7 @@ WsClient::WsClient(
 {
 }
 
-WsClient::~WsClient() = default;
+WsClient::~WsClient() noexcept = default;
 
 WsClient::WsClient(WsClient&&) noexcept = default;
 WsClient& WsClient::operator=(WsClient&&) noexcept = default;

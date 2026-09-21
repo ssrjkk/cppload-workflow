@@ -10,7 +10,7 @@
 **Decision:** Use C++20 with Boost.Beast for async I/O.
 
 **Consequences:**
-- [YES] 50k+ RPS per node achievable
+- [YES] 50k+ RPS per node achievable for small payloads on localhost
 - [YES] Zero-copy where possible
 - [NO] Steeper learning curve than Go/Java
 

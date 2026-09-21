@@ -4,49 +4,34 @@
 [![Coverage](https://codecov.io/gh/ssrjkk/cppload-workflow/branch/main/graph/badge.svg)](https://codecov.io/gh/ssrjkk/cppload-workflow)
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
 
-**Enterprise Load Testing Platform** — высокопроизводительная система нагрузочного тестирования
-с ядром на C++20. 50k+ RPS на инстанс, интеграция с Vault, OAuth2, OpenTelemetry, Prometheus и Kubernetes.
+Нагрузочное тестирование HTTP-сервисов. Ядро на C++20 (Boost.Beast/ASIO), YAML-сценарии,
+интеграция с Vault, OAuth2, OpenTelemetry и Prometheus.
 
 ---
-
-## Зачем cppload-pro?
-
-| Проблема | Решение cppload-pro |
-|----------|---------------------|
-| JMeter/Gatling не тянут высокие RPS | C++20 ядро на Boost.Beast/ASIO — 50k+ RPS на одной ноде |
-| Нет интеграции с корпоративным Vault | Встроенный Vault HTTP клиент: KV v2, AppRole, dynamic database credentials |
-| OAuth2 токены протухают посреди теста | client_credentials grant с автоматическим refresh |
-| Нет observability | OTLP/HTTP+JSON трассировка + Prometheus /metrics endpoint |
-| Сложный деплой в K8s | Helm charts + multi-stage Docker |
-| Конфиги в XML/JSON | YAML сценарии с env-подстановкой `${VAR:-default}` |
-| Нет SLA валидации | Встроенная проверка error_rate + p99 latency |
-| Безопасность | mTLS, TLS Context, API Key, Bearer Token |
 
 ## Возможности
 
 | Возможность | Статус | Детали |
 |------------|--------|--------|
-| **Async HTTP/1.1 Client** | ✅ PROD | Boost.Beast + ASIO, per-request safety, URL encoding |
-| **Raw TCP Client** | ✅ PROD | Произвольные байты поверх TCP/TLS, любой протокол вручную |
-| **WebSocket Client** | ✅ PROD | ws:// + wss://, произвольные сообщения |
-| **Protocol Factory** | ✅ PROD | Регистрация кастомных протоколов через `register_protocol()` |
-| **TokenBucket Rate Limiter** | ✅ PROD | Точный контроль RPS, consume/try_consume, overflow-safe |
-| **Connection Pool** | ✅ PROD | Пул клиентских объектов: acquire/release, idle cleanup, stats |
-| **YAML Scenario Engine** | ✅ PROD | yaml-cpp парсер, env vars `${VAR:-default}`, SLA валидация |
-| **OAuth2 Client Credentials** | ✅ PROD | HTTP POST, JSON парсинг, auto-refresh, URL encoding |
-| **HashiCorp Vault** | ✅ PROD | KV v2, AppRole, database creds, health check, path sanitization |
-| **mTLS** | ✅ PROD | Взаимная TLS аутентификация с сертификатами |
-| **TLS Context** | ✅ PROD | Централизованная настройка TLS для всех outbound соединений |
-| **OpenTelemetry OTLP** | ✅ PROD | OTLP/HTTP+JSON, batch export, sampling, thread-safe |
-| **Prometheus Exporter** | ✅ PROD¹ | /metrics endpoint, counters, histograms, gauges |
-| **CLI Tool** | ✅ PROD | Полноценный запуск нагрузки из командной строки |
-| **HTTP Worker** | ✅ PROD | Автономный воркер без YAML, только аргументы CLI |
-| **Helm Charts** | ✅ PROD | K8s деплой за 2 минуты |
-| **Docker Multi-stage** | ✅ PROD | Multi-stage runtime image, Ubuntu 26.04, non-root user |
-| **AddressSanitizer** | ✅ CI | Каждый коммит проверяется на memory errors |
-| **clang-tidy Lint** | ✅ CI | Статический анализ C++ кода |
-| **Python SDK** | 🔶 ALPHA | urllib-based (pure Python), отдельные pybind11 биндинги |
-| **gRPC Worker** | ✅ PROD² | Управление нагрузкой через gRPC control plane |
+| **Async HTTP/1.1 Client** | готово | Boost.Beast + ASIO, per-request safety, URL encoding |
+| **Raw TCP Client** | готово | Произвольные байты поверх TCP/TLS |
+| **WebSocket Client** | готово | ws:// + wss://, произвольные сообщения |
+| **Protocol Factory** | готово | Кастомные протоколы через `register_protocol()` |
+| **TokenBucket Rate Limiter** | готово | Контроль RPS, consume/try_consume, overflow-safe |
+| **Connection Pool** | готово | acquire/release, idle cleanup, stats |
+| **YAML Scenario Engine** | готово | yaml-cpp, env vars `${VAR:-default}`, SLA валидация |
+| **OAuth2 Client Credentials** | готово | HTTP POST, JSON, auto-refresh, URL encoding |
+| **HashiCorp Vault** | готово | KV v2, AppRole, database creds, health check, path sanitization |
+| **mTLS** | готово | Взаимная TLS аутентификация |
+| **TLS Context** | готово | Центральная настройка TLS для исходящих соединений |
+| **OpenTelemetry OTLP** | готово | OTLP/HTTP+JSON, batch export, sampling, thread-safe |
+| **Prometheus Exporter** | готово¹ | /metrics endpoint, counters, histograms, gauges |
+| **CLI Tool** | готово | Запуск нагрузки из командной строки |
+| **HTTP Worker** | готово | Воркер без YAML, только аргументы CLI |
+| **Helm Charts** | готово | K8s деплой |
+| **Docker Multi-stage** | готово | Multi-stage runtime image, Ubuntu 26.04, non-root user |
+| **Python SDK** | в разработке | urllib-based (pure Python), pybind11 биндинги |
+| **gRPC Worker** | готово² | Управление нагрузкой через gRPC control plane |
 
 > ¹ Полные counters/histograms требуют `prometheus-cpp` при сборке. Без него — встроенный HTTP сервер на Boost.Beast (текстовый /metrics endpoint).
 > ² Требуется `gRPC` и `Protobuf` при сборке (автообнаружение).
@@ -211,7 +196,7 @@ sla:
 | **mTLS** | auth | Взаимная аутентификация через TLS сертификаты |
 | **OpenTelemetry** | tracing | OTLP/HTTP+JSON, batch export, sampling, thread-safe |
 | **Prometheus** | metrics | /metrics endpoint (embedded server без prometheus-cpp) |
-| **Raw TCP** | protocol | Любой сырой протокол поверх TCP/TLS |
+| **Raw TCP** | protocol | Сырой протокол поверх TCP/TLS |
 | **WebSocket** | protocol | ws:// / wss:// потоковые сообщения |
 | **Kubernetes** | deploy | Helm charts, service monitors |
 | **Docker** | deploy | Multi-stage build, Ubuntu 26.04, non-root user |
@@ -237,11 +222,11 @@ cppload-pro/
 │   ├── security/                  # auth_provider.hpp, tls_context.hpp
 │   └── vault/                     # vault_client.hpp
 ├── workers/                       # Исполняемые воркеры
-│   ├── http_worker/               # Автономный HTTP воркер (✅ PROD)
-│   └── grpc_worker/               # gRPC control plane (✅ PROD, опционально)
+│   ├── http_worker/               # Автономный HTTP воркер
+│   └── grpc_worker/               # gRPC control plane (опционально)
 ├── tools/                         # CLI утилита (cppload-cli)
-├── tests/                         # GTest (21 exe, 24 suites, 182 теста)
-├── python/                        # Python SDK (pybind11, alpha)
+├── tests/                         # GTest (21 exe, 189 тестов)
+├── python/                        # Python SDK (pure Python, alpha)
 ├── deploy/                        # Docker, Helm, demo-env
 │   ├── docker/                    # Multi-stage Dockerfile
 │   ├── kubernetes/helm/           # Helm charts
@@ -256,7 +241,7 @@ cppload-pro/
 ├── docs/                          # ADR, архитектура
 ├── proto/                         # Protobuf спецификации (gRPC)
 │   └── load_controller.proto
-├── .github/workflows/             # CI (6 jobs: build, coverage, asan, benchmark, integration, lint)
+├── .github/workflows/             # CI (7 jobs: build, coverage, asan, benchmark, integration, smoke, lint)
 ├── .pre-commit-config.yaml        # Pre-commit хуки
 ├── CMakePresets.json              # CMake presets (CMake 3.21+)
 ├── conanfile.py                   # Conan 2.0 рецепт
@@ -267,7 +252,7 @@ cppload-pro/
 
 **C++ Core:** C++20, Boost.Beast/ASIO, OpenSSL, yaml-cpp, nlohmann_json, Prometheus-cpp (optional)
 
-**Testing:** GoogleTest (182 теста, 24 test suites)
+**Testing:** GoogleTest (189 тестов, 21 suite executables)
 
 **CI/CD:** GitHub Actions, AddressSanitizer, clang-tidy, codecov, lcov
 
@@ -297,14 +282,13 @@ cd build && ctest --output-on-failure
 
 | Файл | Тестов | Что проверяет |
 |------|--------|---------------|
-| test_yaml_parser.cpp | 13 | Парсинг конфигов, env vars, SLA, assertions, error handling |
-| test_metrics.cpp | 13 | Snapshot, percentiles (p50/p95/p99), reset, RPS |
+| test_yaml_parser.cpp | 17 | Парсинг конфигов, env vars, SLA, assertions, error handling |
+| test_metrics.cpp | 14 | Snapshot, percentiles (p50/p95/p99), reset, RPS |
 | test_metrics_stress.cpp | 4 | Нагрузочный сценарий на collector |
 | test_token_bucket.cpp | 14 | Consume, try_consume, concurrent, rate/burst, invalid rate |
 | test_result.cpp | 25 | Result API, or_else, and_then, move, chaining, void-returning |
-| test_url_parse.cpp | 21 | URL parsing, edge cases, URL encoding |
+| test_url_parse.cpp | 22 | URL parsing, edge cases, URL encoding |
 | test_vault.cpp | 9 | KV v2, AppRole, database creds, health, error handling, path sanitization |
-| test_otlp.cpp | 6 | Span lifecycle, attributes, trace_id, batch export |
 | test_auth.cpp | 6 | OAuth2, API Key, Bearer, mTLS |
 | test_http_client.cpp | 4 | Async request, timeout, keep-alive, graceful failure |
 | test_prometheus.cpp | 4 | Metrics registry, counters, histograms, gauges |
@@ -312,16 +296,18 @@ cd build && ctest --output-on-failure
 | test_protocol_factory.cpp | 8 | Protocol registration, HTTP/TCP/WebSocket creation |
 | test_io_context_pool.cpp | 8 | Pool initialization, context distribution, thread safety |
 | test_sharded_metrics.cpp | 13 | Sharded collection, percentiles, concurrent, reset |
+| test_otlp.cpp | 6 | Span lifecycle, attributes, trace_id, batch export |
 | test_connection_pool_integration.cpp | 6 | Connection pool: acquire/release, reuse, max limits, idle cleanup, host isolation, concurrency |
 | test_engine_integration.cpp | 1 | Scenario engine: sustained load через полную стадию сценария |
 | test_http_client_integration.cpp | 4 | HTTP: success, POST body, IPv6 literal host header, server error |
-| test_oauth2_integration.cpp | 4 | OAuth2: token fetch, auto-refresh on expiry, server error, static bearer |
+| test_oauth2_integration.cpp | 5 | OAuth2: token fetch, auto-refresh on expiry, server error, static bearer |
 | test_tls_integration.cpp | 7 | TLS: hostname/IP matching, verify modes, raw TCP, SSL connector, WebSocket over TLS |
 | test_vault_integration.cpp | 5 | Vault: KV v2 read/map/put, AppRole token, database creds |
 
 ## Benchmarks
 
-**Целевые показатели:** 50k+ RPS на инстанс (зависит от целевого сервиса и сетевой задержки).
+Результаты прогонов google/benchmark: [scripts/benchmark_compare.py](scripts/benchmark_compare.py) сравнивает
+текущий прогон с `benchmarks/baseline.json` на регрессии выше допуска (upstream integration).
 
 ```bash
 cmake --build build --target http_client_bench
@@ -332,11 +318,12 @@ cd build && ./tests/benchmarks/http_client_bench
 
 | Job | Назначение | Статус |
 |-----|-----------|--------|
-| **Build & Test** | Сборка Release + GTest (24 suites, 182 теста) | ✅ |
+| **Build & Test** | Сборка Release + GTest (189 тестов, 15 suites) | ✅ |
 | **Coverage** | Debug + --coverage + codecov | ✅ |
 | **AddressSanitizer** | ASan + UBSan, g++-13 | ✅ |
-| **Benchmark** | Сборка + прогон бенчмарков (google benchmark) | ✅ |
+| **Benchmark** | Сборка + прогон бенчмарков + регрессионный гейт | ✅ |
 | **Integration** | Мок-сервер, connection pool, HTTP client, OAuth2, Vault | ✅ |
+| **Smoke** | E2E: demo-сервисы + CLI, SLA-проверка | ✅ |
 | **Lint** | clang-tidy, black, flake8, YAML валидация | ✅ |
 
 ## Контрибьюция

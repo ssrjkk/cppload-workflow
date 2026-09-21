@@ -66,25 +66,13 @@ public:
     TlsTestServer& operator=(const TlsTestServer&) = delete;
 
     bool start(const std::string& cert, const std::string& key, Mode mode) {
-        try {
-            ctx_.set_options(boost::asio::ssl::context::default_workarounds);
-            ctx_.use_certificate_chain_file(cert);
-            ctx_.use_private_key_file(key, boost::asio::ssl::context::pem);
-            ctx_.set_verify_mode(boost::asio::ssl::verify_none);
-            auto ep = asio::ip::tcp::endpoint(
-                asio::ip::make_address("127.0.0.1"), 0);
-            acceptor_.open(ep.protocol());
-            acceptor_.set_option(asio::socket_base::reuse_address(true));
-            acceptor_.bind(ep);
-            acceptor_.listen();
-            port_ = acceptor_.local_endpoint().port();
-            mode_ = mode;
-            running_ = true;
-            accept_thread_ = std::thread([this]() { accept_loop(); });
-            return true;
-        } catch (const std::exception&) {
-            return false;
-        }
+        return start_internal(cert, key, mode, false);
+    }
+
+    // Starts a TLS server that refuses anything above TLSv1.0 (legacy-only),
+    // used to prove the client's TLS 1.2 minimum aborts the handshake.
+    bool start_tls10_only(const std::string& cert, const std::string& key) {
+        return start_internal(cert, key, Mode::kHttp, true);
     }
 
     uint16_t port() const { return port_; }
@@ -102,6 +90,42 @@ public:
     }
 
 private:
+    bool start_internal(const std::string& cert, const std::string& key,
+                        Mode mode, bool tls10_only) {
+        try {
+            ctx_.set_options(boost::asio::ssl::context::default_workarounds);
+            ctx_.use_certificate_chain_file(cert);
+            ctx_.use_private_key_file(key, boost::asio::ssl::context::pem);
+            if (tls10_only) {
+                // Constrain the accepted protocol max to TLSv1.0 so any
+                // client enforcing a >= 1.2 minimum legally fails.
+                ctx_.set_options(
+                    boost::asio::ssl::context::no_tlsv1_1 |
+                    boost::asio::ssl::context::no_tlsv1_2);
+#ifdef BOOST_ASIO_SSL_HAS_NO_TLSV1_3
+                // no_tlsv1_3 exists only in newer Boost versions; OpenSSL
+                // below won't negotiate 1.3 when the 1.0/1.1/1.2 options are
+                // all disabled.
+                ctx_.set_options(boost::asio::ssl::context::no_tlsv1_3);
+#endif
+            }
+            ctx_.set_verify_mode(boost::asio::ssl::verify_none);
+            auto ep = asio::ip::tcp::endpoint(
+                asio::ip::make_address("127.0.0.1"), 0);
+            acceptor_.open(ep.protocol());
+            acceptor_.set_option(asio::socket_base::reuse_address(true));
+            acceptor_.bind(ep);
+            acceptor_.listen();
+            port_ = acceptor_.local_endpoint().port();
+            mode_ = mode;
+            running_ = true;
+            accept_thread_ = std::thread([this]() { accept_loop(); });
+            return true;
+        } catch (const std::exception&) {
+            return false;
+        }
+    }
+
     // Non-blocking accept loop so stop() can interrupt it: closing a listener
     // does NOT wake a thread blocked in a blocking accept() on Linux, which
     // deadlocks ~TlsTestServer(). A non-blocking acceptor returns would_block
@@ -324,6 +348,37 @@ TEST_F(TlsIntegrationTest, HttpVerifyDisabledAllowsMismatch) {
     client.async_request(req, [&](std::error_code ec, cppload::net::Response resp) {
         ASSERT_FALSE(ec) << "Unexpected error: " << ec.message();
         EXPECT_EQ(resp.status_code, 200);
+        called = true;
+    });
+    ioc.run_for(std::chrono::seconds(10));
+    EXPECT_TRUE(called);
+}
+
+// TR-6.2: A server that only speaks TLSv1.0 must be refused: the client
+// enforces TLS 1.2 as the minimum, so the handshake aborts with a clear error
+// instead of silently downgrading.
+TEST_F(TlsIntegrationTest, Tls10OnlyServerIsRefused) {
+    TlsTestServer server;
+    ASSERT_TRUE(server.start_tls10_only(cert_path("server.pem"),
+                                        cert_path("server.key")));
+
+    boost::asio::io_context ioc;
+    cppload::net::Http11Client client(
+        ioc, trusted_ca_config(cert_path("server.pem")));
+    client.set_timeout(std::chrono::seconds(5));
+
+    cppload::net::Request req;
+    req.method = "GET";
+    req.path = "/";
+    req.host = "localhost";
+    req.port = server.port();
+    req.use_tls = true;
+
+    std::atomic<bool> called{false};
+    client.async_request(req, [&](std::error_code ec, cppload::net::Response) {
+        ASSERT_TRUE(ec) << "Expected TLS 1.2 minimum to abort the handshake";
+        EXPECT_EQ(ec, cppload::Err::tls_handshake_failed)
+            << "got: " << ec.message();
         called = true;
     });
     ioc.run_for(std::chrono::seconds(10));

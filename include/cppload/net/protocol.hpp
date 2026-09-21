@@ -30,17 +30,20 @@ struct Response {
     std::unordered_map<std::string, std::string> headers;
     std::chrono::microseconds latency{0};
     std::error_code ec;
+    bool body_truncated{false};
 };
 
 class ProtocolClient {
 public:
-    virtual ~ProtocolClient() = default;
+    virtual ~ProtocolClient() noexcept = default;
 
     virtual void async_request(
         const Request& req,
         std::function<void(std::error_code, Response)> handler) = 0;
 
     virtual void set_timeout(std::chrono::milliseconds ms) = 0;
+
+    virtual void set_max_body_bytes(size_t bytes) { (void)bytes; }
 
     [[nodiscard]] virtual std::string_view name() const = 0;
 };

@@ -1,0 +1,36 @@
+# @author ssrjkk | cppload
+# WebSocket echo latency test: measures round-trip latency over a persistent WS connection.
+# Requires a WS echo endpoint (e.g. wss://echo.websocket.org or a local service).
+version: "1.0"
+test_id: "websocket-echo"
+
+target:
+  base_url: ${TARGET_URL:-http://127.0.0.1:8081}
+  protocol: ws
+  tls:
+    verify: false
+
+load_profile:
+  - stage: warmup
+    duration: 10s
+    target_rps: 10
+    concurrent_users: 2
+  - stage: steady
+    duration: 1m
+    target_rps: 50
+    concurrent_users: 5
+
+scenarios:
+  - name: "echo_ping"
+    weight: 100
+    steps:
+      - http:
+          method: GET
+          path: "/ws/echo"
+          headers:
+            Connection: Upgrade
+            Upgrade: websocket
+
+sla:
+  error_rate: "< 1%"
+  p99_latency: "< 250ms"

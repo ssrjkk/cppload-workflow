@@ -9,6 +9,9 @@
 #include <boost/asio/connect.hpp>
 #include <nlohmann/json.hpp>
 #include <string>
+#include <deque>
+#include <thread>
+#include <condition_variable>
 #include <sstream>
 #include <iostream>
 #include <chrono>
@@ -53,7 +56,7 @@ int64_t to_nanos(std::chrono::system_clock::time_point tp) {
         tp.time_since_epoch()).count();
 }
 
-void do_post_json(
+bool do_post_json(
     const std::string& host,
     const std::string& port,
     const std::string& target,
@@ -69,7 +72,7 @@ void do_post_json(
     if (ec) {
         std::cerr << "OTLP: resolve failed for " << host << ":" << port
                   << " - " << ec.message() << std::endl;
-        return;
+        return false;
     }
 
     stream.expires_after(timeout);
@@ -79,7 +82,7 @@ void do_post_json(
     if (ec) {
         std::cerr << "OTLP: connect failed to " << host << ":" << port
                   << " - " << ec.message() << std::endl;
-        return;
+        return false;
     }
 
     std::string body_str = body.dump();
@@ -96,7 +99,7 @@ void do_post_json(
     });
     if (ec) {
         std::cerr << "OTLP: write failed - " << ec.message() << std::endl;
-        return;
+        return false;
     }
 
     beast::flat_buffer buffer;
@@ -107,11 +110,12 @@ void do_post_json(
     });
     if (ec && ec != http::error::end_of_stream) {
         std::cerr << "OTLP: read failed - " << ec.message() << std::endl;
-        return;
+        return false;
     }
 
     beast::error_code shutdown_ec;
     stream.socket().shutdown(asio::ip::tcp::socket::shutdown_both, shutdown_ec);
+    return true;
 }
 
 } // anonymous namespace
@@ -121,11 +125,20 @@ public:
     explicit Impl(const TraceConfig& config)
         : config_(config), span_active_(false)
         , trace_id_(random_hex(32))
+        , stop_(false)
     {
         parse_endpoint();
+        worker_ = std::thread([this]() { export_loop(); });
     }
 
     ~Impl() noexcept {
+        {
+            std::lock_guard<std::mutex> lock(spans_mutex_);
+            stop_ = true;
+        }
+        spans_cv_.notify_all();
+        if (worker_.joinable()) worker_.join();
+        // Safety net: anything left behind is exported here.
         try {
             flush();
         } catch (const std::exception& e) {
@@ -151,13 +164,7 @@ public:
                 last_span_id_ = current_span_id_;
                 attributes_.clear();
                 span_active_ = false;
-
-                if (config_.sample_rate >= 1.0 ||
-                    [&]() {
-                        static thread_local std::mt19937 rng(std::random_device{}());
-                        std::uniform_real_distribution<> dist(0.0, 1.0);
-                        return dist(rng) <= config_.sample_rate;
-                    }()) {
+                if (config_.sample_rate >= 1.0 || should_sample_span()) {
                     should_push = true;
                 }
             }
@@ -173,8 +180,7 @@ public:
         }
 
         if (should_push) {
-            std::lock_guard<std::mutex> slock(spans_mutex_);
-            completed_spans_.push_back(std::move(span_to_push));
+            enqueue(std::move(span_to_push));
         }
     }
 
@@ -198,20 +204,11 @@ public:
         }
 
         // Apply sampling: skip this span if random sample says drop
-        if (config_.sample_rate < 1.0) {
-            static thread_local std::mt19937 rng(std::random_device{}());
-            std::uniform_real_distribution<> dist(0.0, 1.0);
-            if (dist(rng) > config_.sample_rate) {
-                return;
-            }
+        if (config_.sample_rate < 1.0 && !should_sample_span()) {
+            return;
         }
 
-        {
-            std::lock_guard<std::mutex> lock(spans_mutex_);
-            completed_spans_.push_back(std::move(span));
-        }
-
-        maybe_export();
+        enqueue(std::move(span));
     }
 
     void add_attribute(const std::string& key, const std::string& value) {
@@ -222,7 +219,23 @@ public:
     std::string trace_id() const { return trace_id_; }
 
 private:
+    // Returns true when the span should be recorded under the configured
+    // sample rate. Identical logic is used for explicit end_span and for
+    // implicit end-on-start, so sampled spans behave consistently.
+    bool should_sample_span() const {
+        static thread_local std::mt19937 rng(std::random_device{}());
+        std::uniform_real_distribution<> dist(0.0, 1.0);
+        return dist(rng) <= config_.sample_rate;
+    }
+
+private:
     void parse_endpoint() {
+        if (config_.endpoint.empty()) {
+            endpoint_host_.clear();
+            endpoint_port_.clear();
+            endpoint_target_.clear();
+            return;
+        }
         auto parts = core::parse_url(config_.endpoint);
         endpoint_host_ = std::move(parts.host);
         endpoint_port_ = parts.port.empty() ? "4318" : std::move(parts.port);
@@ -233,8 +246,71 @@ private:
         }
     }
 
-    void do_export(const std::vector<SpanData>& spans_to_export) {
-        if (spans_to_export.empty()) return;
+    void enqueue(SpanData span) {
+        bool need_wake = false;
+        {
+            std::lock_guard<std::mutex> lock(spans_mutex_);
+            completed_spans_.push_back(std::move(span));
+            // Bound the buffer when the endpoint is unreachable so the load
+            // path never grows memory unboundedly.
+            if (completed_spans_.size() > core::kOtlpMaxBufferedSpans) {
+                const size_t excess = completed_spans_.size() - core::kOtlpMaxBufferedSpans;
+                completed_spans_.erase(completed_spans_.begin(),
+                                       completed_spans_.begin() + excess);
+            }
+            need_wake = completed_spans_.size() >= core::kOtlpBatchSize;
+        }
+        if (need_wake) {
+            spans_cv_.notify_one();
+        }
+    }
+
+    void export_loop() {
+        std::chrono::milliseconds backoff{200};
+        constexpr std::chrono::milliseconds kMaxBackoff{5000};
+
+        for (;;) {
+            std::vector<SpanData> to_export;
+            {
+                std::unique_lock<std::mutex> lock(spans_mutex_);
+                spans_cv_.wait_for(lock, backoff, [this]() {
+                    return stop_ || completed_spans_.size() >= core::kOtlpBatchSize;
+                });
+                if (stop_ && completed_spans_.empty()) {
+                    break;
+                }
+                const size_t n = std::min(core::kOtlpBatchSize, completed_spans_.size());
+                to_export.assign(completed_spans_.begin(),
+                                 completed_spans_.begin() + n);
+                completed_spans_.erase(completed_spans_.begin(),
+                                       completed_spans_.begin() + n);
+            }
+
+            if (endpoint_host_.empty()) {
+                // Export disabled: drop queued spans instead of spamming errors.
+                to_export.clear();
+                continue;
+            }
+
+            const bool ok = do_export(to_export);
+            if (ok) {
+                backoff = std::chrono::milliseconds(200);
+            } else {
+                backoff = std::min(backoff * 2, kMaxBackoff);
+            }
+        }
+        // Drain anything left on stop.
+        std::deque<SpanData> remainder;
+        {
+            std::lock_guard<std::mutex> lock(spans_mutex_);
+            remainder.swap(completed_spans_);
+        }
+        do_export(std::vector<SpanData>(remainder.begin(), remainder.end()));
+    }
+
+    bool do_export(const std::vector<SpanData>& spans_to_export) {
+        if (spans_to_export.empty()) return true;
+        if (endpoint_host_.empty()) return true;
 
         json resource_spans;
         resource_spans["resource"]["attributes"] = json::array({
@@ -277,34 +353,17 @@ private:
         json payload;
         payload["resourceSpans"] = json::array({resource_spans});
 
-        do_post_json(endpoint_host_, endpoint_port_,
+        return do_post_json(endpoint_host_, endpoint_port_,
             endpoint_target_, payload);
     }
 
     void flush() {
-        std::vector<SpanData> remaining;
+        std::deque<SpanData> remaining;
         {
             std::lock_guard<std::mutex> lock(spans_mutex_);
             remaining.swap(completed_spans_);
         }
-        do_export(remaining);
-    }
-
-    void maybe_export() {
-        std::vector<SpanData> spans_to_export;
-        {
-            std::lock_guard<std::mutex> lock(spans_mutex_);
-            if (completed_spans_.size() >= core::kOtlpBatchSize) {
-                spans_to_export.swap(completed_spans_);
-            }
-            // Drop oldest spans if buffer grows too large (endpoint unreachable)
-            if (completed_spans_.size() > core::kOtlpMaxBufferedSpans) {
-                completed_spans_.erase(
-                    completed_spans_.begin(),
-                    completed_spans_.begin() + (completed_spans_.size() - core::kOtlpMaxBufferedSpans));
-            }
-        }
-        do_export(spans_to_export);
+        do_export(std::vector<SpanData>(remaining.begin(), remaining.end()));
     }
 
     TraceConfig config_;
@@ -318,8 +377,11 @@ private:
     std::chrono::system_clock::time_point span_start_;
 
     std::mutex span_mtx_;
-    std::vector<SpanData> completed_spans_;
+    std::deque<SpanData> completed_spans_;
     std::mutex spans_mutex_;
+    std::condition_variable spans_cv_;
+    std::thread worker_;
+    bool stop_;
 
     std::string endpoint_host_;
     std::string endpoint_port_;
