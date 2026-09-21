@@ -216,7 +216,7 @@ private:
         if (ec) return true;
         ec = {};
         char c = 0;
-        std::size_t n = stream.socket().receive(
+        stream.socket().receive(
             asio::buffer(&c, 1),
             asio::socket_base::message_peek, ec);
         if (ec == asio::error::would_block ||

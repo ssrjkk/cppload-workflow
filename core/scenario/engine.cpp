@@ -406,7 +406,6 @@ public:
                             if (!first_slot) {
                                 next_slot += slot_period;
                                 if (now < next_slot) {
-                                    auto t_sleep0 = std::chrono::steady_clock::now();
                                     auto sleep_dur = next_slot - now;
                                     if (sleep_dur > std::chrono::milliseconds(2)) {
                                         auto wake_at = next_slot - std::chrono::milliseconds(2);
