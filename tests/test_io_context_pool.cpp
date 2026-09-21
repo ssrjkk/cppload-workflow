@@ -72,7 +72,7 @@ TEST(IoContextPoolTest, ConcurrentGetContext) {
     for (int i = 0; i < 8; ++i) {
         threads.emplace_back([&pool, &call_count]() {
             for (int j = 0; j < 100; ++j) {
-                pool.get_context();
+                [[maybe_unused]] auto& ctx = pool.get_context();
                 call_count.fetch_add(1);
             }
         });
