@@ -30,7 +30,7 @@
 | **HTTP Worker** | готово | Воркер без YAML, только аргументы CLI |
 | **Helm Charts** | готово | K8s деплой |
 | **Docker Multi-stage** | готово | Multi-stage runtime image, Ubuntu 26.04, non-root user |
-| **Python SDK** | в разработке | urllib-based (pure Python), pybind11 биндинги |
+| **Python SDK** | готово | urllib-based (pure Python), 100% coverage, 143 tests |
 | **gRPC Worker** | готово² | Управление нагрузкой через gRPC control plane |
 
 > ¹ Полные counters/histograms требуют `prometheus-cpp` при сборке. Без него — встроенный HTTP сервер на Boost.Beast (текстовый /metrics endpoint).
@@ -262,6 +262,8 @@ cppload-pro/
 
 ## Тестирование
 
+### C++ Tests
+
 ```bash
 # Сборка с тестами
 cmake -B build -G Ninja \
@@ -277,6 +279,26 @@ cd build && ctest --output-on-failure
 ./tests/test_metrics
 ./tests/test_token_bucket
 ```
+
+### Python Tests
+
+```bash
+cd python
+
+# Установка зависимостей
+pip install -e .
+
+# Запуск всех тестов с coverage
+pytest --cov=cppload --cov-report=term-missing
+
+# Запуск только интеграционных тестов
+pytest tests/test_integration_*.py -v
+```
+
+**Python SDK:** 143 теста, 100% coverage (460/460 statements)
+- 67 unit тестов без моков (чистая бизнес-логика)
+- 49 unit тестов с моками на I/O границах
+- 27 интеграционных тестов (реальный HTTP сервер, subprocess calls)
 
 ### Test Suites
 

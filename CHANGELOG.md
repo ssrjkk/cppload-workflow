@@ -3,6 +3,15 @@
 
 ## [Unreleased]
 
+### Added
+- Python SDK: 143 tests with 100% coverage (460/460 statements)
+- Python SDK: 27 integration tests (real HTTP server, subprocess CLI calls)
+- Python SDK: 67 unit tests without mocks (pure business logic)
+- Comprehensive security hardening across C++ core
+- Thread-safety improvements in engine, vault, auth, metrics, and HTTP client
+- Pooled HTTP/1.1 workers for better throughput
+- Benchmark regression gating in CI
+
 ### Fixed
 - OpenTelemetry OTLP exporter now exports on a background thread; an
   unreachable collector can no longer stall the request hot path at ~1s per
@@ -14,6 +23,13 @@
 - E2E smoke scenario no longer asserts a service-specific path (e.g. `/orders`
   against the products service); the verified endpoint is selected per service
   via the `SMOKE_PATH` environment variable
+- Engine deadline handling and io_context hang issues
+- Beast deadline enforcement on sync paths
+- Dead keep-alive connection detection
+- Metrics ring buffer eviction
+- Benchmark JSON merge producing string entries
+- Benchmark binary path in JSON medians step
+- Unused variables causing build failures with -Werror
 
 ### Changed
 - Removed marketing/enterprise wording from the README, package metadata,

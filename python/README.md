@@ -54,11 +54,20 @@ The CLI is discovered at `./build/tools/cppload-cli[.exe]`, `build-release`,
 ## Development
 
 ```bash
-pytest                       # 30 tests
+pytest                       # 143 tests, 100% coverage
+pytest --cov=cppload        # with coverage report
+pytest tests/test_integration_*.py -v  # integration tests only
 mypy --strict cppload
 black --check cppload tests
 flake8 cppload tests
 ```
+
+### Test Coverage
+
+- **143 tests** with **100% coverage** (460/460 statements)
+- 67 unit tests without mocks (pure business logic)
+- 49 unit tests with mocks at I/O boundaries
+- 27 integration tests (real HTTP server, subprocess CLI calls)
 
 ## Version
 
