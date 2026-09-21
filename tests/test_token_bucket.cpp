@@ -149,7 +149,7 @@ TEST(TokenBucketTest, TokensAvailable) {
 
 TEST(TokenBucketTest, TokensAvailableAfterConsume) {
     cppload::TokenBucket bucket(100.0, 5.0);
-    bucket.try_consume();
+    [[maybe_unused]] bool consumed = bucket.try_consume();
     double tokens = bucket.tokens_available();
     EXPECT_GE(tokens, 3.0);
     EXPECT_LE(tokens, 5.0);

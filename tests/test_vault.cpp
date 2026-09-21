@@ -10,7 +10,7 @@ TEST(VaultClientTest, ConstructDefault) {
     cfg.token = "test";
     cfg.timeout_seconds = 1;
     cppload::vault::VaultClient client(cfg);
-    EXPECT_NO_THROW(client.is_connected());
+    EXPECT_NO_THROW([[maybe_unused]] bool connected = client.is_connected());
 }
 
 TEST(VaultClientTest, GetSecretNoServer) {
