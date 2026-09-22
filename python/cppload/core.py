@@ -404,7 +404,7 @@ class VaultClient:
         import urllib.request
         import re
 
-        if not re.match(r'^[a-zA-Z0-9_\-/]+$', path):
+        if not re.match(r"^[a-zA-Z0-9_\-/]+$", path):
             raise ValueError(f"Invalid secret path: {path}")
         api_path = f"/v1/{self.config.engine_path}/data/{path}"
         url = f"{self.config.address}{api_path}"
