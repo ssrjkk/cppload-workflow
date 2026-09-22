@@ -218,7 +218,6 @@ def test_http_multiple_requests_parallel(http_server):
 
 def test_http_https_detection():
     """Test HTTPS scheme detection based on port"""
-    client = HttpClient()
     req = HttpRequest(method="GET", target="/", host="localhost", port="443")
     req_https = HttpRequest(method="GET", target="/", host="localhost", port="8080")
 
