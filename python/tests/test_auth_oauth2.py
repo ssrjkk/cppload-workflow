@@ -1,9 +1,8 @@
 # @author ssrjkk | cppload
 """Tests for AuthProvider OAuth2 and advanced features."""
 
-import pytest
 import time
-from unittest.mock import Mock, patch, MagicMock
+from unittest.mock import Mock, patch
 from cppload import AuthProvider, AuthConfig, AuthType
 
 

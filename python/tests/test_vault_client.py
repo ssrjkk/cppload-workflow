@@ -1,7 +1,6 @@
 # @author ssrjkk | cppload
 """Tests for VaultClient."""
 
-import pytest
 from unittest.mock import Mock, patch, MagicMock
 from cppload import VaultClient, VaultConfig
 

@@ -1,7 +1,6 @@
 # @author ssrjkk | cppload
 """Additional edge case tests for MetricsCollector."""
 
-import pytest
 from cppload import MetricsCollector
 
 

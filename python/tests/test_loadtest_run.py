@@ -1,10 +1,9 @@
 # @author ssrjkk | cppload
 """Tests for LoadTest run and worker methods."""
 
-import pytest
 import tempfile
 import os
-from unittest.mock import Mock, patch, MagicMock
+from unittest.mock import patch
 from cppload import LoadTest
 
 

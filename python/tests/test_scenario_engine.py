@@ -1,11 +1,9 @@
 # @author ssrjkk | cppload
 """Tests for ScenarioEngine and LoadTest."""
 
-import pytest
 import tempfile
 import os
-from pathlib import Path
-from unittest.mock import Mock, patch, MagicMock
+from unittest.mock import Mock, patch
 from cppload import ScenarioEngine, LoadTest
 
 

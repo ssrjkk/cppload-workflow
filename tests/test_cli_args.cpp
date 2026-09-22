@@ -22,13 +22,11 @@ static const char* kCliPath = "python3 tools/mock_cli.py";
 namespace {
 
 // Runs the CLI with the given args, returns the exit code and captured stdout.
+// kCliPath is expected to arrive pre-quoted when it may contain spaces (see
+// tests/CMakeLists.txt); do not add quotes here or a multi-token fallback
+// like "python3 tools/mock_cli.py" would be treated as a single command name.
 int run_cli(const std::string& args, std::string& output) {
-    std::string cmd = std::string("\"") + kCliPath + "\" " + args +
-#if defined(_WIN32)
-                      " 2>&1";
-#else
-                      " 2>&1";
-#endif
+    std::string cmd = kCliPath + std::string(" ") + args + " 2>&1";
     FILE* pipe = popen(cmd.c_str(), "r");
     if (!pipe) return -999;
     char buf[4096];

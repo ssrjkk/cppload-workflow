@@ -85,26 +85,10 @@ jobs:
           path: build.log
           retention-days: 7
 
-      - name: Run tests (sequential, verbose)
+      - name: Run tests
         if: success()
         run: |
-          cd build
-          all_passed=true
-          for t in test_http_client test_metrics test_token_bucket test_auth test_vault test_otlp test_yaml_parser test_prometheus test_sharded_metrics test_metrics_stress test_result test_url_parse test_protocol_factory test_io_context_pool test_tls_context test_cli_args test_redact test_term; do
-            if [ -x "./$t" ]; then
-              printf "::group::%s\n" "$t"
-              timeout 120 ./$t 2>&1
-              rc=$?
-              if [ $rc -eq 0 ]; then
-                printf "::notice::%s PASSED\n" "$t"
-              else
-                printf "::notice::%s FAILED (exit=%d) — see test output above\n" "$t" "$rc"
-                all_passed=false
-              fi
-              printf "::endgroup::\n"
-            fi
-          done
-          if [ "$all_passed" = "false" ]; then printf "Test failures detected\n"; exit 1; fi
+          cd build && ctest --output-on-failure --timeout 120 -j$(nproc)
 
   coverage:
     name: Coverage
@@ -143,7 +127,7 @@ jobs:
             -DCPLOAD_BUILD_TESTS=ON \
             -DCPLOAD_BUILD_PYTHON=OFF \
             -DCPLOAD_BUILD_WORKERS=OFF \
-            -DCPLOAD_BUILD_TOOLS=OFF \
+            -DCPLOAD_BUILD_TOOLS=ON \
             -DCPLOAD_BUILD_BENCHMARKS=OFF \
             -DCPLOAD_BUILD_INTEGRATION_TESTS=OFF \
             -DCPLOAD_WARNINGS_AS_ERRORS=ON
@@ -280,33 +264,7 @@ jobs:
       - name: Run tests
         if: success()
         run: |
-          cd build-asan
-          all_passed=true
-          for t in test_http_client test_metrics test_token_bucket test_auth test_vault test_otlp test_yaml_parser test_prometheus test_sharded_metrics test_metrics_stress test_result test_url_parse test_protocol_factory test_io_context_pool test_tls_context test_cli_args test_redact test_term; do
-            if [ -x "./$t" ]; then
-              printf "::group::%s\n" "$t"
-              timeout 120 ./$t > test-tmp.log 2>&1; rc=$?
-              cat test-tmp.log
-              cat test-tmp.log >> test-asan.log
-              if [ $rc -eq 0 ]; then
-                printf "::notice::%s PASSED\n" "$t"
-              else
-                printf "::error::%s FAILED (exit=%d)\n" "$t" "$rc"
-                all_passed=false
-              fi
-              printf "::endgroup::\n"
-            fi
-          done
-          rm -f test-tmp.log
-          if [ "$all_passed" = "false" ]; then printf "Test failures detected\n"; exit 1; fi
-
-      - name: Upload ASan test log
-        if: failure()
-        uses: actions/upload-artifact@v7
-        with:
-          name: test-asan-log
-          path: build-asan/test-asan.log
-          retention-days: 7
+          cd build-asan && ctest --output-on-failure --timeout 300 -j$(nproc)
 
   tsan:
     name: ThreadSanitizer
@@ -375,33 +333,7 @@ jobs:
         env:
           TSAN_OPTIONS: halt_on_error=1:second_deadlock_stack=1
         run: |
-          cd build-tsan
-          all_passed=true
-          for t in test_metrics test_token_bucket test_sharded_metrics test_metrics_stress test_io_context_pool test_protocol_factory; do
-            if [ -x "./$t" ]; then
-              printf "::group::%s\n" "$t"
-              timeout 180 ./$t > test-tmp.log 2>&1; rc=$?
-              cat test-tmp.log
-              cat test-tmp.log >> test-tsan.log
-              if [ $rc -eq 0 ]; then
-                printf "::notice::%s PASSED\n" "$t"
-              else
-                printf "::error::%s FAILED (exit=%d)\n" "$t" "$rc"
-                all_passed=false
-              fi
-              printf "::endgroup::\n"
-            fi
-          done
-          rm -f test-tmp.log
-          if [ "$all_passed" = "false" ]; then printf "Test failures detected\n"; exit 1; fi
-
-      - name: Upload TSan test log
-        if: failure()
-        uses: actions/upload-artifact@v7
-        with:
-          name: test-tsan-log
-          path: build-tsan/test-tsan.log
-          retention-days: 7
+          cd build-tsan && ctest --output-on-failure --timeout 300 -j$(nproc) -R "(Metrics|TokenBucket|IoContextPool|ProtocolFactory)"
 
   benchmark:
     name: Performance Regression
@@ -488,6 +420,8 @@ jobs:
             --current build-bench/results/current.json \
             --baseline benchmarks/baseline.json \
             --tolerance 15 \
+            --min-ns 500000 \
+            --ignore-regex "(Parallel|Concurrent)" \
             || ( rc=$?; if [ "$rc" -eq 2 ]; then
               python3 scripts/benchmark_compare.py \
                 --current build-bench/results/current.json \

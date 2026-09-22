@@ -117,6 +117,12 @@ target_link_libraries(test_cli_args
 if(TARGET cppload-cli)
     target_compile_definitions(test_cli_args
         PRIVATE CPLOAD_TEST_CLI_PATH="$<TARGET_FILE:cppload-cli>")
+else()
+    # No CLI target (e.g. sanitizer-only builds): fall back to the mock script.
+    # Absolute paths so the test works regardless of the ctest working dir.
+    find_package(Python3 COMPONENTS Interpreter REQUIRED)
+    target_compile_definitions(test_cli_args
+        PRIVATE CPLOAD_TEST_CLI_PATH="${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/../tools/mock_cli.py")
 endif()
 add_test(NAME CliArgsTest COMMAND test_cli_args)
 

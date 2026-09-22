@@ -1,8 +1,6 @@
 # @author ssrjkk | cppload
 """Tests for Tracer."""
 
-import pytest
-import time
 from cppload import Tracer, TraceConfig
 
 

@@ -1,11 +1,10 @@
 # @author ssrjkk | cppload
 """Final tests for 100% coverage."""
 
-import pytest
 import tempfile
 import os
 from pathlib import Path
-from unittest.mock import Mock, patch
+from unittest.mock import patch
 from cppload import LoadTest
 
 
