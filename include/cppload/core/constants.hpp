@@ -26,7 +26,7 @@ constexpr int kDefaultTokenExpirySec = 3600;
 constexpr int kExpiryMarginSec = 60;
 
 constexpr uint32_t kDefaultConcurrency = 10;
-constexpr double kDefaultErrorRate = 0.1;
+constexpr double kDefaultErrorRate = 10.0;
 constexpr auto kDefaultLatencyMs = std::chrono::milliseconds{500};
 
 constexpr size_t kMinShards = 4;

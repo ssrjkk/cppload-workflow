@@ -194,8 +194,6 @@ CliArgs parse_args(int argc, char* argv[]) {
             args.max_body_str = next();
             args.max_body_bytes = parse_size_bytes(args.max_body_str);
         }
-        else if (key == "--help" || key == "-h") args.help = true;
-        else if (key == "--version" || key == "-v") args.version = true;
         else {
             std::cerr << core::term::error_label() << "Unknown option: " << key << "\n";
             args.error = true;

@@ -217,13 +217,13 @@ class TokenBucket:
     """Thread-safe token bucket rate limiter."""
 
     def __init__(self, rate: float, burst: float = 0):
+        if rate <= 0:
+            raise ValueError("TokenBucket: rate must be > 0")
         self.rate = rate
         self.burst = burst if burst > 0 else rate
         self.tokens = self.burst
         self.last_refill = time.monotonic()
         self._lock = threading.Lock()
-        if rate <= 0:
-            raise ValueError("TokenBucket: rate must be > 0")
 
     def _refill(self) -> None:
         now = time.monotonic()
@@ -266,7 +266,7 @@ class HttpClient:
         import urllib.request
         import urllib.error
 
-        scheme = "https" if str(req.port) == "443" else "http"
+        scheme = "https" if str(req.port) == "443" or getattr(req, "tls", False) else "http"
         url = f"{scheme}://{req.host}:{req.port}{req.target}"
         data = req.body.encode() if req.body else None
         headers = req.headers.copy()
@@ -402,7 +402,10 @@ class VaultClient:
 
     def get_secret(self, path: str, key: str) -> Optional[str]:
         import urllib.request
+        import re
 
+        if not re.match(r'^[a-zA-Z0-9_\-/]+$', path):
+            raise ValueError(f"Invalid secret path: {path}")
         api_path = f"/v1/{self.config.engine_path}/data/{path}"
         url = f"{self.config.address}{api_path}"
 
@@ -602,6 +605,8 @@ class LoadTest:
                     target=http_step.get("path", "/"),
                     host=host,
                     port=port,
+                    headers=http_step.get("headers", {}),
+                    body=http_step.get("body", ""),
                 )
 
                 if self.token_bucket:

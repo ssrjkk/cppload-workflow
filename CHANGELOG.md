@@ -3,6 +3,8 @@
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-09-22
+
 ### Added
 - Python SDK: 143 tests with 100% coverage (460/460 statements)
 - Python SDK: 27 integration tests (real HTTP server, subprocess CLI calls)

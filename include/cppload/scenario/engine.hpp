@@ -76,7 +76,7 @@ struct ObservabilityConfig {
 };
 
 struct SLAConfig {
-    double max_error_rate{0.1};
+    double max_error_rate{10.0};
     std::chrono::milliseconds max_p99_latency{500};
 };
 

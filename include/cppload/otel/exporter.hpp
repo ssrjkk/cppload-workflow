@@ -12,7 +12,7 @@ struct TraceConfig {
     std::string endpoint{};
     double sample_rate{1.0};
     std::string service_name{"cppload-pro"};
-    std::string service_version{"1.0.0"};
+    std::string service_version{"1.1.0"};
 };
 
 class Tracer {

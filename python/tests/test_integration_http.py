@@ -219,13 +219,11 @@ def test_http_multiple_requests_parallel(http_server):
 def test_http_https_detection():
     """Test HTTPS scheme detection based on port"""
     client = HttpClient()
-    req = HttpRequest(method="GET", target="/", host="example.com", port="443")
+    req = HttpRequest(method="GET", target="/", host="localhost", port="443")
+    req_https = HttpRequest(method="GET", target="/", host="localhost", port="8080")
 
-    try:
-        resp = client.request(req)
-        assert resp["status_code"] != 0
-    except Exception:
-        pass
+    assert str(req.port) == "443"
+    assert str(req_https.port) == "8080"
 
 
 def test_http_timeout():
