@@ -23,7 +23,7 @@ env:
 jobs:
   lint:
     name: Code Quality
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     
     steps:
@@ -60,7 +60,7 @@ jobs:
 
   build-linux:
     name: C++ Build (Linux)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     
     steps:
@@ -98,7 +98,7 @@ jobs:
 
   test:
     name: Unit Tests
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     needs: build-linux
     
@@ -139,7 +139,7 @@ jobs:
 
   docker:
     name: Docker Build
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     needs: [lint, build-linux, test]
     
@@ -154,7 +154,7 @@ jobs:
 
   docs:
     name: Documentation
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     
     steps:
@@ -164,7 +164,7 @@ jobs:
         run: |
           echo "# Architecture Decision Records" > docs/ADR_INDEX.md
           echo "" >> docs/ADR_INDEX.md
-          for f in docs/ADR-*.md; do
+          for f in docs/adr/*.md; do
             if [ -f "$f" ]; then
               echo "- [$f]($f)" >> docs/ADR_INDEX.md
             fi
@@ -179,7 +179,7 @@ jobs:
 
   pipeline-status:
     name: Status
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 5
     needs: [lint, build-linux, test, docker, docs]
     if: always()

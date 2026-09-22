@@ -29,7 +29,7 @@
 | **CLI Tool** | готово | Запуск нагрузки из командной строки |
 | **HTTP Worker** | готово | Воркер без YAML, только аргументы CLI |
 | **Helm Charts** | готово | K8s деплой |
-| **Docker Multi-stage** | готово | Multi-stage runtime image, Ubuntu 26.04, non-root user |
+| **Docker Multi-stage** | готово | Multi-stage runtime image, Ubuntu 24.04, non-root user |
 | **Python SDK** | готово | urllib-based (pure Python), 100% coverage, 143 tests |
 | **gRPC Worker** | готово² | Управление нагрузкой через gRPC control plane |
 
@@ -199,7 +199,7 @@ sla:
 | **Raw TCP** | protocol | Сырой протокол поверх TCP/TLS |
 | **WebSocket** | protocol | ws:// / wss:// потоковые сообщения |
 | **Kubernetes** | deploy | Helm charts, service monitors |
-| **Docker** | deploy | Multi-stage build, Ubuntu 26.04, non-root user |
+| **Docker** | deploy | Multi-stage build, Ubuntu 24.04, non-root user |
 
 ## Структура проекта
 

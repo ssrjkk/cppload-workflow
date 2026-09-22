@@ -1,6 +1,8 @@
 # Build artifacts
 build/
 build-*/
+build[0-9]/
+build_test/
 *.exe
 *.dll
 *.so
@@ -14,12 +16,19 @@ __pycache__/
 *.egg-info/
 dist/
 .pytest_cache/
+.mypy_cache/
+.coverage
+*.coverage
 venv/
 .venv/
+
+# Benchmarks
+.benchmarks/
 
 # IDE
 .vscode/
 .idea/
+.trae/
 *.swp
 *.swo
 CMakeLists.txt.user

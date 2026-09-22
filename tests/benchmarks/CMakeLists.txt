@@ -5,6 +5,7 @@ if(NOT benchmark_FOUND)
     FetchContent_Declare(
         googlebenchmark
         URL https://github.com/google/benchmark/archive/refs/tags/v1.9.1.zip
+        URL_HASH SHA256=8a63c9c6adf9e7ce8d0d81f251c47de83efb5e077e147d109fa2045daac8368b
     )
     set(BENCHMARK_ENABLE_TESTING OFF CACHE BOOL "" FORCE)
     set(BENCHMARK_ENABLE_INSTALL OFF CACHE BOOL "" FORCE)

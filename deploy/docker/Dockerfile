@@ -100,7 +100,7 @@ CMD ["--help"]
 
 # Labels for metadata
 LABEL org.opencontainers.image.title="cppload-pro" \
-      org.opencontainers.image.description="Enterprise Load Testing Platform" \
+      org.opencontainers.image.description="C++20 Load Testing Platform" \
       org.opencontainers.image.authors="cppload-pro contributors" \
       org.opencontainers.image.source="https://github.com/ssrjkk/cppload-workflow" \
       org.opencontainers.image.version="1.0.0" \

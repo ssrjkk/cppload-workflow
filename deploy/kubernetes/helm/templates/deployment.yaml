@@ -42,6 +42,10 @@ spec:
             - {{ .Values.worker.loadTest.rps | quote }}
             - "--duration"
             - {{ .Values.worker.loadTest.duration | quote }}
+            {{- if .Values.config.enabled }}
+            - "--config"
+            - "/etc/cppload/scenarios/load-test.yaml"
+            {{- end }}
           
           ports:
             - name: http
@@ -80,7 +84,21 @@ spec:
             initialDelaySeconds: 5
             periodSeconds: 10
           {{- end }}
+
+          {{- if .Values.config.enabled }}
+          volumeMounts:
+            - name: config
+              mountPath: /etc/cppload/scenarios
+              readOnly: true
+          {{- end }}
       
+      {{- if .Values.config.enabled }}
+      volumes:
+        - name: config
+          configMap:
+            name: {{ include "cppload-pro.fullname" . }}-config
+      {{- end }}
+
       {{- with .Values.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}
