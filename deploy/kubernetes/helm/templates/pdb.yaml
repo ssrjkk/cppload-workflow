@@ -1,5 +1,5 @@
 # @author ssrjkk | cppload
-{{- if .Values.autoscaling.enabled }}
+{{ if .Values.autoscaling.enabled -}}
 apiVersion: policy/v1
 kind: PodDisruptionBudget
 metadata:
@@ -11,4 +11,4 @@ spec:
   selector:
     matchLabels:
       {{- include "cppload-pro.selectorLabels" . | nindent 6 }}
-{{- end }}
+{{- end -}}

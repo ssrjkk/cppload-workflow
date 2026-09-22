@@ -1,13 +1,14 @@
 // @author ssrjkk | cppload
 #pragma once
 
+#include <cstdint>
 #include <string>
 #include <memory>
 #include <boost/asio/ssl/context.hpp>
 
 namespace cppload::security {
 
-enum class TlsVersion : int {
+enum class TlsVersion : std::uint8_t {
     TLS_1_2 = 12,
     TLS_1_3 = 13,
 };

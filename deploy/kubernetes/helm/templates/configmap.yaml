@@ -1,5 +1,5 @@
 # @author ssrjkk | cppload
-{{- if .Values.config.enabled }}
+{{ if .Values.config.enabled -}}
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -13,4 +13,4 @@ data:
   prometheus.yml: |
 {{ .Values.config.prometheus | indent 4 }}
   {{- end }}
-{{- end }}
+{{- end -}}

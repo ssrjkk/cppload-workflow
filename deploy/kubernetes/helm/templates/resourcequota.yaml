@@ -1,5 +1,5 @@
 # @author ssrjkk | cppload
-{{- if .Values.resourceQuota.enabled }}
+{{ if .Values.resourceQuota.enabled -}}
 apiVersion: v1
 kind: ResourceQuota
 metadata:
@@ -13,4 +13,4 @@ spec:
     limits.cpu: {{ .Values.resourceQuota.limitsCpu | default "16" }}
     limits.memory: {{ .Values.resourceQuota.limitsMemory | default "16Gi" }}
     pods: {{ .Values.resourceQuota.maxPods | default 20 }}
-{{- end }}
+{{- end -}}

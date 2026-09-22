@@ -45,9 +45,9 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 Create the name of the service account to use
 */}}
 {{- define "cppload-pro.serviceAccountName" -}}
-{{- if .Values.rbac.create }}
-    {{ default (include "cppload-pro.fullname" .) .Values.serviceAccount.name }}
-{{- else }}
-    {{ default "default" .Values.serviceAccount.name }}
-{{- end }}
+{{- if .Values.rbac.create -}}
+{{ default (include "cppload-pro.fullname" .) .Values.serviceAccount.name -}}
+{{- else -}}
+{{ default "default" .Values.serviceAccount.name -}}
+{{- end -}}
 {{- end }}

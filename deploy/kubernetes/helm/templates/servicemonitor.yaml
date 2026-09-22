@@ -1,5 +1,5 @@
 # @author ssrjkk | cppload
-{{- if .Values.metrics.serviceMonitor.enabled }}
+{{ if .Values.metrics.serviceMonitor.enabled -}}
 apiVersion: monitoring.coreos.com/v1
 kind: ServiceMonitor
 metadata:
@@ -15,4 +15,4 @@ spec:
     - port: metrics
       interval: {{ .Values.metrics.serviceMonitor.interval }}
       path: {{ .Values.metrics.path }}
-{{- end }}
+{{- end -}}
