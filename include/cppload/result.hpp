@@ -21,6 +21,7 @@ public:
     Result& operator=(const Result&) = default;
     Result(Result&&) noexcept = default;
     Result& operator=(Result&&) noexcept = default;
+    ~Result() = default;
 
     static Result ok(T value) { return Result(std::move(value)); }
     static Result err(E error) { return Result(std::move(error)); }
@@ -41,32 +42,32 @@ public:
     }
 
     T value_or(T&& default_value) && {
-        return has_value() ? std::get<0>(std::move(storage_)) : std::forward<T>(default_value);
+        return has_value() ? std::get<0>(std::move(storage_)) : std::move(default_value);
     }
 
     template <typename F>
     auto map(F&& f) const& -> Result<std::invoke_result_t<F, const T&>, E> {
-        if (has_value()) return Result<std::invoke_result_t<F, const T&>, E>::ok(f(std::get<0>(storage_)));
+        if (has_value()) return Result<std::invoke_result_t<F, const T&>, E>::ok(std::forward<F>(f)(std::get<0>(storage_)));
         return Result<std::invoke_result_t<F, const T&>, E>::err(std::get<1>(storage_));
     }
 
     template <typename F>
     auto map(F&& f) && -> Result<std::invoke_result_t<F, T&&>, E> {
-        if (has_value()) return Result<std::invoke_result_t<F, T&&>, E>::ok(f(std::get<0>(std::move(storage_))));
+        if (has_value()) return Result<std::invoke_result_t<F, T&&>, E>::ok(std::forward<F>(f)(std::get<0>(std::move(storage_))));
         return Result<std::invoke_result_t<F, T&&>, E>::err(std::get<1>(std::move(storage_)));
     }
 
     template <typename F>
-    auto and_then(F&& f) const& -> decltype(f(std::declval<const T&>())) {
-        if (has_value()) return f(std::get<0>(storage_));
-        using R = decltype(f(std::declval<const T&>()));
+    auto and_then(F&& f) const& -> decltype(std::forward<F>(f)(std::declval<const T&>())) {
+        if (has_value()) return std::forward<F>(f)(std::get<0>(storage_));
+        using R = decltype(std::forward<F>(f)(std::declval<const T&>()));
         return R::err(std::get<1>(storage_));
     }
 
     template <typename F>
-    auto and_then(F&& f) && -> decltype(f(std::declval<T&&>())) {
-        if (has_value()) return f(std::get<0>(std::move(storage_)));
-        using R = decltype(f(std::declval<T&&>()));
+    auto and_then(F&& f) && -> decltype(std::forward<F>(f)(std::declval<T&&>())) {
+        if (has_value()) return std::forward<F>(f)(std::get<0>(std::move(storage_)));
+        using R = decltype(std::forward<F>(f)(std::declval<T&&>()));
         return R::err(std::get<1>(std::move(storage_)));
     }
 
@@ -74,38 +75,38 @@ public:
               typename = std::enable_if_t<!std::is_void_v<std::invoke_result_t<F, const E&>>>>
     auto or_else(F&& f) const& -> Result {
         if (has_value()) return Result::ok(std::get<0>(storage_));
-        return f(std::get<1>(storage_));
+        return std::forward<F>(f)(std::get<1>(storage_));
     }
 
     template <typename F,
               typename = std::enable_if_t<std::is_void_v<std::invoke_result_t<F, const E&>>>>
     void or_else(F&& f) const& {
-        if (!has_value()) f(std::get<1>(storage_));
+        if (!has_value()) std::forward<F>(f)(std::get<1>(storage_));
     }
 
     template <typename F,
               typename = std::enable_if_t<!std::is_void_v<std::invoke_result_t<F, E&&>>>>
     auto or_else(F&& f) && -> Result {
         if (has_value()) return Result::ok(std::get<0>(std::move(storage_)));
-        return f(std::get<1>(std::move(storage_)));
+        return std::forward<F>(f)(std::get<1>(std::move(storage_)));
     }
 
     template <typename F,
               typename = std::enable_if_t<std::is_void_v<std::invoke_result_t<F, E&&>>>>
     void or_else(F&& f) && {
-        if (!has_value()) f(std::get<1>(std::move(storage_)));
+        if (!has_value()) std::forward<F>(f)(std::get<1>(std::move(storage_)));
     }
 
     template <typename F>
     auto transform_error(F&& f) const& -> Result<T, std::invoke_result_t<F, const E&>> {
         if (has_value()) return Result<T, std::invoke_result_t<F, const E&>>::ok(std::get<0>(storage_));
-        return Result<T, std::invoke_result_t<F, const E&>>::err(f(std::get<1>(storage_)));
+        return Result<T, std::invoke_result_t<F, const E&>>::err(std::forward<F>(f)(std::get<1>(storage_)));
     }
 
     template <typename F>
     auto transform_error(F&& f) && -> Result<T, std::invoke_result_t<F, E&&>> {
         if (has_value()) return Result<T, std::invoke_result_t<F, E&&>>::ok(std::get<0>(std::move(storage_)));
-        return Result<T, std::invoke_result_t<F, E&&>>::err(f(std::get<1>(std::move(storage_))));
+        return Result<T, std::invoke_result_t<F, E&&>>::err(std::forward<F>(f)(std::get<1>(std::move(storage_))));
     }
 
     void swap(Result& other) noexcept {
@@ -133,6 +134,7 @@ public:
     Result& operator=(const Result&) = default;
     Result(Result&&) noexcept = default;
     Result& operator=(Result&&) noexcept = default;
+    ~Result() = default;
 
     static Result ok() { return Result(); }
     static Result err(E error) { return Result(std::move(error)); }
@@ -147,25 +149,25 @@ public:
     template <typename F,
               typename = std::enable_if_t<std::is_void_v<std::invoke_result_t<F, const E&>>>>
     void or_else(F&& f) const& {
-        if (!has_value()) f(std::get<1>(storage_));
+        if (!has_value()) std::forward<F>(f)(std::get<1>(storage_));
     }
 
     template <typename F,
               typename = std::enable_if_t<std::is_void_v<std::invoke_result_t<F, E&&>>>>
     void or_else(F&& f) && {
-        if (!has_value()) f(std::get<1>(std::move(storage_)));
+        if (!has_value()) std::forward<F>(f)(std::get<1>(std::move(storage_)));
     }
 
     template <typename F>
     auto transform_error(F&& f) const& -> Result<void, std::invoke_result_t<F, const E&>> {
         if (has_value()) return Result<void, std::invoke_result_t<F, const E&>>::ok();
-        return Result<void, std::invoke_result_t<F, const E&>>::err(f(std::get<1>(storage_)));
+        return Result<void, std::invoke_result_t<F, const E&>>::err(std::forward<F>(f)(std::get<1>(storage_)));
     }
 
     template <typename F>
     auto transform_error(F&& f) && -> Result<void, std::invoke_result_t<F, E&&>> {
         if (has_value()) return Result<void, std::invoke_result_t<F, E&&>>::ok();
-        return Result<void, std::invoke_result_t<F, E&&>>::err(f(std::get<1>(std::move(storage_))));
+        return Result<void, std::invoke_result_t<F, E&&>>::err(std::forward<F>(f)(std::get<1>(std::move(storage_))));
     }
 
     void swap(Result& other) noexcept {

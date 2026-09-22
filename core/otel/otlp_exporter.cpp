@@ -46,7 +46,7 @@ std::string random_hex(size_t len) {
     std::string result;
     result.reserve(len);
     for (size_t i = 0; i < len; ++i) {
-        result += hex[dis(gen)];
+        result += hex[static_cast<size_t>(dis(gen))];  // NOLINT(cppcoreguidelines-pro-bounds-constant-array-index)
     }
     return result;
 }
@@ -122,6 +122,11 @@ bool do_post_json(
 
 class Tracer::Impl {
 public:
+    Impl(const Impl&) = delete;
+    Impl& operator=(const Impl&) = delete;
+    Impl(Impl&&) = delete;
+    Impl& operator=(Impl&&) = delete;
+
     explicit Impl(const TraceConfig& config)
         : config_(config), span_active_(false)
         , trace_id_(random_hex(32))

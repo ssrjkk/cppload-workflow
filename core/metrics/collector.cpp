@@ -139,7 +139,7 @@ std::vector<int64_t> MetricsCollector::collect_ring_samples() const {
     // lock-free (cells are published via the seq barrier). Holding the lock
     // while copying up to kMaxSnapshotSamples entries made snapshot() stall
     // writers behind the mutex (audit item #3).
-    uint64_t h, t;
+    uint64_t h = 0, t = 0;
     {
         std::lock_guard<std::mutex> lock(snapshot_mtx_);
         h = head_.load(std::memory_order_acquire);

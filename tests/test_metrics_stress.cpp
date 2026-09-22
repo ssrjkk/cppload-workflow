@@ -18,7 +18,7 @@ TEST(MetricsCollectorStressTest, ConcurrentRecordAndSnapshot) {
 
     std::vector<std::thread> writers;
     for (int t = 0; t < kNumThreads; ++t) {
-        writers.emplace_back([&collector, t]() {
+        writers.emplace_back([&collector]() {
             for (int i = 0; i < kRecordsPerThread; ++i) {
                 collector.record_request(
                     200,

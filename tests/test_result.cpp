@@ -184,7 +184,7 @@ TEST(ResultTest, BoolConversion) {
 
 TEST(ResultTest, MoveOrElseNonVoidErr) {
     Result<int, Err> r = Result<int, Err>::err(Err::timeout);
-    auto result = std::move(r).or_else([](Err&&) -> Result<int, Err> {
+    auto result = std::move(r).or_else([](Err&& /*e*/) -> Result<int, Err> {
         return Result<int, Err>::ok(77);
     });
     EXPECT_TRUE(result.has_value());

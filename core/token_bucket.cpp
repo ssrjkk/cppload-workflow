@@ -14,6 +14,8 @@ TokenBucket::TokenBucket(double rate, double burst)
     if (rate_ <= 0.0) throw std::invalid_argument("TokenBucket: rate must be > 0");
 }
 
+TokenBucket::~TokenBucket() = default;
+
 void TokenBucket::set_rate(double rate) {
     if (rate <= 0.0) throw std::invalid_argument("TokenBucket: rate must be > 0");
     std::lock_guard<std::mutex> lock(mtx_);

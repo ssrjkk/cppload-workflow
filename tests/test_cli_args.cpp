@@ -14,9 +14,9 @@
 #endif
 
 #ifdef CPLOAD_TEST_CLI_PATH
-static const char* kCliPath = CPLOAD_TEST_CLI_PATH;
+static const char* const kCliPath = CPLOAD_TEST_CLI_PATH;
 #else
-static const char* kCliPath = "python3 tools/mock_cli.py";
+static const char* const kCliPath = "python3 tools/mock_cli.py";
 #endif
 
 namespace {
@@ -27,12 +27,12 @@ namespace {
 // like "python3 tools/mock_cli.py" would be treated as a single command name.
 int run_cli(const std::string& args, std::string& output) {
     std::string cmd = kCliPath + std::string(" ") + args + " 2>&1";
-    FILE* pipe = popen(cmd.c_str(), "r");
+    FILE* pipe = popen(cmd.c_str(), "r"); // NOLINT(cert-env33-c)
     if (!pipe) return -999;
     char buf[4096];
     output.clear();
-    size_t n;
-    while ((n = fread(buf, 1, sizeof(buf), pipe)) > 0) {
+    size_t n = 0;
+    while ((n = fread(buf, 1, sizeof(buf), pipe)) > 0) { // NOLINT
         output.append(buf, n);
     }
     int st = pclose(pipe);

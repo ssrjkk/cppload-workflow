@@ -82,7 +82,7 @@ private:
     struct alignas(64) CacheLinePad {};
 
     mutable std::atomic<uint64_t> head_{0};
-    mutable CacheLinePad pad_;
+    mutable CacheLinePad pad_;  // NOLINT(clang-diagnostic-unused-private-field)
     mutable std::atomic<uint64_t> tail_{0};
     mutable std::mutex snapshot_mtx_;
 };
