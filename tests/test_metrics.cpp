@@ -99,6 +99,9 @@ TEST(MetricsCollectorTest, RequestsPerSecond) {
     cppload::metrics::MetricsCollector collector;
     EXPECT_DOUBLE_EQ(collector.requests_per_second(), 0.0);
     collector.record_request(200, std::chrono::microseconds(100), 100, 500);
+    // requests_per_second() returns 0 until kMinElapsedSeconds (1ms) have
+    // passed since construction; step over that window before asserting.
+    std::this_thread::sleep_for(std::chrono::milliseconds(10));
     // After one request, RPS should be > 0
     EXPECT_GT(collector.requests_per_second(), 0.0);
 }
