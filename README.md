@@ -241,7 +241,7 @@ cppload-pro/
 ├── docs/                          # ADR, архитектура
 ├── proto/                         # Protobuf спецификации (gRPC)
 │   └── load_controller.proto
-├── .github/workflows/             # CI (7 jobs: build, coverage, asan, benchmark, integration, smoke, lint)
+├── .github/workflows/             # CI (8 jobs: build, coverage, asan, tsan, benchmark, integration, smoke, lint)
 ├── .pre-commit-config.yaml        # Pre-commit хуки
 ├── CMakePresets.json              # CMake presets (CMake 3.21+)
 ├── conanfile.py                   # Conan 2.0 рецепт
@@ -343,10 +343,11 @@ cd build && ./tests/benchmarks/http_client_bench
 | **Build & Test** | Сборка Release + GTest (189 тестов, 15 suites) | ✅ |
 | **Coverage** | Debug + --coverage + codecov | ✅ |
 | **AddressSanitizer** | ASan + UBSan, g++-13 | ✅ |
-| **Benchmark** | Сборка + прогон бенчмарков + регрессионный гейт | ✅ |
+| **ThreadSanitizer** | TSan, g++-13 | ✅ |
+| **Performance Regression** | Бенчмарки + регрессионный гейт vs baseline | ✅ |
 | **Integration** | Мок-сервер, connection pool, HTTP client, OAuth2, Vault | ✅ |
-| **Smoke** | E2E: demo-сервисы + CLI, SLA-проверка | ✅ |
-| **Lint** | clang-tidy, black, flake8, YAML валидация | ✅ |
+| **E2E Smoke** | Demo-сервисы + CLI, SLA-проверка | ✅ |
+| **Lint** | clang-tidy, black, flake8, mypy, YAML валидация | ✅ |
 
 ## Контрибьюция
 
