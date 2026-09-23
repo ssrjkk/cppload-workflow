@@ -41,7 +41,7 @@ struct SpanData {
 };
 
 std::string random_hex(size_t len) {
-    static constexpr std::array<char, 17> hex = "0123456789abcdef";
+    static constexpr std::array<char, 16> hex = {'0','1','2','3','4','5','6','7','8','9','a','b','c','d','e','f'};
     static thread_local std::mt19937 gen(std::random_device{}());
     static thread_local std::uniform_int_distribution<> dis(0, 15);
     std::string result;
