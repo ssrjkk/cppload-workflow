@@ -2,6 +2,7 @@
 #pragma once
 
 #include <algorithm>
+#include <array>
 #include <cctype>
 #include <string>
 #include <string_view>
@@ -31,7 +32,7 @@ constexpr std::string_view kMask = "******";
 //   JSON key-value like "client_secret":"VAL" / "access_token": "VAL" / "token":"VAL"
 //   URL form encoded like client_secret=VAL&access_token=VAL
 inline std::string redact_secrets(std::string_view input) {
-    static constexpr std::string_view kSecretKeys[] = {
+    static constexpr std::array<std::string_view, 14> kSecretKeys = {
         "authorization",
         "x-api-key",
         "x-vault-token",

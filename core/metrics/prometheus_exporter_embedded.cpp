@@ -45,6 +45,7 @@ BindAddress parse_bind_address(const std::string& address) {
             auto p = std::stoul(address.substr(colon + 1));
             if (p > 0 && p <= 65535) result.port = static_cast<uint16_t>(p);
         } catch (const std::exception&) {
+            // Invalid port number, use default
         }
     }
     if (result.host.empty()) result.host = "127.0.0.1";
@@ -87,8 +88,8 @@ public:
         running_ = false;
         boost::system::error_code ec;
         if (acceptor_) {
-            acceptor_->cancel(ec);
-            acceptor_->close(ec);
+            (void)acceptor_->cancel(ec);
+            (void)acceptor_->close(ec);
         }
         ioc_.stop();
         if (thread_.joinable()) thread_.join();
@@ -110,7 +111,7 @@ public:
     void update_metrics(const MetricsCollector& collector) {
         auto m = collector.snapshot();
         std::lock_guard<std::mutex> lock(metrics_mtx_);
-        metrics_ = std::move(m);
+        metrics_ = m;
         rps_ = collector.requests_per_second();
         err_rate_ = collector.error_rate();
     }
@@ -128,11 +129,11 @@ private:
                 if (!ec) {
                     if (active_connections_.load(std::memory_order_acquire) >= kMaxConnections) {
                         boost::system::error_code ec_close;
-                        socket->close(ec_close);
+                        (void)socket->close(ec_close);
                     } else {
                         active_connections_.fetch_add(1, std::memory_order_relaxed);
-                        std::thread t([this, socket]() {
-                            handle_request(socket);
+                        std::thread t([this, socket]() mutable {
+                            handle_request(std::move(socket));
                             active_connections_.fetch_sub(1, std::memory_order_relaxed);
                         });
                         std::lock_guard<std::mutex> lock(threads_mtx_);
@@ -180,8 +181,8 @@ private:
                 res.body() = "not found\n";
             }
             res.prepare_payload();
-            http::write(*socket, res, ec);
-            socket->shutdown(asio::ip::tcp::socket::shutdown_send, ec);
+            (void)http::write(*socket, res, ec);
+            (void)socket->shutdown(asio::ip::tcp::socket::shutdown_send, ec);
         } catch (const std::exception&) {
             // Client-side errors (broken pipe, reset by peer) are expected
             // during normal operation and are not actionable.
