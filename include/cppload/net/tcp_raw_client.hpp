@@ -31,7 +31,7 @@ public:
 
     void set_timeout(std::chrono::milliseconds ms) override;
 
-    std::string_view name() const override { return "tcp_raw"; }
+    [[nodiscard]] std::string_view name() const override { return "tcp_raw"; }
 
 private:
     class Impl;

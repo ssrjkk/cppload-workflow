@@ -32,7 +32,7 @@ public:
 
     void set_timeout(std::chrono::milliseconds ms) override;
 
-    std::string_view name() const override { return "ws"; }
+    [[nodiscard]] std::string_view name() const override { return "ws"; }
 
 private:
     class Impl;

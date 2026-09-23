@@ -40,6 +40,7 @@ TEST(IoContextPoolTest, GetContextReturnsValidReference) {
 TEST(IoContextPoolTest, RoundRobinDistribution) {
     cppload::IoContextPool pool(4);
     std::vector<std::reference_wrapper<boost::asio::io_context>> contexts;
+    contexts.reserve(8);
     for (int i = 0; i < 8; ++i) {
         contexts.push_back(std::ref(pool.get_context()));
     }
@@ -69,6 +70,7 @@ TEST(IoContextPoolTest, ConcurrentGetContext) {
     std::atomic<int> call_count{0};
 
     std::vector<std::thread> threads;
+    threads.reserve(8);
     for (int i = 0; i < 8; ++i) {
         threads.emplace_back([&pool, &call_count]() {
             for (int j = 0; j < 100; ++j) {

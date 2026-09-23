@@ -55,10 +55,10 @@ public:
 
     void set_timeout(std::chrono::milliseconds ms) override;
 
-    bool is_open() const override;
+    [[nodiscard]] bool is_open() const override;
 
-    std::string remote_address() const override;
-    uint16_t remote_port() const override;
+    [[nodiscard]] std::string remote_address() const override;
+    [[nodiscard]] uint16_t remote_port() const override;
 
     [[nodiscard]] boost::beast::tcp_stream& stream() { return stream_; }
     [[nodiscard]] const boost::beast::tcp_stream& stream() const { return stream_; }
@@ -86,10 +86,10 @@ public:
 
     void set_timeout(std::chrono::milliseconds ms) override;
 
-    bool is_open() const override;
+    [[nodiscard]] bool is_open() const override;
 
-    std::string remote_address() const override;
-    uint16_t remote_port() const override;
+    [[nodiscard]] std::string remote_address() const override;
+    [[nodiscard]] uint16_t remote_port() const override;
 
     void async_handshake(
         std::function<void(std::error_code)> handler);

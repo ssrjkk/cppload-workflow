@@ -57,11 +57,11 @@ public:
         return ctx_;
     }
     
-    bool is_mtls_enabled() const {
+    [[nodiscard]] bool is_mtls_enabled() const {
         return mtls_enabled_;
     }
 
-    bool is_verify_enabled() const {
+    [[nodiscard]] bool is_verify_enabled() const {
         return verify_peer_;
     }
     

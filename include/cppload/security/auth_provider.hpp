@@ -6,10 +6,11 @@
 #include <string>
 #include <memory>
 #include <unordered_map>
+#include <cstdint>
 
 namespace cppload::security {
 
-enum class AuthType {
+enum class AuthType : std::uint8_t {
     NONE,
     API_KEY,
     BEARER_TOKEN,
