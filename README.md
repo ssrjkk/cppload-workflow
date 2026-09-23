@@ -11,7 +11,7 @@
 
 ---
 
-Enterprise-grade load testing built on C++20 async core. YAML-driven scenarios, OAuth2/Vault/mTLS security, full observability with OpenTelemetry and Prometheus.
+Load testing built on C++20 async core. YAML-driven scenarios, OAuth2/Vault/mTLS security, full observability with OpenTelemetry and Prometheus.
 
 ## Why volley?
 
