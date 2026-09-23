@@ -40,8 +40,8 @@ protected:
 public:
     ProtocolClient(const ProtocolClient&) = delete;
     ProtocolClient& operator=(const ProtocolClient&) = delete;
-    ProtocolClient(ProtocolClient&&) = delete;
-    ProtocolClient& operator=(ProtocolClient&&) = delete;
+    ProtocolClient(ProtocolClient&&) noexcept = default;
+    ProtocolClient& operator=(ProtocolClient&&) noexcept = default;
     virtual ~ProtocolClient() noexcept = default;
 
     virtual void async_request(
