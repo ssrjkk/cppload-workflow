@@ -680,6 +680,7 @@ jobs:
           set -o pipefail
           run-clang-tidy-18 -p build-lint -quiet -j$(nproc) \
             -header-filter='include/.*\.hpp$' \
+            -source-filter='^(?!.*build-lint/_deps/).*$' \
             2>&1 | tee clang-tidy.log
           echo "clang-tidy completed (non-blocking)"
 

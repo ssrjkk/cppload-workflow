@@ -17,6 +17,7 @@ TEST(MetricsCollectorStressTest, ConcurrentRecordAndSnapshot) {
     std::atomic<int64_t> inconsistent_snapshots{0};
 
     std::vector<std::thread> writers;
+    writers.reserve(kNumThreads);
     for (int t = 0; t < kNumThreads; ++t) {
         writers.emplace_back([&collector]() {
             for (int i = 0; i < kRecordsPerThread; ++i) {
@@ -58,6 +59,7 @@ TEST(MetricsCollectorStressTest, ConcurrentRecordAndReset) {
     auto start_time = std::chrono::steady_clock::now();
 
     std::vector<std::thread> writers;
+    writers.reserve(10);
     for (int t = 0; t < 10; ++t) {
         writers.emplace_back([&collector, &stop]() {
             while (!stop.load(std::memory_order_relaxed)) {
@@ -97,6 +99,7 @@ TEST(MetricsCollectorStressTest, MinMaxLatencyCorrectness) {
     cppload::metrics::MetricsCollector collector;
 
     std::vector<std::thread> writers;
+    writers.reserve(kNumThreads);
     for (int t = 0; t < kNumThreads; ++t) {
         writers.emplace_back([&collector, t]() {
             for (int i = 0; i < kRecordsPerThread; ++i) {
@@ -125,6 +128,7 @@ TEST(MetricsCollectorStressTest, ResetUnderConcurrentWrites) {
     std::atomic<bool> stop{false};
 
     std::vector<std::thread> writers;
+    writers.reserve(kWriters);
     for (int t = 0; t < kWriters; ++t) {
         writers.emplace_back([&collector, &stop]() {
             while (!stop.load(std::memory_order_relaxed)) {
