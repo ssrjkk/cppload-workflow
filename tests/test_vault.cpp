@@ -2,7 +2,7 @@
 #include <gtest/gtest.h>
 #include "cppload/vault/vault_client.hpp"
 
-static const char* VAULT_TEST_ADDR = "http://192.0.2.1:8200";
+static const char* const VAULT_TEST_ADDR = "http://192.0.2.1:8200";
 
 TEST(VaultClientTest, ConstructDefault) {
     cppload::vault::VaultConfig cfg;

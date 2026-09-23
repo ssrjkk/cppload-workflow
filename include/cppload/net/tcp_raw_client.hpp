@@ -27,7 +27,7 @@ public:
 
     void async_request(
         const Request& req,
-        std::function<void(std::error_code, Response)> handler) override;
+        std::function<void(std::error_code, const Response&)> handler) override;
 
     void set_timeout(std::chrono::milliseconds ms) override;
 

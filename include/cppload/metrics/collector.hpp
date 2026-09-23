@@ -77,7 +77,7 @@ private:
     static constexpr size_t kRingCapacity = 1 << 20;
     static constexpr size_t kRingMask = kRingCapacity - 1;
 
-    std::unique_ptr<Cell[]> ring_;  // NOLINT(modernize-avoid-c-arrays)
+    std::unique_ptr<Cell[]> ring_;  // NOLINT(cppcoreguidelines-avoid-c-arrays, modernize-avoid-c-arrays)
 
     struct alignas(64) CacheLinePad {};
 

@@ -41,11 +41,11 @@ BindAddress parse_bind_address(const std::string& address) {
     auto colon = address.rfind(':');
     if (colon != std::string::npos) {
         result.host = address.substr(0, colon);
-        try {
-            auto p = std::stoul(address.substr(colon + 1));
+        auto port_str = address.substr(colon + 1);
+        if (!port_str.empty() &&
+            port_str.find_first_not_of("0123456789") == std::string::npos) {
+            auto p = std::stoul(port_str);
             if (p > 0 && p <= 65535) result.port = static_cast<uint16_t>(p);
-        } catch (const std::exception&) {
-            // Invalid port number, use default
         }
     }
     if (result.host.empty()) result.host = "127.0.0.1";
@@ -56,7 +56,7 @@ BindAddress parse_bind_address(const std::string& address) {
 
 // Fallback exporter used when prometheus-cpp is not available at build time.
 // Serves /metrics as Prometheus text exposition from a Boost.Beast HTTP server.
-class PrometheusExporterImpl {
+class PrometheusExporterImpl {  // NOLINT(cppcoreguidelines-special-member-functions)
 public:
     explicit PrometheusExporterImpl(const std::string& bind_address)
         : bind_(parse_bind_address(bind_address)) {}
@@ -88,8 +88,10 @@ public:
         running_ = false;
         boost::system::error_code ec;
         if (acceptor_) {
-            (void)acceptor_->cancel(ec);
-            (void)acceptor_->close(ec);
+            auto cancel_ec = acceptor_->cancel(ec);
+            auto close_ec = acceptor_->close(ec);
+            (void)cancel_ec;
+            (void)close_ec;
         }
         ioc_.stop();
         if (thread_.joinable()) thread_.join();
@@ -129,7 +131,8 @@ private:
                 if (!ec) {
                     if (active_connections_.load(std::memory_order_acquire) >= kMaxConnections) {
                         boost::system::error_code ec_close;
-                        (void)socket->close(ec_close);
+                        auto close_ec = socket->close(ec_close);
+                        (void)close_ec;
                     } else {
                         active_connections_.fetch_add(1, std::memory_order_relaxed);
                         std::thread t([this, socket]() mutable {
@@ -144,49 +147,46 @@ private:
             });
     }
 
-    void handle_request(std::shared_ptr<asio::ip::tcp::socket> socket) {
-        try {
-            // Bound reads so a stalled client cannot block the handler thread
-            // forever (stop() joins these threads).
+    void handle_request(const std::shared_ptr<asio::ip::tcp::socket>& socket) {
+        // Bound reads so a stalled client cannot block the handler thread
+        // forever (stop() joins these threads).
 #if defined(_WIN32)
-            unsigned long rcv_timeout_ms = static_cast<unsigned long>(core::kDefaultTimeout.count());
-            ::setsockopt(socket->native_handle(), SOL_SOCKET, SO_RCVTIMEO,
-                         reinterpret_cast<const char*>(&rcv_timeout_ms),
-                         static_cast<int>(sizeof(rcv_timeout_ms)));
+        unsigned long rcv_timeout_ms = static_cast<unsigned long>(core::kDefaultTimeout.count());
+        ::setsockopt(socket->native_handle(), SOL_SOCKET, SO_RCVTIMEO,
+                     reinterpret_cast<const char*>(&rcv_timeout_ms),  // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
+                     static_cast<int>(sizeof(rcv_timeout_ms)));
 #else
-            struct timeval tv;
-            auto timeout = core::kDefaultTimeout;
-            tv.tv_sec = std::chrono::duration_cast<std::chrono::seconds>(timeout).count();
-            tv.tv_usec = std::chrono::microseconds(timeout % std::chrono::seconds(1)).count();
-            ::setsockopt(socket->native_handle(), SOL_SOCKET, SO_RCVTIMEO,
-                         reinterpret_cast<const char*>(&tv),
-                         static_cast<socklen_t>(sizeof(tv)));
+        struct timeval tv {};
+        auto timeout = core::kDefaultTimeout;
+        tv.tv_sec = std::chrono::duration_cast<std::chrono::seconds>(timeout).count();
+        tv.tv_usec = std::chrono::microseconds(timeout % std::chrono::seconds(1)).count();
+        ::setsockopt(socket->native_handle(), SOL_SOCKET, SO_RCVTIMEO,
+                     reinterpret_cast<const char*>(&tv),  // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
+                     static_cast<socklen_t>(sizeof(tv)));
 #endif
-            beast::flat_buffer buffer;
-            http::request<http::string_body> req;
-            boost::system::error_code ec;
-            http::read(*socket, buffer, req, ec);
-            if (ec) return;
+        beast::flat_buffer buffer;
+        http::request<http::string_body> req;
+        boost::system::error_code ec;
+        http::read(*socket, buffer, req, ec);
+        if (ec) return;
 
-            http::response<http::string_body> res{http::status::ok, req.version()};
-            res.set(http::field::server, "cppload-pro/1.0");
-            res.set(http::field::content_type,
-                "text/plain; version=0.0.4; charset=utf-8");
-            if (req.method() == http::verb::get && req.target() == "/metrics") {
-                res.body() = metrics_text();
-            } else if (req.method() == http::verb::get && req.target() == "/") {
-                res.body() = "cppload-pro prometheus exporter\n";
-            } else {
-                res.result(http::status::not_found);
-                res.body() = "not found\n";
-            }
-            res.prepare_payload();
-            (void)http::write(*socket, res, ec);
-            (void)socket->shutdown(asio::ip::tcp::socket::shutdown_send, ec);
-        } catch (const std::exception&) {
-            // Client-side errors (broken pipe, reset by peer) are expected
-            // during normal operation and are not actionable.
+        http::response<http::string_body> res{http::status::ok, req.version()};
+        res.set(http::field::server, "cppload-pro/1.0");
+        res.set(http::field::content_type,
+            "text/plain; version=0.0.4; charset=utf-8");
+        if (req.method() == http::verb::get && req.target() == "/metrics") {
+            res.body() = metrics_text();
+        } else if (req.method() == http::verb::get && req.target() == "/") {
+            res.body() = "cppload-pro prometheus exporter\n";
+        } else {
+            res.result(http::status::not_found);
+            res.body() = "not found\n";
         }
+        res.prepare_payload();
+        auto write_ec = http::write(*socket, res, ec);
+        auto shutdown_ec = socket->shutdown(asio::ip::tcp::socket::shutdown_send, ec);
+        (void)write_ec;
+        (void)shutdown_ec;
     }
 
     std::string metrics_text() const {

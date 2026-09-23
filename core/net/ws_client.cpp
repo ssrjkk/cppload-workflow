@@ -26,7 +26,7 @@ public:
     }
 
     void async_request(const Request& req,
-                       std::function<void(std::error_code, Response)> handler)
+                       std::function<void(std::error_code, const Response&)> handler)
     {
         auto start_time = std::chrono::steady_clock::now();
         auto self = shared_from_this();
@@ -45,7 +45,7 @@ public:
 
         resolver->async_resolve(req.host, std::to_string(req.port),
             [self, resolver, response, handler, start_time, req, use_tls](
-                beast::error_code ec, asio::ip::tcp::resolver::results_type results)
+                beast::error_code ec, const asio::ip::tcp::resolver::results_type& results)
             {
                 if (ec) {
                     response->ec = (ec == asio::error::host_not_found)
@@ -68,10 +68,10 @@ public:
 
 private:
     void connect_ws(
-        asio::ip::tcp::resolver::results_type results,
+        const asio::ip::tcp::resolver::results_type& results,
         const Request& req,
         std::shared_ptr<Response> response,
-        std::function<void(std::error_code, Response)> handler,
+        std::function<void(std::error_code, const Response&)> handler,
         std::chrono::steady_clock::time_point start_time)
     {
         auto self = shared_from_this();
@@ -107,10 +107,10 @@ private:
     }
 
     void connect_wss(
-        asio::ip::tcp::resolver::results_type results,
+        const asio::ip::tcp::resolver::results_type& results,
         const Request& req,
         std::shared_ptr<Response> response,
-        std::function<void(std::error_code, Response)> handler,
+        std::function<void(std::error_code, const Response&)> handler,
         std::chrono::steady_clock::time_point start_time)
     {
         auto self = shared_from_this();
@@ -198,7 +198,7 @@ private:
         std::shared_ptr<websocket::stream<beast::tcp_stream>> ws,
         const std::string& body,
         std::shared_ptr<Response> response,
-        std::function<void(std::error_code, Response)> handler,
+        std::function<void(std::error_code, const Response&)> handler,
         std::chrono::steady_clock::time_point start_time)
     {
         auto self = shared_from_this();
@@ -231,7 +231,7 @@ private:
         std::shared_ptr<websocket::stream<asio::ssl::stream<beast::tcp_stream>>> ws,
         const std::string& body,
         std::shared_ptr<Response> response,
-        std::function<void(std::error_code, Response)> handler,
+        std::function<void(std::error_code, const Response&)> handler,
         std::chrono::steady_clock::time_point start_time)
     {
         auto self = shared_from_this();
@@ -279,7 +279,7 @@ WsClient& WsClient::operator=(WsClient&&) noexcept = default;
 
 void WsClient::async_request(
     const Request& req,
-    std::function<void(std::error_code, Response)> handler)
+    std::function<void(std::error_code, const Response&)> handler)
 {
     impl_->async_request(req, handler);
 }

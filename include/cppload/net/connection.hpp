@@ -17,7 +17,7 @@
 
 namespace cppload::net {
 
-class Connection {
+class Connection {  // NOLINT(cppcoreguidelines-special-member-functions)
 public:
     virtual ~Connection() = default;
 
@@ -102,7 +102,7 @@ private:
     std::chrono::milliseconds timeout_{core::kDefaultTimeout};
 };
 
-class Connector {
+class Connector {  // NOLINT(cppcoreguidelines-special-member-functions)
 public:
     virtual ~Connector() = default;
 
@@ -126,7 +126,7 @@ public:
     void set_timeout(std::chrono::milliseconds ms) override;
 
 private:
-    boost::asio::io_context& ioc_;
+    boost::asio::io_context& ioc_;  // NOLINT(cppcoreguidelines-avoid-const-or-ref-data-members)
     std::chrono::milliseconds timeout_{core::kDefaultTimeout};
 };
 
@@ -144,8 +144,8 @@ public:
     void set_timeout(std::chrono::milliseconds ms) override;
 
 private:
-    boost::asio::io_context& ioc_;
-    boost::asio::ssl::context& ssl_ctx_;
+    boost::asio::io_context& ioc_;  // NOLINT(cppcoreguidelines-avoid-const-or-ref-data-members)
+    boost::asio::ssl::context& ssl_ctx_;  // NOLINT(cppcoreguidelines-avoid-const-or-ref-data-members)
     std::chrono::milliseconds timeout_{core::kDefaultTimeout};
 };
 

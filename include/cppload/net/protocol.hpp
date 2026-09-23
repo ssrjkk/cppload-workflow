@@ -46,7 +46,7 @@ public:
 
     virtual void async_request(
         const Request& req,
-        std::function<void(std::error_code, Response)> handler) = 0;
+        std::function<void(std::error_code, const Response&)> handler) = 0;
 
     virtual void set_timeout(std::chrono::milliseconds ms) = 0;
 

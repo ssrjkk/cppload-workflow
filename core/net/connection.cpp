@@ -170,7 +170,7 @@ void TcpConnector::async_connect(
     auto ioc_ptr = &ioc_;
     resolver->async_resolve(host, std::to_string(port),
         [resolver, timeout = timeout_, handler, ioc_ptr](
-            beast::error_code ec, tcp::resolver::results_type results) mutable
+            beast::error_code ec, const tcp::resolver::results_type& results) mutable
         {
             if (ec) {
                 std::error_code err = (ec == asio::error::host_not_found)
@@ -223,7 +223,7 @@ void SslConnector::async_connect(
     auto ssl_ctx_ptr = &ssl_ctx_;
     resolver->async_resolve(host, std::to_string(port),
         [resolver, handler, host, timeout = timeout_, ioc_ptr, ssl_ctx_ptr](
-            beast::error_code ec, tcp::resolver::results_type results) mutable
+            beast::error_code ec, const tcp::resolver::results_type& results) mutable
         {
             if (ec) {
                 std::error_code err = (ec == asio::error::host_not_found)

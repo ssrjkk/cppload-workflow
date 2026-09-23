@@ -13,6 +13,7 @@
 #include <atomic>
 #include <cctype>
 #include <chrono>
+#include <array>
 
 namespace beast = boost::beast;
 namespace http = beast::http;
@@ -21,7 +22,7 @@ namespace asio = boost::asio;
 namespace cppload::net {
 
 static std::string url_encode_path(const std::string& raw) {
-    static constexpr char hex_chars[] = "0123456789ABCDEF";
+    static constexpr std::array<char, 16> hex_chars = {'0','1','2','3','4','5','6','7','8','9','A','B','C','D','E','F'};
     static constexpr std::string_view unreserved =
         "/@!$&'()*+,;=:?._-";
     std::string out;
@@ -71,7 +72,7 @@ public:
     }
 
     void async_request(const Request& req,
-                       std::function<void(std::error_code, Response)> handler)
+                       std::function<void(std::error_code, const Response&)> handler)
     {
         auto start_time = std::chrono::steady_clock::now();
         auto self = shared_from_this();
@@ -127,7 +128,7 @@ private:
     };
 
     std::shared_ptr<http::request<http::string_body>>
-    build_request(const Request& req, std::shared_ptr<Response> response) {
+    build_request(const Request& req, const std::shared_ptr<Response>& response) {
         auto req_msg = std::make_shared<http::request<http::string_body>>();
         auto verb = http::string_to_verb(req.method);
         if (verb == http::verb::unknown) {
@@ -158,7 +159,7 @@ private:
 
     void request_fresh(
         const Request& req,
-        std::function<void(std::error_code, Response)> handler,
+        std::function<void(std::error_code, const Response&)> handler,
         std::chrono::steady_clock::time_point start_time)
     {
         auto self = shared_from_this();
@@ -176,7 +177,7 @@ private:
         resolver->async_resolve(req.host, std::to_string(req.port),
             [self, resolver, req_msg, response, handler, start_time,
              buffer, res, req, use_tls](
-                beast::error_code ec, asio::ip::tcp::resolver::results_type results)
+                beast::error_code ec, const asio::ip::tcp::resolver::results_type& results)
             {
                 if (ec) {
                     response->ec = (ec == asio::error::host_not_found)
@@ -216,7 +217,7 @@ private:
         if (ec) return true;
         ec = {};
         char c = 0;
-        stream.socket().receive(
+        [[maybe_unused]] auto n = stream.socket().receive(
             asio::buffer(&c, 1),
             asio::socket_base::message_peek, ec);
         if (ec == asio::error::would_block ||
@@ -232,7 +233,7 @@ private:
     void request_on_cached(
         std::shared_ptr<ReusableConn> conn,
         const Request& req,
-        std::function<void(std::error_code, Response)> handler,
+        std::function<void(std::error_code, const Response&)> handler,
         std::chrono::steady_clock::time_point start_time)
     {
         auto self = shared_from_this();
@@ -274,7 +275,7 @@ private:
         const Request& req,
         std::shared_ptr<http::request<http::string_body>> req_msg,
         std::shared_ptr<Response> response,
-        std::function<void(std::error_code, Response)> handler,
+        std::function<void(std::error_code, const Response&)> handler,
         std::chrono::steady_clock::time_point start_time,
         std::shared_ptr<http::response<http::string_body>> res)
     {
@@ -329,7 +330,7 @@ private:
         const Request& req,
         std::shared_ptr<http::request<http::string_body>> req_msg,
         std::shared_ptr<Response> response,
-        std::function<void(std::error_code, Response)> handler,
+        std::function<void(std::error_code, const Response&)> handler,
         std::chrono::steady_clock::time_point start_time,
         std::shared_ptr<http::response<http::string_body>> res)
     {
@@ -378,11 +379,11 @@ private:
     }
 
     void connect_tcp(
-        asio::ip::tcp::resolver::results_type results,
+        const asio::ip::tcp::resolver::results_type& results,
         const Request& req,
         std::shared_ptr<http::request<http::string_body>> req_msg,
         std::shared_ptr<Response> response,
-        std::function<void(std::error_code, Response)> handler,
+        std::function<void(std::error_code, const Response&)> handler,
         std::chrono::steady_clock::time_point start_time,
         std::shared_ptr<beast::flat_buffer> buffer,
         std::shared_ptr<http::response<http::string_body>> res)
@@ -409,11 +410,11 @@ private:
     }
 
     void connect_tls(
-        asio::ip::tcp::resolver::results_type results,
+        const asio::ip::tcp::resolver::results_type& results,
         const Request& req,
         std::shared_ptr<http::request<http::string_body>> req_msg,
         std::shared_ptr<Response> response,
-        std::function<void(std::error_code, Response)> handler,
+        std::function<void(std::error_code, const Response&)> handler,
         std::chrono::steady_clock::time_point start_time,
         std::shared_ptr<beast::flat_buffer> buffer,
         std::shared_ptr<http::response<http::string_body>> res)
@@ -527,7 +528,7 @@ private:
         const Request& req,
         std::shared_ptr<http::request<http::string_body>> req_msg,
         std::shared_ptr<Response> response,
-        std::function<void(std::error_code, Response)> handler,
+        std::function<void(std::error_code, const Response&)> handler,
         std::chrono::steady_clock::time_point start_time,
         std::shared_ptr<beast::flat_buffer> buffer,
         std::shared_ptr<http::response<http::string_body>> res)
@@ -569,7 +570,7 @@ private:
         const Request& req,
         std::shared_ptr<http::request<http::string_body>> req_msg,
         std::shared_ptr<Response> response,
-        std::function<void(std::error_code, Response)> handler,
+        std::function<void(std::error_code, const Response&)> handler,
         std::chrono::steady_clock::time_point start_time,
         std::shared_ptr<beast::flat_buffer> buffer,
         std::shared_ptr<http::response<http::string_body>> res)
@@ -649,7 +650,7 @@ Http11Client& Http11Client::operator=(Http11Client&&) noexcept = default;
 
 void Http11Client::async_request(
     const Request& req,
-    std::function<void(std::error_code, Response)> handler)
+    std::function<void(std::error_code, const Response&)> handler)
 {
     impl_->async_request(req, handler);
 }

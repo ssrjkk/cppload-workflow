@@ -40,7 +40,7 @@ TEST(HttpClientTest, AsyncRequestFailsGracefully) {
     req.port = 99;
 
     std::atomic<bool> called{false};
-    client.async_request(req, [&](std::error_code ec, cppload::net::Response /*resp*/) {
+    client.async_request(req, [&](std::error_code ec, const cppload::net::Response& /*resp*/) {
         called = true;
         EXPECT_NE(ec.value(), 0);
     });

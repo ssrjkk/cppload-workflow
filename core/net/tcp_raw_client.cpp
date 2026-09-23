@@ -28,7 +28,7 @@ public:
     }
 
     void async_request(const Request& req,
-                       std::function<void(std::error_code, Response)> handler)
+                       std::function<void(std::error_code, const Response&)> handler)
     {
         auto start_time = std::chrono::steady_clock::now();
         auto self = shared_from_this();
@@ -47,7 +47,7 @@ public:
 
         resolver->async_resolve(req.host, std::to_string(req.port),
             [self, resolver, response, handler, start_time, req, use_tls](
-                beast::error_code ec, asio::ip::tcp::resolver::results_type results)
+                beast::error_code ec, const asio::ip::tcp::resolver::results_type& results)
             {
                 if (ec) {
                     response->ec = (ec == asio::error::host_not_found)
@@ -70,10 +70,10 @@ public:
 
 private:
     void connect_tcp(
-        asio::ip::tcp::resolver::results_type results,
+        const asio::ip::tcp::resolver::results_type& results,
         const Request& req,
         std::shared_ptr<Response> response,
-        std::function<void(std::error_code, Response)> handler,
+        std::function<void(std::error_code, const Response&)> handler,
         std::chrono::steady_clock::time_point start_time)
     {
         auto self = shared_from_this();
@@ -96,10 +96,10 @@ private:
     }
 
     void connect_tls(
-        asio::ip::tcp::resolver::results_type results,
+        const asio::ip::tcp::resolver::results_type& results,
         const Request& req,
         std::shared_ptr<Response> response,
-        std::function<void(std::error_code, Response)> handler,
+        std::function<void(std::error_code, const Response&)> handler,
         std::chrono::steady_clock::time_point start_time)
     {
         auto self = shared_from_this();
@@ -178,7 +178,7 @@ private:
         std::shared_ptr<beast::tcp_stream> stream,
         const std::string& body,
         std::shared_ptr<Response> response,
-        std::function<void(std::error_code, Response)> handler,
+        std::function<void(std::error_code, const Response&)> handler,
         std::chrono::steady_clock::time_point start_time)
     {
         auto self = shared_from_this();
@@ -218,7 +218,7 @@ private:
         std::shared_ptr<asio::ssl::stream<beast::tcp_stream>> ssl_stream,
         const std::string& body,
         std::shared_ptr<Response> response,
-        std::function<void(std::error_code, Response)> handler,
+        std::function<void(std::error_code, const Response&)> handler,
         std::chrono::steady_clock::time_point start_time)
     {
         auto self = shared_from_this();
@@ -277,7 +277,7 @@ TcpRawClient& TcpRawClient::operator=(TcpRawClient&&) noexcept = default;
 
 void TcpRawClient::async_request(
     const Request& req,
-    std::function<void(std::error_code, Response)> handler)
+    std::function<void(std::error_code, const Response&)> handler)
 {
     impl_->async_request(req, handler);
 }

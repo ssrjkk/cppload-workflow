@@ -256,7 +256,7 @@ TEST_F(TlsIntegrationTest, HttpHostnameMatchLocalhost) {
     req.use_tls = true;
 
     std::atomic<bool> called{false};
-    client.async_request(req, [&](std::error_code ec, cppload::net::Response resp) {
+    client.async_request(req, [&](std::error_code ec, const cppload::net::Response& resp) {
         ASSERT_FALSE(ec) << "Unexpected error: " << ec.message();
         EXPECT_EQ(resp.status_code, 200);
         called = true;
@@ -283,7 +283,7 @@ TEST_F(TlsIntegrationTest, HttpIpLiteralMatch) {
     req.use_tls = true;
 
     std::atomic<bool> called{false};
-    client.async_request(req, [&](std::error_code ec, cppload::net::Response resp) {
+    client.async_request(req, [&](std::error_code ec, const cppload::net::Response& resp) {
         ASSERT_FALSE(ec) << "Unexpected error: " << ec.message();
         EXPECT_EQ(resp.status_code, 200);
         called = true;
@@ -313,7 +313,7 @@ TEST_F(TlsIntegrationTest, HttpHostnameMismatchFails) {
     req.use_tls = true;
 
     std::atomic<bool> called{false};
-    client.async_request(req, [&](std::error_code ec, cppload::net::Response) {
+    client.async_request(req, [&](std::error_code ec, const cppload::net::Response&) {
         EXPECT_EQ(ec, cppload::Err::tls_handshake_failed)
             << "Expected hostname mismatch to fail the handshake, got: "
             << ec.message();
@@ -345,7 +345,7 @@ TEST_F(TlsIntegrationTest, HttpVerifyDisabledAllowsMismatch) {
     req.use_tls = true;
 
     std::atomic<bool> called{false};
-    client.async_request(req, [&](std::error_code ec, cppload::net::Response resp) {
+    client.async_request(req, [&](std::error_code ec, const cppload::net::Response& resp) {
         ASSERT_FALSE(ec) << "Unexpected error: " << ec.message();
         EXPECT_EQ(resp.status_code, 200);
         called = true;
@@ -375,7 +375,7 @@ TEST_F(TlsIntegrationTest, Tls10OnlyServerIsRefused) {
     req.use_tls = true;
 
     std::atomic<bool> called{false};
-    client.async_request(req, [&](std::error_code ec, cppload::net::Response) {
+    client.async_request(req, [&](std::error_code ec, const cppload::net::Response&) {
         ASSERT_TRUE(ec) << "Expected TLS 1.2 minimum to abort the handshake";
         EXPECT_EQ(ec, cppload::Err::tls_handshake_failed)
             << "got: " << ec.message();
@@ -404,7 +404,7 @@ TEST_F(TlsIntegrationTest, TcpRawIpLiteral) {
     req.body = "ping";
 
     std::atomic<bool> called{false};
-    client.async_request(req, [&](std::error_code ec, cppload::net::Response resp) {
+    client.async_request(req, [&](std::error_code ec, const cppload::net::Response& resp) {
         ASSERT_FALSE(ec) << "Unexpected error: " << ec.message();
         EXPECT_EQ(resp.status_code, 1);
         EXPECT_EQ(resp.body, "PONG");
@@ -460,7 +460,7 @@ TEST_F(TlsIntegrationTest, WsIpLiteral) {
     req.body = "hello";
 
     std::atomic<bool> called{false};
-    client.async_request(req, [&](std::error_code ec, cppload::net::Response resp) {
+    client.async_request(req, [&](std::error_code ec, const cppload::net::Response& resp) {
         ASSERT_FALSE(ec) << "Unexpected error: " << ec.message();
         EXPECT_EQ(resp.status_code, 1);
         EXPECT_EQ(resp.body, "pong");

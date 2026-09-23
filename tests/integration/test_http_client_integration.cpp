@@ -34,7 +34,7 @@ TEST(HttpClientIntegrationTest, SuccessfulRequest) {
     req.port = server.port();
 
     std::atomic<bool> called{false};
-    client.async_request(req, [&](std::error_code ec, cppload::net::Response resp) {
+    client.async_request(req, [&](std::error_code ec, const cppload::net::Response& resp) {
         ASSERT_FALSE(ec) << "Unexpected error: " << ec.message();
         EXPECT_EQ(resp.status_code, 200);
         EXPECT_EQ(resp.body, R"({"status":"ok"})");
@@ -73,7 +73,7 @@ TEST(HttpClientIntegrationTest, PostWithBody) {
     req.port = server.port();
 
     std::atomic<bool> called{false};
-    client.async_request(req, [&](std::error_code ec, cppload::net::Response resp) {
+    client.async_request(req, [&](std::error_code ec, const cppload::net::Response& resp) {
         ASSERT_FALSE(ec) << "Unexpected error: " << ec.message();
         EXPECT_EQ(resp.status_code, 201);
         called = true;
@@ -110,7 +110,7 @@ TEST(HttpClientIntegrationTest, Ipv6LiteralHostHeader) {
     req.port = server.port();
 
     std::atomic<bool> called{false};
-    client.async_request(req, [&](std::error_code err, cppload::net::Response resp) {
+    client.async_request(req, [&](std::error_code err, const cppload::net::Response& resp) {
         ASSERT_FALSE(err) << "Unexpected error: " << err.message();
         EXPECT_EQ(resp.status_code, 200);
         called = true;
@@ -145,7 +145,7 @@ TEST(HttpClientIntegrationTest, ServerError) {
     req.port = server.port();
 
     std::atomic<bool> called{false};
-    client.async_request(req, [&](std::error_code ec, cppload::net::Response resp) {
+    client.async_request(req, [&](std::error_code ec, const cppload::net::Response& resp) {
         ASSERT_FALSE(ec) << "Unexpected error: " << ec.message();
         EXPECT_EQ(resp.status_code, 500);
         called = true;
