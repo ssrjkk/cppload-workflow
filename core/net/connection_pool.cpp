@@ -14,7 +14,7 @@ struct PoolEntry {
 class ConnectionPool::Impl {
 public:
     Impl(boost::asio::io_context& ioc, const PoolConfig& config)
-        : ioc_(ioc), config_(config), total_created_(0) {
+        : ioc_(ioc), config_(config) {
     }
 
     std::unique_ptr<Http11Client> acquire(const std::string& host,
@@ -103,7 +103,7 @@ private:
     PoolConfig config_;
     mutable std::mutex mtx_;
     std::unordered_map<std::string, std::queue<PoolEntry>> pools_;
-    size_t total_created_;
+    size_t total_created_{0};
 };
 
 ConnectionPool::ConnectionPool(boost::asio::io_context& ioc,

@@ -42,10 +42,10 @@ long long parse_duration_us(const std::string& str) {
     std::string unit = str.substr(pos);
     long long mul = 1;
     if (unit == "us") mul = 1;
-    else if (unit == "ms") mul = 1000;
-    else if (unit == "s") mul = 1000 * 1000;
-    else if (unit == "m") mul = 60 * 1000 * 1000;
-    else if (unit == "h") mul = 3600LL * 1000 * 1000;
+    else if (unit == "ms") mul = 1000LL;
+    else if (unit == "s") mul = 1000LL * 1000LL;
+    else if (unit == "m") mul = 60LL * 1000LL * 1000LL;
+    else if (unit == "h") mul = 3600LL * 1000LL * 1000LL;
     else return -1;
     // Reject values whose product would overflow int64 (previously UB).
     if (value < 0 || value > std::numeric_limits<long long>::max() / mul) return -1;
@@ -219,7 +219,7 @@ public:
                           << "duration=" << cfg.load_profile.stages.back().duration.count() << "ms"
                           << ", rps=" << cfg.load_profile.stages.back().target_rps
                           << ", users=" << cfg.load_profile.stages.back().concurrent_users
-                          << std::endl;
+                          << '\n';
             }
         }
 
@@ -388,7 +388,7 @@ public:
                         // the bulk of the interval, then spins the last 2ms for
                         // precision. The bucket still guards against over-rate
                         // bursts under scheduler jitter.
-                        double rate = static_cast<double>(target_rps_.load(std::memory_order_relaxed));
+                        auto rate = static_cast<double>(target_rps_.load(std::memory_order_relaxed));
                         if (rate <= 0.0) rate = 1.0;
                         double period_ns_d = stage_concurrency / rate * 1'000'000'000.0;
                         if (period_ns_d < 1.0) period_ns_d = 1.0;
@@ -453,7 +453,7 @@ public:
                             auto done = std::make_shared<std::atomic<bool>>(false);
                             last_done = done;
                             client->async_request(*capture_req,
-                                [capture_req, &metrics, &callback, done, step](std::error_code ec, net::Response resp) mutable {
+                                [capture_req, &metrics, &callback, done, step](std::error_code ec, const net::Response& resp) mutable {
                                     uint16_t code = ec ? 0 : resp.status_code;
                                     if (code != 0 && !evaluate_assertions(step, resp)) {
                                         code = 0;
@@ -603,7 +603,7 @@ bool ScenarioEngine::load_config() { return impl_->load_config(); }
 bool ScenarioEngine::validate() const { return impl_->validate(); }
 bool ScenarioEngine::validate_schema() const { return impl_->validate_schema(); }
 const ScenarioConfig& ScenarioEngine::config() const { return impl_->config(); }
-void ScenarioEngine::run(StepCallback callback) { impl_->run(callback); }
+void ScenarioEngine::run(StepCallback callback) { impl_->run(std::move(callback)); }
 void ScenarioEngine::stop() { impl_->stop(); }
 void ScenarioEngine::set_target_rps(uint32_t rps) { impl_->set_target_rps(rps); }
 uint32_t ScenarioEngine::target_rps() const { return impl_->target_rps(); }

@@ -4,6 +4,7 @@
 #include <cstdlib>
 #include <string>
 #include <string_view>
+#include <cstdint>
 
 #if defined(_WIN32)
 #include <windows.h>
@@ -18,7 +19,7 @@
 
 namespace cppload::core::term {
 
-enum class Color {
+enum class Color : std::uint8_t {
     Reset = 0,
     Bold = 1,
     FgBlack = 30,
