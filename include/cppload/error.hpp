@@ -4,10 +4,11 @@
 #include <system_error>
 #include <string>
 #include <type_traits>
+#include <cstdint>
 
 namespace cppload {
 
-enum class Err {
+enum class Err : std::uint8_t {
     success = 0,
     invalid_method,
     invalid_target,
@@ -57,11 +58,11 @@ static_assert(static_cast<int>(Err::auth_parse_error) == 29,
 
 class ErrCategory : public std::error_category {
 public:
-    const char* name() const noexcept override {
+    [[nodiscard]] const char* name() const noexcept override {
         return "cppload";
     }
 
-    std::string message(int ev) const override {
+    [[nodiscard]] std::string message(int ev) const override {
         switch (static_cast<Err>(ev)) {
             case Err::success: return "success";
             case Err::invalid_method: return "invalid HTTP method";
@@ -105,11 +106,11 @@ public:
 [[nodiscard]] const std::error_category& err_category();
 
 [[nodiscard]] inline std::error_code make_error_code(Err e) {
-    return std::error_code(static_cast<int>(e), err_category());
+    return {static_cast<int>(e), err_category()};
 }
 
 [[nodiscard]] inline std::error_condition make_error_condition(Err e) {
-    return std::error_condition(static_cast<int>(e), err_category());
+    return {static_cast<int>(e), err_category()};
 }
 
 } // namespace cppload

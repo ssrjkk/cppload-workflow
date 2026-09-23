@@ -53,6 +53,7 @@ TEST(TokenBucketTest, ConcurrentConsume) {
     const int num_threads = 4;
     const int per_thread = 100;
     std::vector<std::thread> threads;
+    threads.reserve(num_threads);
     
     for (int t = 0; t < num_threads; ++t) {
         threads.emplace_back([&]() {
