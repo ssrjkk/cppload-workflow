@@ -674,6 +674,7 @@ jobs:
             -DCPLOAD_WARNINGS_AS_ERRORS=ON
 
       - name: Run clang-tidy
+        id: clang-tidy
         continue-on-error: true
         run: |
           set -o pipefail
@@ -683,7 +684,7 @@ jobs:
           echo "clang-tidy completed (non-blocking)"
 
       - name: Upload clang-tidy log
-        if: failure()
+        if: steps.clang-tidy.outcome != 'skipped'
         uses: actions/upload-artifact@v7
         with:
           name: clang-tidy-log
