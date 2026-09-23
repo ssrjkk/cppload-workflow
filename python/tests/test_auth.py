@@ -1,6 +1,6 @@
 """Tests for auth providers and config dataclasses."""
 
-from cppload import (
+from volley import (
     AuthConfig,
     AuthProvider,
     AuthType,

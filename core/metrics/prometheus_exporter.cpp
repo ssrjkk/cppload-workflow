@@ -1,7 +1,7 @@
-// @author ssrjkk | cppload
+// @author ssrjkk | volley
 #include "cppload/metrics/prometheus_exporter.hpp"
 
-#ifdef CPLOAD_HAVE_PROMETHEUS
+#ifdef VOLLEY_HAVE_PROMETHEUS
 
 #include <prometheus/counter.h>
 #include <prometheus/exposer.h>
@@ -33,50 +33,50 @@ public:
 
         // Create metrics
         auto& total_requests = prometheus::BuildCounter()
-            .Name("cppload_requests_total")
+            .Name("volley_requests_total")
             .Help("Total number of HTTP requests")
             .Register(*registry_);
         total_requests_ = &total_requests.Add({});
 
         auto& successful_requests = prometheus::BuildCounter()
-            .Name("cppload_requests_success_total")
+            .Name("volley_requests_success_total")
             .Help("Total number of successful requests")
             .Register(*registry_);
         successful_requests_ = &successful_requests.Add({});
 
         auto& failed_requests = prometheus::BuildCounter()
-            .Name("cppload_requests_failed_total")
+            .Name("volley_requests_failed_total")
             .Help("Total number of failed requests")
             .Register(*registry_);
         failed_requests_ = &failed_requests.Add({});
 
         auto& bytes_sent = prometheus::BuildCounter()
-            .Name("cppload_bytes_sent_total")
+            .Name("volley_bytes_sent_total")
             .Help("Total bytes sent")
             .Register(*registry_);
         bytes_sent_ = &bytes_sent.Add({});
 
         auto& bytes_received = prometheus::BuildCounter()
-            .Name("cppload_bytes_received_total")
+            .Name("volley_bytes_received_total")
             .Help("Total bytes received")
             .Register(*registry_);
         bytes_received_ = &bytes_received.Add({});
 
         auto& latency_histogram = prometheus::BuildHistogram()
-            .Name("cppload_request_duration_seconds")
+            .Name("volley_request_duration_seconds")
             .Help("Request latency in seconds")
             .Buckets({0.001, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0})
             .Register(*registry_);
         latency_histogram_ = &latency_histogram.Add({});
 
         auto& rps_gauge = prometheus::BuildGauge()
-            .Name("cppload_requests_per_second")
+            .Name("volley_requests_per_second")
             .Help("Current requests per second")
             .Register(*registry_);
         rps_gauge_ = &rps_gauge.Add({});
 
         auto& error_rate_gauge = prometheus::BuildGauge()
-            .Name("cppload_error_rate_percent")
+            .Name("volley_error_rate_percent")
             .Help("Current error rate in percent")
             .Register(*registry_);
         error_rate_gauge_ = &error_rate_gauge.Add({});
@@ -173,4 +173,4 @@ std::string PrometheusExporter::endpoint() const { return impl_->endpoint(); }
 
 } // namespace cppload::metrics
 
-#endif // CPLOAD_HAVE_PROMETHEUS
+#endif // VOLLEY_HAVE_PROMETHEUS

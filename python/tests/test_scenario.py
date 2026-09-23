@@ -3,7 +3,7 @@
 import json
 import time
 
-from cppload import ScenarioEngine, Scenario, LoadProfile, ConnectionPool, PoolConfig
+from volley import ScenarioEngine, Scenario, LoadProfile, ConnectionPool, PoolConfig
 
 
 def _write_config(tmp_path, data: dict):
@@ -71,14 +71,14 @@ class TestConnectionPool:
 
 class TestJsonRoundTrip:
     def test_snapshot_serializable(self):
-        from cppload import MetricsCollector
+        from volley import MetricsCollector
 
         m = MetricsCollector()
         m.record_request(200, 100)
         json.dumps(m.snapshot())
 
     def test_wall_clock_progresses(self):
-        from cppload import MetricsCollector
+        from volley import MetricsCollector
 
         m = MetricsCollector()
         time.sleep(1.05)

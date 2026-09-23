@@ -1,4 +1,4 @@
-# @author ssrjkk | cppload
+# @author ssrjkk | volley
 # Health-check monitoring scenario: low-rate synthetic probes of /health + key endpoints.
 # Suited for CI smoke checks and always-on monitoring.
 version: "1.0"

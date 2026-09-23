@@ -1,11 +1,11 @@
-# @author ssrjkk | cppload
+# @author ssrjkk | volley
 """Integration tests for HTTP client with real HTTP server"""
 
 import pytest
 import threading
 import time
 from http.server import HTTPServer, BaseHTTPRequestHandler
-from cppload import HttpClient, HttpRequest, ConnectionPool, PoolConfig
+from volley import HttpClient, HttpRequest, ConnectionPool, PoolConfig
 
 
 class IntegrationTestHandler(BaseHTTPRequestHandler):

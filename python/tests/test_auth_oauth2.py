@@ -1,9 +1,9 @@
-# @author ssrjkk | cppload
+# @author ssrjkk | volley
 """Tests for AuthProvider OAuth2 and advanced features."""
 
 import time
 from unittest.mock import Mock, patch
-from cppload import AuthProvider, AuthConfig, AuthType
+from volley import AuthProvider, AuthConfig, AuthType
 
 
 class TestAuthProviderOAuth2:
@@ -118,7 +118,7 @@ class TestAuthProviderOAuth2:
         )
 
         with patch(
-            "cppload.core.AuthProvider._fetch_token", side_effect=Exception("Network error")
+            "volley.core.AuthProvider._fetch_token", side_effect=Exception("Network error")
         ):
             provider = AuthProvider.__new__(AuthProvider)
             provider.config = config

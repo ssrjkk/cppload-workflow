@@ -4,16 +4,16 @@ import sys
 
 def main():
     if len(sys.argv) < 2:
-        print("Usage: cppload-cli [options]", file=sys.stderr)
+        print("Usage: volley [options]", file=sys.stderr)
         sys.exit(1)
     
     arg = sys.argv[1]
     
     if arg == "--version":
-        print("cppload-pro 1.1.0")
+        print("volley 1.1.0")
         sys.exit(0)
     elif arg == "--help":
-        print("Usage: cppload-cli [options]")
+        print("Usage: volley [options]")
         print("Options:")
         print("  --version        Show version")
         print("  --help           Show this help")

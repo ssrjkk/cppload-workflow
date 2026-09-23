@@ -1,17 +1,17 @@
-# @author ssrjkk | cppload
+# @author ssrjkk | volley
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ include "cppload-pro.fullname" . }}
+  name: {{ include "volley.fullname" . }}
   labels:
-    {{- include "cppload-pro.labels" . | nindent 4 }}
+    {{- include "volley.labels" . | nindent 4 }}
 spec:
   {{- if not .Values.autoscaling.enabled }}
   replicas: {{ .Values.replicaCount }}
   {{- end }}
   selector:
     matchLabels:
-      {{- include "cppload-pro.selectorLabels" . | nindent 6 }}
+      {{- include "volley.selectorLabels" . | nindent 6 }}
   template:
     metadata:
       {{- with .Values.podAnnotations }}
@@ -19,13 +19,13 @@ spec:
         {{- toYaml . | nindent 8 }}
       {{- end }}
       labels:
-        {{- include "cppload-pro.selectorLabels" . | nindent 8 }}
+        {{- include "volley.selectorLabels" . | nindent 8 }}
     spec:
       {{- with .Values.imagePullSecrets }}
       imagePullSecrets:
         {{- toYaml . | nindent 8 }}
       {{- end }}
-      serviceAccountName: {{ include "cppload-pro.serviceAccountName" . }}
+      serviceAccountName: {{ include "volley.serviceAccountName" . }}
       securityContext:
         {{- toYaml .Values.podSecurityContext | nindent 8 }}
       containers:
@@ -34,7 +34,7 @@ spec:
             {{- toYaml .Values.securityContext | nindent 12 }}
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
-          command: ["cppload-cli"]
+          command: ["volley"]
           args:
             - "--target"
             - {{ .Values.worker.loadTest.targetUrl | quote }}
@@ -44,7 +44,7 @@ spec:
             - {{ .Values.worker.loadTest.duration | quote }}
             {{- if .Values.config.enabled }}
             - "--config"
-            - "/etc/cppload/scenarios/load-test.yaml"
+            - "/etc/volley/scenarios/load-test.yaml"
             {{- end }}
           
           ports:
@@ -88,7 +88,7 @@ spec:
           {{- if .Values.config.enabled }}
           volumeMounts:
             - name: config
-              mountPath: /etc/cppload/scenarios
+              mountPath: /etc/volley/scenarios
               readOnly: true
           {{- end }}
       
@@ -96,7 +96,7 @@ spec:
       volumes:
         - name: config
           configMap:
-            name: {{ include "cppload-pro.fullname" . }}-config
+            name: {{ include "volley.fullname" . }}-config
       {{- end }}
 
       {{- with .Values.nodeSelector }}

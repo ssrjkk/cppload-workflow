@@ -1,4 +1,4 @@
-<!-- @author ssrjkk | cppload -->
+<!-- @author ssrjkk | volley -->
 # ADR-001: Conan 2.x as Package Manager
 
 **Date:** 2026-05-08
@@ -6,7 +6,7 @@
 
 ## Context
 
-cppload-pro requires several C++ dependencies: Boost, OpenSSL, gRPC, protobuf, prometheus-cpp, nlohmann-json, civetweb. We need a package manager that can handle transitive dependency resolution, lock files for reproducible builds, and cross-platform support.
+volley requires several C++ dependencies: Boost, OpenSSL, gRPC, protobuf, prometheus-cpp, nlohmann-json, civetweb. We need a package manager that can handle transitive dependency resolution, lock files for reproducible builds, and cross-platform support.
 
 Alternatives considered: vcpkg, Conan 1.x, Conan 2.x, system package manager (apt).
 

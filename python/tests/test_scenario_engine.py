@@ -1,10 +1,10 @@
-# @author ssrjkk | cppload
+# @author ssrjkk | volley
 """Tests for ScenarioEngine and LoadTest."""
 
 import tempfile
 import os
 from unittest.mock import Mock, patch
-from cppload import ScenarioEngine, LoadTest
+from volley import ScenarioEngine, LoadTest
 
 
 class TestScenarioEngine:
@@ -66,10 +66,10 @@ class TestScenarioEngine:
         assert engine.config == {"test": "value"}
 
     @patch("subprocess.run")
-    @patch("cppload.core._find_cli")
+    @patch("volley.core._find_cli")
     def test_run_without_callback(self, mock_find_cli, mock_run):
         """Test run without callback."""
-        mock_find_cli.return_value = "cppload-cli"
+        mock_find_cli.return_value = "volley"
         mock_run.return_value = Mock(returncode=0, stdout="Success", stderr="")
 
         with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
@@ -90,10 +90,10 @@ class TestScenarioEngine:
             os.unlink(config_path)
 
     @patch("subprocess.run")
-    @patch("cppload.core._find_cli")
+    @patch("volley.core._find_cli")
     def test_run_with_callback(self, mock_find_cli, mock_run):
         """Test run with callback."""
-        mock_find_cli.return_value = "cppload-cli"
+        mock_find_cli.return_value = "volley"
         mock_result = Mock(returncode=0, stdout="Success", stderr="")
         mock_run.return_value = mock_result
 
@@ -119,10 +119,10 @@ class TestFindCli:
 
     def test_find_cli_returns_default_when_not_found(self):
         """Test _find_cli returns default when CLI not found."""
-        from cppload.core import _find_cli
+        from volley.core import _find_cli
 
         result = _find_cli()
-        assert result == "cppload-cli"
+        assert result == "volley"
 
 
 class TestLoadTest:

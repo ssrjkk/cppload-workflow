@@ -3,13 +3,13 @@ requires = ["setuptools>=61.0"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "cppload-pro"
+name = "volley"
 version = "1.1.0"
-description = "cppload-pro: load-testing tool with a C++20 core and Python SDK"
+description = "volley: load-testing tool with a C++20 core and Python SDK"
 readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "Apache-2.0" }
-authors = [{ name = "cppload-pro contributors" }]
+authors = [{ name = "volley contributors" }]
 keywords = ["load-testing", "benchmark", "http", "performance"]
 classifiers = [
     "Programming Language :: Python :: 3",
@@ -28,7 +28,7 @@ dev = [
 ]
 
 [tool.setuptools]
-packages = ["cppload"]
+packages = ["volley"]
 
 [tool.mypy]
 strict = true
@@ -44,4 +44,4 @@ extend-ignore = ["E203", "W503"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-addopts = "--cov=cppload --cov-report=term-missing"
+addopts = "--cov=volley --cov-report=term-missing"

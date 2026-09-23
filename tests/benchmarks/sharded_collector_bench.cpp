@@ -1,4 +1,4 @@
-// @author ssrjkk | cppload
+// @author ssrjkk | volley
 #include <benchmark/benchmark.h>
 #include "cppload/metrics/sharded_collector.hpp"
 #include <thread>

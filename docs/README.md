@@ -1,5 +1,5 @@
-<!-- @author ssrjkk | cppload -->
-# cppload-pro Documentation
+<!-- @author ssrjkk | volley -->
+# volley Documentation
 
 ## Architecture Overview
 
@@ -23,7 +23,7 @@ Load-testing tool for HTTP services. C++20 core (Boost.Beast/ASIO).
 
 ```bash
 # Configure
-cmake -B build -G Ninja -DCPLOAD_BUILD_PYTHON=ON
+cmake -B build -G Ninja -DVOLLEY_BUILD_PYTHON=ON
 
 # Build
 cmake --build build

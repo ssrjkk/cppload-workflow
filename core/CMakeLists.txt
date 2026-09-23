@@ -1,4 +1,4 @@
-# @author ssrjkk | cppload
+# @author ssrjkk | volley
 # Core library sources
 set(CORE_SOURCES
     error.cpp
@@ -80,7 +80,7 @@ if(prometheus-cpp_FOUND)
             prometheus-cpp::core
             prometheus-cpp::pull
     )
-    target_compile_definitions(cppload_core PUBLIC CPLOAD_HAVE_PROMETHEUS)
+    target_compile_definitions(cppload_core PUBLIC VOLLEY_HAVE_PROMETHEUS)
 else()
     target_sources(cppload_core PRIVATE metrics/prometheus_exporter_embedded.cpp)
 endif()
@@ -89,7 +89,7 @@ target_compile_features(cppload_core PUBLIC cxx_std_20)
 
 # Install library
 install(TARGETS cppload_core
-    EXPORT cppload-targets
+    EXPORT volley-targets
     LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
     ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
     RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}

@@ -1,8 +1,8 @@
-# @author ssrjkk | cppload
+# @author ssrjkk | volley
 """Tests for VaultClient."""
 
 from unittest.mock import Mock, patch, MagicMock
-from cppload import VaultClient, VaultConfig
+from volley import VaultClient, VaultConfig
 
 
 class TestVaultClient:
@@ -230,3 +230,11 @@ class TestVaultClient:
         config = VaultConfig(token="my_token", address="http://localhost:8200")
         assert config.token == "my_token"
         assert config.address == "http://localhost:8200"
+
+    def test_get_secret_invalid_path(self):
+        """Test get_secret rejects paths with invalid characters."""
+        import pytest
+
+        client = VaultClient(VaultConfig(token="token"))
+        with pytest.raises(ValueError, match="Invalid secret path"):
+            client.get_secret("../etc/passwd", "key")

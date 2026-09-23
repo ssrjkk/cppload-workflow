@@ -1,8 +1,8 @@
-# @author ssrjkk | cppload
+# @author ssrjkk | volley
 cmake_minimum_required(VERSION 3.21)
 file(READ VERSION PROJECT_VERSION_STRING)
 string(STRIP "${PROJECT_VERSION_STRING}" PROJECT_VERSION_STRING)
-project(cppload-pro VERSION ${PROJECT_VERSION_STRING} LANGUAGES CXX)
+project(volley VERSION ${PROJECT_VERSION_STRING} LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -19,48 +19,48 @@ include(GNUInstallDirs)
 include(CMakeDependentOption)
 
 # Compiler warnings
-option(CPLOAD_WARNINGS_AS_ERRORS "Treat compiler warnings as errors" OFF)
+option(VOLLEY_WARNINGS_AS_ERRORS "Treat compiler warnings as errors" OFF)
 if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang|AppleClang")
     add_compile_options(-Wall -Wextra -Wpedantic)
-    if(CPLOAD_WARNINGS_AS_ERRORS)
+    if(VOLLEY_WARNINGS_AS_ERRORS)
         add_compile_options(-Werror)
     endif()
 elseif(MSVC)
     add_compile_options(/W4)
-    if(CPLOAD_WARNINGS_AS_ERRORS)
+    if(VOLLEY_WARNINGS_AS_ERRORS)
         add_compile_options(/WX)
     endif()
 endif()
 
 # Sanitizers
-option(CPLOAD_ENABLE_ASAN "Enable AddressSanitizer" OFF)
-option(CPLOAD_ENABLE_TSAN "Enable ThreadSanitizer" OFF)
-option(CPLOAD_ENABLE_UBSAN "Enable UndefinedBehaviorSanitizer" OFF)
-if(CPLOAD_ENABLE_ASAN AND CPLOAD_ENABLE_TSAN)
+option(VOLLEY_ENABLE_ASAN "Enable AddressSanitizer" OFF)
+option(VOLLEY_ENABLE_TSAN "Enable ThreadSanitizer" OFF)
+option(VOLLEY_ENABLE_UBSAN "Enable UndefinedBehaviorSanitizer" OFF)
+if(VOLLEY_ENABLE_ASAN AND VOLLEY_ENABLE_TSAN)
     message(FATAL_ERROR "Cannot enable ASan and TSan simultaneously")
 endif()
-if(CPLOAD_ENABLE_ASAN)
+if(VOLLEY_ENABLE_ASAN)
     add_compile_options(-fsanitize=address -fno-omit-frame-pointer)
     add_link_options(-fsanitize=address)
 endif()
-if(CPLOAD_ENABLE_TSAN)
+if(VOLLEY_ENABLE_TSAN)
     add_compile_options(-fsanitize=thread -Wno-tsan)
     add_link_options(-fsanitize=thread)
 endif()
-if(CPLOAD_ENABLE_UBSAN)
+if(VOLLEY_ENABLE_UBSAN)
     add_compile_options(-fsanitize=undefined)
     add_link_options(-fsanitize=undefined)
 endif()
 
 # Build options
 option(BUILD_SHARED_LIBS "Build shared libraries" OFF)
-cmake_dependent_option(CPLOAD_BUILD_TESTS "Build tests" ON PROJECT_IS_TOP_LEVEL OFF)
-cmake_dependent_option(CPLOAD_BUILD_PYTHON "Build Python bindings" ON PROJECT_IS_TOP_LEVEL OFF)
-cmake_dependent_option(CPLOAD_BUILD_WORKERS "Build worker executables" ON PROJECT_IS_TOP_LEVEL OFF)
-cmake_dependent_option(CPLOAD_BUILD_TOOLS "Build CLI tools" ON PROJECT_IS_TOP_LEVEL OFF)
-cmake_dependent_option(CPLOAD_BUILD_BENCHMARKS "Build benchmark tests" ON CPLOAD_BUILD_TESTS OFF)
-cmake_dependent_option(CPLOAD_BUILD_INTEGRATION_TESTS "Build integration tests" ON CPLOAD_BUILD_TESTS OFF)
-option(CPLOAD_BUILD_GRPC_WORKER "Build gRPC worker (requires gRPC and Protobuf)" OFF)
+cmake_dependent_option(VOLLEY_BUILD_TESTS "Build tests" ON PROJECT_IS_TOP_LEVEL OFF)
+cmake_dependent_option(VOLLEY_BUILD_PYTHON "Build Python bindings" ON PROJECT_IS_TOP_LEVEL OFF)
+cmake_dependent_option(VOLLEY_BUILD_WORKERS "Build worker executables" ON PROJECT_IS_TOP_LEVEL OFF)
+cmake_dependent_option(VOLLEY_BUILD_TOOLS "Build CLI tools" ON PROJECT_IS_TOP_LEVEL OFF)
+cmake_dependent_option(VOLLEY_BUILD_BENCHMARKS "Build benchmark tests" ON VOLLEY_BUILD_TESTS OFF)
+cmake_dependent_option(VOLLEY_BUILD_INTEGRATION_TESTS "Build integration tests" ON VOLLEY_BUILD_TESTS OFF)
+option(VOLLEY_BUILD_GRPC_WORKER "Build gRPC worker (requires gRPC and Protobuf)" OFF)
 
 # Dependencies via Conan or find_package
 find_package(Boost 1.83 REQUIRED COMPONENTS system)
@@ -99,48 +99,48 @@ find_package(prometheus-cpp QUIET)
 add_subdirectory(core)
 
 # Workers (executables)
-if(CPLOAD_BUILD_WORKERS)
+if(VOLLEY_BUILD_WORKERS)
     add_subdirectory(workers)
 endif()
 
 # Python bindings
-if(CPLOAD_BUILD_PYTHON)
+if(VOLLEY_BUILD_PYTHON)
     add_subdirectory(python)
 endif()
 
 # Tools
-if(CPLOAD_BUILD_TOOLS)
+if(VOLLEY_BUILD_TOOLS)
     add_subdirectory(tools)
 endif()
 
 # Tests
-if(CPLOAD_BUILD_TESTS)
+if(VOLLEY_BUILD_TESTS)
     enable_testing()
     add_subdirectory(tests)
 endif()
 
 # Install targets
-install(EXPORT cppload-targets
-    FILE cppload-targets.cmake
-    NAMESPACE cppload::
-    DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/cppload
+install(EXPORT volley-targets
+    FILE volley-targets.cmake
+    NAMESPACE volley::
+    DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/volley
 )
 
 include(CMakePackageConfigHelpers)
 write_basic_package_version_file(
-    ${CMAKE_CURRENT_BINARY_DIR}/cppload-config-version.cmake
+    ${CMAKE_CURRENT_BINARY_DIR}/volley-config-version.cmake
     VERSION ${PROJECT_VERSION}
     COMPATIBILITY SameMajorVersion
 )
 
 configure_package_config_file(
-    cmake/cppload-config.cmake.in
-    ${CMAKE_CURRENT_BINARY_DIR}/cppload-config.cmake
-    INSTALL_DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/cppload
+    cmake/volley-config.cmake.in
+    ${CMAKE_CURRENT_BINARY_DIR}/volley-config.cmake
+    INSTALL_DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/volley
 )
 
 install(FILES
-    ${CMAKE_CURRENT_BINARY_DIR}/cppload-config.cmake
-    ${CMAKE_CURRENT_BINARY_DIR}/cppload-config-version.cmake
-    DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/cppload
+    ${CMAKE_CURRENT_BINARY_DIR}/volley-config.cmake
+    ${CMAKE_CURRENT_BINARY_DIR}/volley-config-version.cmake
+    DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/volley
 )

@@ -1,13 +1,13 @@
-# @author ssrjkk | cppload
+# @author ssrjkk | volley
 apiVersion: v2
-name: cppload-pro
+name: volley
 version: 1.0.0
 appVersion: "1.0.0"
 description: Load-testing tool with a C++20 core
 type: application
 
 maintainers:
-  - name: cppload-pro contributors
+  - name: volley contributors
 
 keywords:
   - load-testing

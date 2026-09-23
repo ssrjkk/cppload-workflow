@@ -1,4 +1,4 @@
-# @author ssrjkk | cppload
+# @author ssrjkk | volley
 add_executable(http_worker main.cpp)
 
 target_include_directories(http_worker

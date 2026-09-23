@@ -1,4 +1,4 @@
-# @author ssrjkk | cppload
+# @author ssrjkk | volley
 add_executable(test_http_client_integration test_http_client_integration.cpp)
 target_link_libraries(test_http_client_integration
     PRIVATE cppload_core cppload_gtest_main

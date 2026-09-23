@@ -1,4 +1,4 @@
-# @author ssrjkk | cppload
+# @author ssrjkk | volley
 # Multi-stage build for minimal image size
 # Stage 1: Builder
 FROM ubuntu:24.04 AS builder
@@ -44,8 +44,8 @@ RUN conan install . --output-folder=. --build=missing \
 RUN cmake -B build-release -G Ninja \
     -DCMAKE_BUILD_TYPE=Release \
     -DCMAKE_TOOLCHAIN_FILE=conan_toolchain.cmake \
-    -DCPLOAD_BUILD_PYTHON=OFF \
-    -DCPLOAD_BUILD_TESTS=OFF \
+    -DVOLLEY_BUILD_PYTHON=OFF \
+    -DVOLLEY_BUILD_TESTS=OFF \
     -DCMAKE_INSTALL_PREFIX=/install
 
 RUN cmake --build build-release --config Release -j$(nproc)
@@ -70,9 +70,9 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 # Create non-root user
-RUN useradd -m -u 1000 cppload && \
-    mkdir -p /var/log/cppload && \
-    chown -R cppload:cppload /var/log/cppload
+RUN useradd -m -u 1000 volley && \
+    mkdir -p /var/log/volley && \
+    chown -R volley:volley /var/log/volley
 
 # Copy binaries from builder
 COPY --from=builder /install/bin/* /usr/local/bin/
@@ -82,11 +82,11 @@ COPY --from=builder /install/lib/* /usr/local/lib/
 RUN ldconfig
 
 # Copy default configs
-COPY scenarios /etc/cppload/scenarios
+COPY scenarios /etc/volley/scenarios
 
-WORKDIR /home/cppload
+WORKDIR /home/volley
 
-USER cppload
+USER volley
 
 # Expose metrics port
 EXPOSE 9090
@@ -95,13 +95,13 @@ EXPOSE 9090
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
     CMD curl -f http://localhost:9090/metrics || exit 1
 
-ENTRYPOINT ["cppload-cli"]
+ENTRYPOINT ["volley"]
 CMD ["--help"]
 
 # Labels for metadata
-LABEL org.opencontainers.image.title="cppload-pro" \
+LABEL org.opencontainers.image.title="volley" \
       org.opencontainers.image.description="C++20 Load Testing Platform" \
-      org.opencontainers.image.authors="cppload-pro contributors" \
+      org.opencontainers.image.authors="volley contributors" \
       org.opencontainers.image.source="https://github.com/ssrjkk/cppload-workflow" \
       org.opencontainers.image.version="1.0.0" \
       org.opencontainers.image.licenses="Apache-2.0"

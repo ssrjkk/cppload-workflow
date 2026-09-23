@@ -1,10 +1,10 @@
-# @author ssrjkk | cppload
+# @author ssrjkk | volley
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ include "cppload-pro.fullname" . }}
+  name: {{ include "volley.fullname" . }}
   labels:
-    {{- include "cppload-pro.labels" . | nindent 4 }}
+    {{- include "volley.labels" . | nindent 4 }}
 spec:
   type: {{ .Values.service.type }}
   ports:
@@ -17,4 +17,4 @@ spec:
       protocol: TCP
       name: metrics
   selector:
-    {{- include "cppload-pro.selectorLabels" . | nindent 4 }}
+    {{- include "volley.selectorLabels" . | nindent 4 }}

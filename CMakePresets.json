@@ -14,9 +14,9 @@
       "binaryDir": "${sourceDir}/build",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Release",
-        "CPLOAD_BUILD_TESTS": "ON",
-        "CPLOAD_BUILD_PYTHON": "ON",
-        "CPLOAD_BUILD_WORKERS": "ON"
+        "VOLLEY_BUILD_TESTS": "ON",
+        "VOLLEY_BUILD_PYTHON": "ON",
+        "VOLLEY_BUILD_WORKERS": "ON"
       }
     },
     {
@@ -26,7 +26,7 @@
       "binaryDir": "${sourceDir}/build-debug",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Debug",
-        "CPLOAD_BUILD_TESTS": "ON"
+        "VOLLEY_BUILD_TESTS": "ON"
       }
     },
     {

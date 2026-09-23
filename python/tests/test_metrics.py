@@ -5,7 +5,7 @@ import time
 
 import pytest
 
-from cppload import MetricsCollector, TokenBucket
+from volley import MetricsCollector, TokenBucket
 
 
 class TestMetricsCollector:

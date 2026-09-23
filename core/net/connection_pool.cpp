@@ -1,4 +1,4 @@
-// @author ssrjkk | cppload
+// @author ssrjkk | volley
 #include "cppload/net/connection_pool.hpp"
 #include <boost/asio/ip/tcp.hpp>
 #include <mutex>

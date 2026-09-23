@@ -1,4 +1,4 @@
-# @author ssrjkk | cppload
+# @author ssrjkk | volley
 # WebSocket echo latency test: measures round-trip latency over a persistent WS connection.
 # Requires a WS echo endpoint (e.g. wss://echo.websocket.org or a local service).
 version: "1.0"

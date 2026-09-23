@@ -1,4 +1,4 @@
-// @author ssrjkk | cppload
+// @author ssrjkk | volley
 #include <gtest/gtest.h>
 #include "cppload/scenario/engine.hpp"
 #include "mock_server.hpp"
@@ -24,7 +24,7 @@ TEST(ScenarioEngineIntegrationTest, SustainsLoadOverStageDuration) {
     ASSERT_TRUE(server.start());
 
     auto config_path =
-        std::filesystem::temp_directory_path() / "cppload_engine_int.yaml";
+        std::filesystem::temp_directory_path() / "volley_engine_int.yaml";
     {
         std::ofstream f(config_path);
         f << "version: \"1.0\"\n"
@@ -88,7 +88,7 @@ TEST(ScenarioEngineIntegrationTest, EmptyLoadProfileUsesDefaultStage) {
     ASSERT_TRUE(server.start());
 
     auto config_path =
-        std::filesystem::temp_directory_path() / "cppload_engine_default_stage.yaml";
+        std::filesystem::temp_directory_path() / "volley_engine_default_stage.yaml";
     {
         std::ofstream f(config_path);
         f << "version: \"1.0\"\n"
@@ -143,7 +143,7 @@ TEST(ScenarioEngineIntegrationTest, ZeroConcurrentUsersClamped) {
     ASSERT_TRUE(server.start());
 
     auto config_path =
-        std::filesystem::temp_directory_path() / "cppload_engine_zero_users.yaml";
+        std::filesystem::temp_directory_path() / "volley_engine_zero_users.yaml";
     {
         std::ofstream f(config_path);
         f << "version: \"1.0\"\n"

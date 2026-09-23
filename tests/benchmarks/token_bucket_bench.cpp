@@ -1,4 +1,4 @@
-// @author ssrjkk | cppload
+// @author ssrjkk | volley
 #include <benchmark/benchmark.h>
 #include "cppload/core/token_bucket.hpp"
 #include <thread>

@@ -1,6 +1,6 @@
-# cppload Python SDK
+# volley Python SDK
 
-Pure-Python load-testing SDK that mirrors the `cppload-pro` C++20 core. It is
+Pure-Python load-testing SDK that mirrors the `volley` C++20 core. It is
 dependency-light (only `PyYAML`) and can be used where the native CLI cannot be
 built, or as a reference implementation for the C++ behavior.
 
@@ -16,7 +16,7 @@ Requires Python 3.10+.
 ## Quick start
 
 ```python
-from cppload import LoadTest
+from volley import LoadTest
 
 test = LoadTest("scenarios/smoke/load-test.yaml")
 test.run()                # prints result summary
@@ -35,31 +35,31 @@ sla_ok = test.validate_sla()
 | `AuthProvider`    | API key / Bearer / OAuth2 client-credentials       |
 | `VaultClient`     | HashiCorp Vault KV v2 lookups                      |
 | `Tracer`          | Minimal OpenTelemetry-style span tracer            |
-| `ScenarioEngine`  | YAML loader + CLI execution via `cppload-cli`      |
+| `ScenarioEngine`  | YAML loader + CLI execution via `volley`           |
 | `LoadTest`        | High-level orchestration                           |
 
 ## Running the CLI through the SDK
 
 ```python
-from cppload import ScenarioEngine
+from volley import ScenarioEngine
 
 engine = ScenarioEngine("scenarios/smoke/load-test.yaml")
 assert engine.load_config()
-engine.run()   # spawns cppload-cli --config ...
+engine.run()   # spawns volley --config ...
 ```
 
-The CLI is discovered at `./build/tools/cppload-cli[.exe]`, `build-release`,
+The CLI is discovered at `./build/tools/volley[.exe]`, `build-release`,
 `build-shared`, or in `PATH`.
 
 ## Development
 
 ```bash
 pytest                       # 143 tests, 100% coverage
-pytest --cov=cppload        # with coverage report
+pytest --cov=volley         # with coverage report
 pytest tests/test_integration_*.py -v  # integration tests only
-mypy --strict cppload
-black --check cppload tests
-flake8 cppload tests
+mypy --strict volley
+black --check volley tests
+flake8 volley tests
 ```
 
 ### Test Coverage
@@ -72,4 +72,4 @@ flake8 cppload tests
 ## Version
 
 Releases track the C++ core version. Current: **1.1.0** (also in
-`cppload.__version__`).
+`volley.__version__`).

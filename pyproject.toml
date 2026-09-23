@@ -3,7 +3,7 @@ requires = ["setuptools>=61.0", "pybind11>=2.11.0", "cmake>=3.20"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "cppload-pro"
+name = "volley"
 dynamic = ["version"]
 description = "Load-testing tool with a C++20 core - Python SDK"
 readme = "README.md"
@@ -13,7 +13,7 @@ dependencies = [
 ]
 license = {text = "Apache-2.0"}
 authors = [
-    {name = "cppload-pro contributors"},
+    {name = "volley contributors"},
 ]
 classifiers = [
     "Development Status :: 3 - Alpha",
@@ -37,7 +37,7 @@ version = {file = "VERSION"}
 where = ["python"]
 
 [tool.setuptools.package-dir]
-"cppload" = "python/cppload"
+"volley" = "python/volley"
 
 [tool.mypy]
 strict = true

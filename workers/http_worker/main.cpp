@@ -1,4 +1,4 @@
-// @author ssrjkk | cppload
+// @author ssrjkk | volley
 #include <boost/asio.hpp>
 #include <boost/beast/core.hpp>
 #include <iostream>
@@ -120,7 +120,7 @@ int main(int argc, char* argv[]) {
     cppload::metrics::MetricsCollector metrics;
     cppload::TokenBucket bucket(static_cast<double>(cfg.rps));
 
-    std::cout << "cppload-pro HTTP Worker\n"
+    std::cout << "volley HTTP Worker\n"
         << "Target: " << (cfg.use_tls ? "https://" : "http://")
         << cfg.target_host << ":" << cfg.target_port << cfg.target_path << "\n"
         << "Method: " << cfg.method << "\n"

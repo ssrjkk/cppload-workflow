@@ -1,24 +1,24 @@
-# @author ssrjkk | cppload
+# @author ssrjkk | volley
 find_package(pybind11 REQUIRED)
 
-pybind11_add_module(_cppload MODULE
+pybind11_add_module(_volley MODULE
     bindings.cpp
 )
 
-target_include_directories(_cppload
+target_include_directories(_volley
     PRIVATE ${CMAKE_SOURCE_DIR}/include
 )
 
-target_link_libraries(_cppload
+target_link_libraries(_volley
     PRIVATE cppload_core
 )
 
-install(TARGETS _cppload
-    DESTINATION ${CMAKE_INSTALL_LIBDIR}/cppload
+install(TARGETS _volley
+    DESTINATION ${CMAKE_INSTALL_LIBDIR}/volley
 )
 
 install(FILES
-    ${CMAKE_CURRENT_SOURCE_DIR}/cppload/__init__.py
-    ${CMAKE_CURRENT_SOURCE_DIR}/cppload/core.py
-    DESTINATION ${CMAKE_INSTALL_LIBDIR}/cppload
+    ${CMAKE_CURRENT_SOURCE_DIR}/volley/__init__.py
+    ${CMAKE_CURRENT_SOURCE_DIR}/volley/core.py
+    DESTINATION ${CMAKE_INSTALL_LIBDIR}/volley
 )

@@ -1,14 +1,14 @@
-# @author ssrjkk | cppload
+# @author ssrjkk | volley
 add_subdirectory(http_worker)
 
 find_package(gRPC QUIET)
 find_package(Protobuf QUIET)
-if(CPLOAD_BUILD_GRPC_WORKER)
+if(VOLLEY_BUILD_GRPC_WORKER)
     if(NOT gRPC_FOUND)
-        message(FATAL_ERROR "CPLOAD_BUILD_GRPC_WORKER=ON but gRPC not found")
+        message(FATAL_ERROR "VOLLEY_BUILD_GRPC_WORKER=ON but gRPC not found")
     endif()
     if(NOT Protobuf_FOUND)
-        message(FATAL_ERROR "CPLOAD_BUILD_GRPC_WORKER=ON but Protobuf not found")
+        message(FATAL_ERROR "VOLLEY_BUILD_GRPC_WORKER=ON but Protobuf not found")
     endif()
     add_subdirectory(grpc_worker)
 elseif(gRPC_FOUND AND Protobuf_FOUND)

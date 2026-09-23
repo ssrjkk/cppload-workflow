@@ -1,4 +1,4 @@
-# @author ssrjkk | cppload
+# @author ssrjkk | volley
 # GraphQL query load scenario: mixed read (query) and write (mutation) workloads.
 # Requires a GraphQL endpoint at /graphql.
 version: "1.0"

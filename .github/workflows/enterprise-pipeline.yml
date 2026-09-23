@@ -89,9 +89,9 @@ jobs:
           cmake -B build -G Ninja \
             -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_TOOLCHAIN_FILE=build-conan/conan_toolchain.cmake \
-            -DCPLOAD_BUILD_TESTS=OFF \
-            -DCPLOAD_BUILD_PYTHON=OFF \
-            -DCPLOAD_BUILD_WORKERS=OFF
+            -DVOLLEY_BUILD_TESTS=OFF \
+            -DVOLLEY_BUILD_PYTHON=OFF \
+            -DVOLLEY_BUILD_WORKERS=OFF
       
       - name: Build
         run: cmake --build build -j$(nproc)
@@ -128,9 +128,9 @@ jobs:
           cmake -B build -G Ninja \
             -DCMAKE_BUILD_TYPE=Debug \
             -DCMAKE_TOOLCHAIN_FILE=build-conan/conan_toolchain.cmake \
-            -DCPLOAD_BUILD_TESTS=ON \
-            -DCPLOAD_BUILD_BENCHMARKS=OFF \
-            -DCPLOAD_BUILD_INTEGRATION_TESTS=OFF
+            -DVOLLEY_BUILD_TESTS=ON \
+            -DVOLLEY_BUILD_BENCHMARKS=OFF \
+            -DVOLLEY_BUILD_INTEGRATION_TESTS=OFF
           cmake --build build
       
       - name: Run tests
@@ -147,10 +147,10 @@ jobs:
       - uses: actions/checkout@v7
       
       - name: Build Docker image
-        run: docker build -t cppload-pro:test -f deploy/docker/Dockerfile .
+        run: docker build -t volley:test -f deploy/docker/Dockerfile .
       
       - name: Verify image
-        run: docker images | grep cppload-pro
+        run: docker images | grep volley
 
   docs:
     name: Documentation

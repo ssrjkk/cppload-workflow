@@ -1,11 +1,11 @@
-# @author ssrjkk | cppload
-# Default values for cppload-pro
+# @author ssrjkk | volley
+# Default values for volley
 # This is a YAML-formatted file.
 
 replicaCount: 3
 
 image:
-  repository: ghcr.io/ssrjkk/cppload-pro
+  repository: ghcr.io/ssrjkk/volley
   pullPolicy: IfNotPresent
   tag: ""
 
@@ -39,7 +39,7 @@ worker:
     targetUrl: "http://target-service:8080"
     rps: 5000
     duration: "5m"
-    scenario: "/etc/cppload/scenarios/ecommerce/load-test.yaml"
+    scenario: "/etc/volley/scenarios/ecommerce/load-test.yaml"
 
 # Prometheus metrics
 metrics:
@@ -70,7 +70,7 @@ ingress:
   className: ""
   annotations: {}
   hosts:
-    - host: cppload.example.com
+    - host: volley.example.com
       paths:
         - path: /
           pathType: Prefix

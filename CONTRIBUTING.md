@@ -1,7 +1,7 @@
-<!-- @author ssrjkk | cppload -->
-# Contributing to cppload-pro
+<!-- @author ssrjkk | volley -->
+# Contributing to volley
 
-Thank you for your interest in contributing to cppload-pro!
+Thank you for your interest in contributing to volley!
 
 ## Development Setup
 
@@ -23,8 +23,8 @@ conan install . --output-folder=build --build=missing
 # Configure
 cmake -B build -G Ninja \
   -DCMAKE_BUILD_TYPE=Release \
-  -DCPLOAD_BUILD_TESTS=ON \
-  -DCPLOAD_BUILD_PYTHON=ON
+  -DVOLLEY_BUILD_TESTS=ON \
+  -DVOLLEY_BUILD_PYTHON=ON
 
 # Build
 cmake --build build

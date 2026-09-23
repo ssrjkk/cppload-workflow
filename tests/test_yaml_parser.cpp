@@ -1,4 +1,4 @@
-// @author ssrjkk | cppload
+// @author ssrjkk | volley
 #include <gtest/gtest.h>
 #include "cppload/scenario/engine.hpp"
 #include <filesystem>
@@ -30,8 +30,8 @@ class YamlParserTest : public ::testing::Test {
 protected:
     void SetUp() override {
         auto tmp = std::filesystem::temp_directory_path();
-        test_file = (tmp / "cppload_test_config.yaml").string();
-        bad_file = (tmp / "cppload_test_bad_yaml.yaml").string();
+        test_file = (tmp / "volley_test_config.yaml").string();
+        bad_file = (tmp / "volley_test_bad_yaml.yaml").string();
 
         // Create a minimal valid YAML config
         std::ofstream f(test_file);
@@ -193,13 +193,13 @@ TEST_F(YamlParserTest, SetTargetRps) {
 }
 
 TEST_F(YamlParserTest, EnvVarSubstitution) {
-    set_env_var("CPLOAD_TEST_TARGET", "http://env-target:9999");
+    set_env_var("VOLLEY_TEST_TARGET", "http://env-target:9999");
     {
         std::ofstream f(test_file);
         f << "version: \"1.0\"\n"
           << "test_id: \"unit-test\"\n"
           << "target:\n"
-          << "  base_url: \"${CPLOAD_TEST_TARGET:-http://fallback:8080}\"\n"
+          << "  base_url: \"${VOLLEY_TEST_TARGET:-http://fallback:8080}\"\n"
           << "  protocol: http1.1\n";
         f.close();
     }
@@ -207,36 +207,36 @@ TEST_F(YamlParserTest, EnvVarSubstitution) {
     ASSERT_TRUE(engine.load_config());
     EXPECT_EQ(engine.config().target.base_url, "http://env-target:9999");
 
-    set_env_var("CPLOAD_TEST_TARGET", "");
+    set_env_var("VOLLEY_TEST_TARGET", "");
     {
         std::ofstream f(test_file);
         f << "version: \"1.0\"\n"
           << "test_id: \"unit-test\"\n"
           << "target:\n"
-          << "  base_url: \"${CPLOAD_TEST_TARGET:-http://fallback:8080}\"\n"
+          << "  base_url: \"${VOLLEY_TEST_TARGET:-http://fallback:8080}\"\n"
           << "  protocol: http1.1\n";
         f.close();
     }
     cppload::scenario::ScenarioEngine fallback(test_file);
     ASSERT_TRUE(fallback.load_config());
     EXPECT_EQ(fallback.config().target.base_url, "http://fallback:8080");
-    unset_env_var("CPLOAD_TEST_TARGET");
+    unset_env_var("VOLLEY_TEST_TARGET");
 }
 
 TEST_F(YamlParserTest, MissingEnvVarWithoutDefaultFailsConfig) {
-    unset_env_var("CPLOAD_TEST_TARGET");
+    unset_env_var("VOLLEY_TEST_TARGET");
     {
         std::ofstream f(test_file);
         f << "version: \"1.0\"\n"
           << "test_id: \"unit-test\"\n"
           << "target:\n"
-          << "  base_url: \"${CPLOAD_TEST_TARGET}\"\n"
+          << "  base_url: \"${VOLLEY_TEST_TARGET}\"\n"
           << "  protocol: http1.1\n";
         f.close();
     }
     cppload::scenario::ScenarioEngine engine(test_file);
     EXPECT_FALSE(engine.load_config());
-    EXPECT_NE(engine.last_error().find("CPLOAD_TEST_TARGET"), std::string::npos);
+    EXPECT_NE(engine.last_error().find("VOLLEY_TEST_TARGET"), std::string::npos);
 }
 
 TEST_F(YamlParserTest, HugeDurationDoesNotOverflow) {

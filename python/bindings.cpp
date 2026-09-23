@@ -1,4 +1,4 @@
-// @author ssrjkk | cppload
+// @author ssrjkk | volley
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
 #include <pybind11/chrono.h>
@@ -26,8 +26,8 @@ namespace vault = cppload::vault;
 namespace otel = cppload::otel;
 namespace scenario = cppload::scenario;
 
-PYBIND11_MODULE(_cppload, m) {
-    m.doc() = "cppload-pro: Enterprise Load Testing Platform (C++ core)";
+PYBIND11_MODULE(_volley, m) {
+    m.doc() = "volley: Enterprise Load Testing Platform (C++ core)";
 
     // --- Error codes ---
     py::enum_<cppload::Err>(m, "Err")

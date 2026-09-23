@@ -1,14 +1,14 @@
-# @author ssrjkk | cppload
+# @author ssrjkk | volley
 {{ if .Values.autoscaling.enabled -}}
 apiVersion: policy/v1
 kind: PodDisruptionBudget
 metadata:
-  name: {{ include "cppload-pro.fullname" . }}
+  name: {{ include "volley.fullname" . }}
   labels:
-    {{- include "cppload-pro.labels" . | nindent 4 }}
+    {{- include "volley.labels" . | nindent 4 }}
 spec:
   minAvailable: {{ .Values.autoscaling.minReplicas | default 2 }}
   selector:
     matchLabels:
-      {{- include "cppload-pro.selectorLabels" . | nindent 6 }}
+      {{- include "volley.selectorLabels" . | nindent 6 }}
 {{- end -}}

@@ -1,16 +1,16 @@
-# @author ssrjkk | cppload
+# @author ssrjkk | volley
 {{ if .Values.metrics.serviceMonitor.enabled -}}
 apiVersion: monitoring.coreos.com/v1
 kind: ServiceMonitor
 metadata:
-  name: {{ include "cppload-pro.fullname" . }}
+  name: {{ include "volley.fullname" . }}
   namespace: {{ .Values.metrics.serviceMonitor.namespace | default .Release.Namespace }}
   labels:
-    {{- include "cppload-pro.labels" . | nindent 4 }}
+    {{- include "volley.labels" . | nindent 4 }}
 spec:
   selector:
     matchLabels:
-      {{- include "cppload-pro.selectorLabels" . | nindent 6 }}
+      {{- include "volley.selectorLabels" . | nindent 6 }}
   endpoints:
     - port: metrics
       interval: {{ .Values.metrics.serviceMonitor.interval }}

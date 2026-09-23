@@ -1,5 +1,5 @@
-# @author ssrjkk | cppload
-"""Core Python SDK for cppload-pro"""
+# @author ssrjkk | volley
+"""Core Python SDK for volley"""
 
 import os
 import yaml
@@ -54,7 +54,7 @@ class TraceConfig:
 
     endpoint: str = "http://localhost:4317"
     sample_rate: float = 1.0
-    service_name: str = "cppload-pro"
+    service_name: str = "volley"
     service_version: str = "1.1.0"
 
 
@@ -503,16 +503,16 @@ def _find_cli() -> str:
 
     exe_suffix = ".exe" if sys.platform == "win32" else ""
     paths = [
-        Path(f"./build/tools/cppload-cli{exe_suffix}"),
-        Path(f"./build-release/tools/cppload-cli{exe_suffix}"),
-        Path(f"./build-shared/tools/cppload-cli{exe_suffix}"),
-        Path(f"/usr/local/bin/cppload-cli{exe_suffix}"),
-        Path(f"/usr/bin/cppload-cli{exe_suffix}"),
+        Path(f"./build/tools/volley{exe_suffix}"),
+        Path(f"./build-release/tools/volley{exe_suffix}"),
+        Path(f"./build-shared/tools/volley{exe_suffix}"),
+        Path(f"/usr/local/bin/volley{exe_suffix}"),
+        Path(f"/usr/bin/volley{exe_suffix}"),
     ]
     for p in paths:
         if p.exists():
             return str(p)
-    return "cppload-cli"
+    return "volley"
 
 
 class ScenarioEngine:

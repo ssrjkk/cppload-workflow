@@ -1,4 +1,4 @@
-# @author ssrjkk | cppload
+# @author ssrjkk | volley
 enable_testing()
 
 find_package(GTest QUIET)
@@ -114,15 +114,15 @@ add_executable(test_cli_args test_cli_args.cpp)
 target_link_libraries(test_cli_args
     PRIVATE cppload_core cppload_gtest_main
 )
-if(TARGET cppload-cli)
+if(TARGET volley)
     target_compile_definitions(test_cli_args
-        PRIVATE CPLOAD_TEST_CLI_PATH="$<TARGET_FILE:cppload-cli>")
+        PRIVATE VOLLEY_TEST_CLI_PATH="$<TARGET_FILE:volley>")
 else()
     # No CLI target (e.g. sanitizer-only builds): fall back to the mock script.
     # Absolute paths so the test works regardless of the ctest working dir.
     find_package(Python3 COMPONENTS Interpreter REQUIRED)
     target_compile_definitions(test_cli_args
-        PRIVATE CPLOAD_TEST_CLI_PATH="${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/../tools/mock_cli.py")
+        PRIVATE VOLLEY_TEST_CLI_PATH="${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/../tools/mock_cli.py")
 endif()
 add_test(NAME CliArgsTest COMMAND test_cli_args)
 
@@ -139,11 +139,11 @@ target_link_libraries(test_term
 add_test(NAME TermColorTest COMMAND test_term)
 
 # Benchmarks (performance regression tests)
-if(CPLOAD_BUILD_BENCHMARKS)
+if(VOLLEY_BUILD_BENCHMARKS)
     add_subdirectory(benchmarks)
 endif()
 
 # Integration tests (mock server)
-if(CPLOAD_BUILD_INTEGRATION_TESTS)
+if(VOLLEY_BUILD_INTEGRATION_TESTS)
     add_subdirectory(integration)
 endif()

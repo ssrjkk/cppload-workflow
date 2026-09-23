@@ -1,8 +1,8 @@
 {
-  "title": "cppload-pro Resources",
-  "uid": "cppload-resources",
+  "title": "volley Resources",
+  "uid": "volley-resources",
   "version": 1,
-  "tags": ["cppload", "load-testing", "resources"],
+  "tags": ["volley", "load-testing", "resources"],
   "timezone": "browser",
   "editable": true,
   "refresh": "10s",
@@ -54,12 +54,12 @@
       "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
       "targets": [
         {
-          "expr": "rate(cppload_bytes_sent_total[30s])",
+          "expr": "rate(volley_bytes_sent_total[30s])",
           "legendFormat": "Sent",
           "refId": "A"
         },
         {
-          "expr": "rate(cppload_bytes_received_total[30s])",
+          "expr": "rate(volley_bytes_received_total[30s])",
           "legendFormat": "Received",
           "refId": "B"
         }
@@ -76,7 +76,7 @@
       "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
       "targets": [
         {
-          "expr": "cppload_connections_active",
+          "expr": "volley_connections_active",
           "legendFormat": "Active",
           "refId": "A"
         }
@@ -93,7 +93,7 @@
       "gridPos": { "h": 8, "w": 12, "x": 0, "y": 16 },
       "targets": [
         {
-          "expr": "cppload_threads",
+          "expr": "volley_threads",
           "legendFormat": "Threads",
           "refId": "A"
         }

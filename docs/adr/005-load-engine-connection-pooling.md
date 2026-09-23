@@ -1,4 +1,4 @@
-<!-- @author ssrjkk | cppload -->
+<!-- @author ssrjkk | volley -->
 # ADR-005: Load-Engine Connection Pooling and Peak-Concurrency Capping
 
 **Date:** 2026-09-14

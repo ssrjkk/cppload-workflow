@@ -1,7 +1,7 @@
 {{/*
 Expand the name of the chart.
 */}}
-{{- define "cppload-pro.fullname" -}}
+{{- define "volley.fullname" -}}
 {{- if .Values.fullnameOverride }}
 {{- .Values.fullnameOverride | trunc 63 | trimSuffix "-" }}
 {{- else }}
@@ -17,16 +17,16 @@ Expand the name of the chart.
 {{/*
 Create chart name and version as used by the chart label.
 */}}
-{{- define "cppload-pro.chart" -}}
+{{- define "volley.chart" -}}
 {{- printf "%s-%s" .Chart.Name .Chart.Version | replace "+" "_" | trunc 63 | trimSuffix "-" }}
 {{- end }}
 
 {{/*
 Common labels
 */}}
-{{- define "cppload-pro.labels" -}}
-helm.sh/chart: {{ include "cppload-pro.chart" . }}
-{{ include "cppload-pro.selectorLabels" . }}
+{{- define "volley.labels" -}}
+helm.sh/chart: {{ include "volley.chart" . }}
+{{ include "volley.selectorLabels" . }}
 {{- if .Chart.AppVersion }}
 app.kubernetes.io/version: {{ .Chart.AppVersion | quote }}
 {{- end }}
@@ -36,17 +36,17 @@ app.kubernetes.io/managed-by: {{ .Release.Service }}
 {{/*
 Selector labels
 */}}
-{{- define "cppload-pro.selectorLabels" -}}
-app.kubernetes.io/name: {{ include "cppload-pro.fullname" . }}
+{{- define "volley.selectorLabels" -}}
+app.kubernetes.io/name: {{ include "volley.fullname" . }}
 app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end }}
 
 {{/*
 Create the name of the service account to use
 */}}
-{{- define "cppload-pro.serviceAccountName" -}}
+{{- define "volley.serviceAccountName" -}}
 {{- if .Values.rbac.create -}}
-{{ default (include "cppload-pro.fullname" .) .Values.serviceAccount.name -}}
+{{ default (include "volley.fullname" .) .Values.serviceAccount.name -}}
 {{- else -}}
 {{ default "default" .Values.serviceAccount.name -}}
 {{- end -}}

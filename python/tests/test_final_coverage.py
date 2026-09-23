@@ -1,11 +1,11 @@
-# @author ssrjkk | cppload
+# @author ssrjkk | volley
 """Final tests for 100% coverage."""
 
 import tempfile
 import os
 from pathlib import Path
 from unittest.mock import patch
-from cppload import LoadTest
+from volley import LoadTest
 
 
 class TestFinalCoverage:
@@ -13,18 +13,18 @@ class TestFinalCoverage:
 
     def test_find_cli_with_existing_file(self):
         """Test _find_cli when CLI exists in build directory."""
-        from cppload.core import _find_cli
+        from volley.core import _find_cli
 
         # Create a temporary file to simulate CLI
         with tempfile.TemporaryDirectory() as tmpdir:
-            cli_path = Path(tmpdir) / "cppload-cli"
+            cli_path = Path(tmpdir) / "volley"
             cli_path.touch()
 
             # Patch the paths list to include our temp directory
-            with patch("cppload.core.Path") as mock_path:
+            with patch("volley.core.Path") as mock_path:
 
                 def path_side_effect(p):
-                    if "cppload-cli" in str(p) and tmpdir in str(p):
+                    if "volley" in str(p) and tmpdir in str(p):
                         return cli_path
                     return Path(p)
 
@@ -35,7 +35,7 @@ class TestFinalCoverage:
                 result = _find_cli()
                 assert isinstance(result, str)
 
-    @patch("cppload.HttpClient.request")
+    @patch("volley.HttpClient.request")
     def test_loadtest_worker_client_none(self, mock_request):
         """Test LoadTest _worker when client is None."""
         with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:

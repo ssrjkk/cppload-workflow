@@ -1,4 +1,4 @@
-# @author ssrjkk | cppload
+# @author ssrjkk | volley
 name: CI
 
 on:
@@ -51,13 +51,13 @@ jobs:
           cmake -B build -G Ninja \
             -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
-            -DCPLOAD_BUILD_TESTS=ON \
-            -DCPLOAD_BUILD_PYTHON=OFF \
-            -DCPLOAD_BUILD_WORKERS=ON \
-            -DCPLOAD_BUILD_TOOLS=ON \
-            -DCPLOAD_BUILD_BENCHMARKS=OFF \
-            -DCPLOAD_BUILD_INTEGRATION_TESTS=OFF \
-            -DCPLOAD_WARNINGS_AS_ERRORS=ON
+            -DVOLLEY_BUILD_TESTS=ON \
+            -DVOLLEY_BUILD_PYTHON=OFF \
+            -DVOLLEY_BUILD_WORKERS=ON \
+            -DVOLLEY_BUILD_TOOLS=ON \
+            -DVOLLEY_BUILD_BENCHMARKS=OFF \
+            -DVOLLEY_BUILD_INTEGRATION_TESTS=OFF \
+            -DVOLLEY_WARNINGS_AS_ERRORS=ON
 
       - name: Build
         run: |
@@ -124,13 +124,13 @@ jobs:
             -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
             -DCMAKE_CXX_FLAGS="-O0 -g --coverage -fprofile-update=atomic" \
             -DCMAKE_EXE_LINKER_FLAGS="--coverage" \
-            -DCPLOAD_BUILD_TESTS=ON \
-            -DCPLOAD_BUILD_PYTHON=OFF \
-            -DCPLOAD_BUILD_WORKERS=OFF \
-            -DCPLOAD_BUILD_TOOLS=ON \
-            -DCPLOAD_BUILD_BENCHMARKS=OFF \
-            -DCPLOAD_BUILD_INTEGRATION_TESTS=OFF \
-            -DCPLOAD_WARNINGS_AS_ERRORS=ON
+            -DVOLLEY_BUILD_TESTS=ON \
+            -DVOLLEY_BUILD_PYTHON=OFF \
+            -DVOLLEY_BUILD_WORKERS=OFF \
+            -DVOLLEY_BUILD_TOOLS=ON \
+            -DVOLLEY_BUILD_BENCHMARKS=OFF \
+            -DVOLLEY_BUILD_INTEGRATION_TESTS=OFF \
+            -DVOLLEY_WARNINGS_AS_ERRORS=ON
 
       - name: Build
         run: |
@@ -188,7 +188,7 @@ jobs:
           genhtml coverage.info --output-directory coverage-report \
             --rc branch_coverage=1 \
             --ignore-errors empty \
-            --title "cppload-pro Coverage"
+            --title "volley Coverage"
 
       - name: Upload to Codecov
         uses: codecov/codecov-action@v7
@@ -229,14 +229,14 @@ jobs:
           cmake -B build-asan -G Ninja \
             -DCMAKE_BUILD_TYPE=Debug \
             -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
-            -DCPLOAD_BUILD_TESTS=ON \
-            -DCPLOAD_BUILD_PYTHON=OFF \
-            -DCPLOAD_BUILD_WORKERS=OFF \
-            -DCPLOAD_BUILD_TOOLS=OFF \
-            -DCPLOAD_BUILD_BENCHMARKS=OFF \
-            -DCPLOAD_BUILD_INTEGRATION_TESTS=OFF \
-            -DCPLOAD_ENABLE_ASAN=ON \
-            -DCPLOAD_WARNINGS_AS_ERRORS=ON
+            -DVOLLEY_BUILD_TESTS=ON \
+            -DVOLLEY_BUILD_PYTHON=OFF \
+            -DVOLLEY_BUILD_WORKERS=OFF \
+            -DVOLLEY_BUILD_TOOLS=OFF \
+            -DVOLLEY_BUILD_BENCHMARKS=OFF \
+            -DVOLLEY_BUILD_INTEGRATION_TESTS=OFF \
+            -DVOLLEY_ENABLE_ASAN=ON \
+            -DVOLLEY_WARNINGS_AS_ERRORS=ON
 
       - name: Build
         run: |
@@ -300,14 +300,14 @@ jobs:
           cmake -B build-tsan -G Ninja \
             -DCMAKE_BUILD_TYPE=Debug \
             -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
-            -DCPLOAD_BUILD_TESTS=ON \
-            -DCPLOAD_BUILD_PYTHON=OFF \
-            -DCPLOAD_BUILD_WORKERS=OFF \
-            -DCPLOAD_BUILD_TOOLS=OFF \
-            -DCPLOAD_BUILD_BENCHMARKS=OFF \
-            -DCPLOAD_BUILD_INTEGRATION_TESTS=OFF \
-            -DCPLOAD_ENABLE_TSAN=ON \
-            -DCPLOAD_WARNINGS_AS_ERRORS=ON
+            -DVOLLEY_BUILD_TESTS=ON \
+            -DVOLLEY_BUILD_PYTHON=OFF \
+            -DVOLLEY_BUILD_WORKERS=OFF \
+            -DVOLLEY_BUILD_TOOLS=OFF \
+            -DVOLLEY_BUILD_BENCHMARKS=OFF \
+            -DVOLLEY_BUILD_INTEGRATION_TESTS=OFF \
+            -DVOLLEY_ENABLE_TSAN=ON \
+            -DVOLLEY_WARNINGS_AS_ERRORS=ON
 
       - name: Build
         run: |
@@ -372,13 +372,13 @@ jobs:
           cmake -B build-bench -G Ninja \
             -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
-            -DCPLOAD_BUILD_TESTS=ON \
-            -DCPLOAD_BUILD_PYTHON=OFF \
-            -DCPLOAD_BUILD_WORKERS=OFF \
-            -DCPLOAD_BUILD_TOOLS=OFF \
-            -DCPLOAD_BUILD_BENCHMARKS=ON \
-            -DCPLOAD_BUILD_INTEGRATION_TESTS=OFF \
-            -DCPLOAD_WARNINGS_AS_ERRORS=ON
+            -DVOLLEY_BUILD_TESTS=ON \
+            -DVOLLEY_BUILD_PYTHON=OFF \
+            -DVOLLEY_BUILD_WORKERS=OFF \
+            -DVOLLEY_BUILD_TOOLS=OFF \
+            -DVOLLEY_BUILD_BENCHMARKS=ON \
+            -DVOLLEY_BUILD_INTEGRATION_TESTS=OFF \
+            -DVOLLEY_WARNINGS_AS_ERRORS=ON
 
       - name: Build benchmarks
         run: |
@@ -491,13 +491,13 @@ jobs:
           cmake -B build-int -G Ninja \
             -DCMAKE_BUILD_TYPE=Debug \
             -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
-            -DCPLOAD_BUILD_TESTS=ON \
-            -DCPLOAD_BUILD_PYTHON=OFF \
-            -DCPLOAD_BUILD_WORKERS=OFF \
-            -DCPLOAD_BUILD_TOOLS=OFF \
-            -DCPLOAD_BUILD_BENCHMARKS=OFF \
-            -DCPLOAD_BUILD_INTEGRATION_TESTS=ON \
-            -DCPLOAD_WARNINGS_AS_ERRORS=ON
+            -DVOLLEY_BUILD_TESTS=ON \
+            -DVOLLEY_BUILD_PYTHON=OFF \
+            -DVOLLEY_BUILD_WORKERS=OFF \
+            -DVOLLEY_BUILD_TOOLS=OFF \
+            -DVOLLEY_BUILD_BENCHMARKS=OFF \
+            -DVOLLEY_BUILD_INTEGRATION_TESTS=ON \
+            -DVOLLEY_WARNINGS_AS_ERRORS=ON
 
       - name: Build integration tests
         run: |
@@ -552,15 +552,15 @@ jobs:
         run: |
           cmake -B build-smoke -G Ninja \
             -DCMAKE_BUILD_TYPE=Release \
-            -DCPLOAD_BUILD_TESTS=OFF \
-            -DCPLOAD_BUILD_PYTHON=OFF \
-            -DCPLOAD_BUILD_WORKERS=OFF \
-            -DCPLOAD_BUILD_TOOLS=ON \
-            -DCPLOAD_BUILD_BENCHMARKS=OFF \
-            -DCPLOAD_BUILD_INTEGRATION_TESTS=OFF \
-            -DCPLOAD_WARNINGS_AS_ERRORS=ON
+            -DVOLLEY_BUILD_TESTS=OFF \
+            -DVOLLEY_BUILD_PYTHON=OFF \
+            -DVOLLEY_BUILD_WORKERS=OFF \
+            -DVOLLEY_BUILD_TOOLS=ON \
+            -DVOLLEY_BUILD_BENCHMARKS=OFF \
+            -DVOLLEY_BUILD_INTEGRATION_TESTS=OFF \
+            -DVOLLEY_WARNINGS_AS_ERRORS=ON
 
-      - name: Build cppload-cli
+      - name: Build volley
         run: cmake --build build-smoke -j$(nproc)
 
       - name: Start demo services
@@ -578,7 +578,7 @@ jobs:
       - name: Run e2e smoke (orders)
         run: |
           TARGET_URL=http://127.0.0.1:8081 SMOKE_PATH=/orders \
-          ./build-smoke/tools/cppload-cli \
+          ./build-smoke/tools/volley \
             --config=scenarios/smoke/load-test.yaml \
             --rps=200 --duration=5
           rc=$?
@@ -586,12 +586,12 @@ jobs:
             echo "::error::smoke: orders service failed (exit=$rc)"
             exit 1
           fi
-          echo "Cppload CLI exit=$rc (expected 0: SLA passed)"
+          echo "Volley exit=$rc (expected 0: SLA passed)"
 
       - name: Run e2e smoke (products)
         run: |
           TARGET_URL=http://127.0.0.1:8082 SMOKE_PATH=/products \
-          ./build-smoke/tools/cppload-cli \
+          ./build-smoke/tools/volley \
             --config=scenarios/smoke/load-test.yaml \
             --rps=200 --duration=5
           rc=$?
@@ -599,7 +599,7 @@ jobs:
             echo "::error::smoke: products service failed (exit=$rc)"
             exit 1
           fi
-          echo "Cppload CLI exit=$rc (expected 0: SLA passed)"
+          echo "Volley exit=$rc (expected 0: SLA passed)"
 
   lint:
     name: Lint
@@ -665,13 +665,13 @@ jobs:
           cmake -B build-lint -G Ninja \
             -DCMAKE_EXPORT_COMPILE_COMMANDS=ON \
             -DCMAKE_BUILD_TYPE=Debug \
-            -DCPLOAD_BUILD_TESTS=ON \
-            -DCPLOAD_BUILD_PYTHON=OFF \
-            -DCPLOAD_BUILD_WORKERS=OFF \
-            -DCPLOAD_BUILD_TOOLS=OFF \
-            -DCPLOAD_BUILD_BENCHMARKS=OFF \
-            -DCPLOAD_BUILD_INTEGRATION_TESTS=OFF \
-            -DCPLOAD_WARNINGS_AS_ERRORS=ON
+            -DVOLLEY_BUILD_TESTS=ON \
+            -DVOLLEY_BUILD_PYTHON=OFF \
+            -DVOLLEY_BUILD_WORKERS=OFF \
+            -DVOLLEY_BUILD_TOOLS=OFF \
+            -DVOLLEY_BUILD_BENCHMARKS=OFF \
+            -DVOLLEY_BUILD_INTEGRATION_TESTS=OFF \
+            -DVOLLEY_WARNINGS_AS_ERRORS=ON
 
       - name: Run clang-tidy
         id: clang-tidy

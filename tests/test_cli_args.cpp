@@ -1,4 +1,4 @@
-// @author ssrjkk | cppload
+// @author ssrjkk | volley
 #include <gtest/gtest.h>
 
 #include <array>
@@ -14,8 +14,8 @@
 #include <unistd.h>
 #endif
 
-#ifdef CPLOAD_TEST_CLI_PATH
-static const char* const kCliPath = CPLOAD_TEST_CLI_PATH;
+#ifdef VOLLEY_TEST_CLI_PATH
+static const char* const kCliPath = VOLLEY_TEST_CLI_PATH;
 #else
 static const char* const kCliPath = "python3 tools/mock_cli.py";
 #endif
@@ -54,7 +54,7 @@ TEST(CliArgs, VersionExitsZero) {
         GTEST_SKIP() << "CLI executable not found";
     }
     EXPECT_EQ(rc, 0);
-    EXPECT_NE(out.find("cppload-pro"), std::string::npos);
+    EXPECT_NE(out.find("volley"), std::string::npos);
     EXPECT_NE(out.find("1.1.0"), std::string::npos);
 }
 

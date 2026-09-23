@@ -1,5 +1,5 @@
-# @author ssrjkk | cppload
-"""cppload-pro: load-testing tool with a C++20 core"""
+# @author ssrjkk | volley
+"""volley: load-testing tool with a C++20 core"""
 
 __version__ = "1.1.0"
 

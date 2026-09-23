@@ -1,4 +1,4 @@
-// @author ssrjkk | cppload
+// @author ssrjkk | volley
 #include "cppload/metrics/prometheus_exporter.hpp"
 #include "cppload/metrics/collector.hpp"
 #include "cppload/core/constants.hpp"
@@ -20,7 +20,7 @@
 #include <sys/time.h>
 #endif
 
-#ifndef CPLOAD_HAVE_PROMETHEUS
+#ifndef VOLLEY_HAVE_PROMETHEUS
 
 namespace asio = boost::asio;
 namespace beast = boost::beast;
@@ -171,13 +171,13 @@ private:
         if (ec) return;
 
         http::response<http::string_body> res{http::status::ok, req.version()};
-        res.set(http::field::server, "cppload-pro/1.0");
+        res.set(http::field::server, "volley/1.0");
         res.set(http::field::content_type,
             "text/plain; version=0.0.4; charset=utf-8");
         if (req.method() == http::verb::get && req.target() == "/metrics") {
             res.body() = metrics_text();
         } else if (req.method() == http::verb::get && req.target() == "/") {
-            res.body() = "cppload-pro prometheus exporter\n";
+            res.body() = "volley prometheus exporter\n";
         } else {
             res.result(http::status::not_found);
             res.body() = "not found\n";
@@ -192,30 +192,30 @@ private:
     std::string metrics_text() const {
         std::lock_guard<std::mutex> lock(metrics_mtx_);
         std::ostringstream oss;
-        oss << "# HELP cppload_requests_total Total number of requests\n"
-            << "# TYPE cppload_requests_total counter\n"
-            << "cppload_requests_total " << metrics_.total_requests << "\n"
-            << "# HELP cppload_requests_successful_total Total successful requests\n"
-            << "# TYPE cppload_requests_successful_total counter\n"
-            << "cppload_requests_successful_total " << metrics_.successful_requests << "\n"
-            << "# HELP cppload_requests_failed_total Total failed requests\n"
-            << "# TYPE cppload_requests_failed_total counter\n"
-            << "cppload_requests_failed_total " << metrics_.failed_requests << "\n"
-            << "# HELP cppload_error_rate Current error rate (percent)\n"
-            << "# TYPE cppload_error_rate gauge\n"
-            << "cppload_error_rate " << err_rate_ << "\n"
-            << "# HELP cppload_requests_per_second Current requests per second\n"
-            << "# TYPE cppload_requests_per_second gauge\n"
-            << "cppload_requests_per_second " << rps_ << "\n"
-            << "# HELP cppload_mean_latency_us Mean latency in microseconds\n"
-            << "# TYPE cppload_mean_latency_us gauge\n"
-            << "cppload_mean_latency_us " << metrics_.mean_latency_us << "\n"
-            << "# HELP cppload_p95_latency_us P95 latency in microseconds\n"
-            << "# TYPE cppload_p95_latency_us gauge\n"
-            << "cppload_p95_latency_us " << metrics_.p95_latency_us << "\n"
-            << "# HELP cppload_p99_latency_us P99 latency in microseconds\n"
-            << "# TYPE cppload_p99_latency_us gauge\n"
-            << "cppload_p99_latency_us " << metrics_.p99_latency_us << "\n";
+        oss << "# HELP volley_requests_total Total number of requests\n"
+            << "# TYPE volley_requests_total counter\n"
+            << "volley_requests_total " << metrics_.total_requests << "\n"
+            << "# HELP volley_requests_successful_total Total successful requests\n"
+            << "# TYPE volley_requests_successful_total counter\n"
+            << "volley_requests_successful_total " << metrics_.successful_requests << "\n"
+            << "# HELP volley_requests_failed_total Total failed requests\n"
+            << "# TYPE volley_requests_failed_total counter\n"
+            << "volley_requests_failed_total " << metrics_.failed_requests << "\n"
+            << "# HELP volley_error_rate Current error rate (percent)\n"
+            << "# TYPE volley_error_rate gauge\n"
+            << "volley_error_rate " << err_rate_ << "\n"
+            << "# HELP volley_requests_per_second Current requests per second\n"
+            << "# TYPE volley_requests_per_second gauge\n"
+            << "volley_requests_per_second " << rps_ << "\n"
+            << "# HELP volley_mean_latency_us Mean latency in microseconds\n"
+            << "# TYPE volley_mean_latency_us gauge\n"
+            << "volley_mean_latency_us " << metrics_.mean_latency_us << "\n"
+            << "# HELP volley_p95_latency_us P95 latency in microseconds\n"
+            << "# TYPE volley_p95_latency_us gauge\n"
+            << "volley_p95_latency_us " << metrics_.p95_latency_us << "\n"
+            << "# HELP volley_p99_latency_us P99 latency in microseconds\n"
+            << "# TYPE volley_p99_latency_us gauge\n"
+            << "volley_p99_latency_us " << metrics_.p99_latency_us << "\n";
         return oss.str();
     }
 

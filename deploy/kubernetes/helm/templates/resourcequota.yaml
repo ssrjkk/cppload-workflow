@@ -1,11 +1,11 @@
-# @author ssrjkk | cppload
+# @author ssrjkk | volley
 {{ if .Values.resourceQuota.enabled -}}
 apiVersion: v1
 kind: ResourceQuota
 metadata:
-  name: {{ include "cppload-pro.fullname" . }}
+  name: {{ include "volley.fullname" . }}
   labels:
-    {{- include "cppload-pro.labels" . | nindent 4 }}
+    {{- include "volley.labels" . | nindent 4 }}
 spec:
   hard:
     requests.cpu: {{ .Values.resourceQuota.requestsCpu | default "8" }}

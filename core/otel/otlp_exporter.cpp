@@ -1,4 +1,4 @@
-// @author ssrjkk | cppload
+// @author ssrjkk | volley
 #include "cppload/otel/exporter.hpp"
 #include "cppload/core/constants.hpp"
 #include "cppload/core/url_parse.hpp"
@@ -72,7 +72,7 @@ bool do_post_json(
     auto results = resolver.resolve(host, port, ec);
     if (ec) {
         std::cerr << "OTLP: resolve failed for " << host << ":" << port
-                  << " - " << ec.message() << std::endl;
+                  << " - " << ec.message() << '\n';
         return false;
     }
 
@@ -82,7 +82,7 @@ bool do_post_json(
     });
     if (ec) {
         std::cerr << "OTLP: connect failed to " << host << ":" << port
-                  << " - " << ec.message() << std::endl;
+                  << " - " << ec.message() << '\n';
         return false;
     }
 
@@ -99,7 +99,7 @@ bool do_post_json(
         http::async_write(stream, req, h);
     });
     if (ec) {
-        std::cerr << "OTLP: write failed - " << ec.message() << std::endl;
+        std::cerr << "OTLP: write failed - " << ec.message() << '\n';
         return false;
     }
 
@@ -110,12 +110,14 @@ bool do_post_json(
         http::async_read(stream, buffer, res, h);
     });
     if (ec && ec != http::error::end_of_stream) {
-        std::cerr << "OTLP: read failed - " << ec.message() << std::endl;
+        std::cerr << "OTLP: read failed - " << ec.message() << '\n';
         return false;
     }
 
     beast::error_code shutdown_ec;
-    stream.socket().shutdown(asio::ip::tcp::socket::shutdown_both, shutdown_ec);
+    auto shutdown_result = stream.socket().shutdown(asio::ip::tcp::socket::shutdown_both, shutdown_ec);
+    (void)shutdown_result;
+    (void)shutdown_ec;
     return true;
 }
 
@@ -129,9 +131,8 @@ public:
     Impl& operator=(Impl&&) = delete;
 
     explicit Impl(const TraceConfig& config)
-        : config_(config), span_active_(false)
+        : config_(config)
         , trace_id_(random_hex(32))
-        , stop_(false)
     {
         parse_endpoint();
         worker_ = std::thread([this]() { export_loop(); });
@@ -148,7 +149,7 @@ public:
         try {
             flush();
         } catch (const std::exception& e) {
-            std::cerr << "OTLP: export failed during shutdown - " << e.what() << std::endl;
+            std::cerr << "OTLP: export failed during shutdown - " << e.what() << '\n';
         }
     }
 
@@ -260,7 +261,8 @@ private:
             // Bound the buffer when the endpoint is unreachable so the load
             // path never grows memory unboundedly.
             if (completed_spans_.size() > core::kOtlpMaxBufferedSpans) {
-                const size_t excess = completed_spans_.size() - core::kOtlpMaxBufferedSpans;
+                const auto excess = static_cast<std::ptrdiff_t>(
+                    completed_spans_.size() - core::kOtlpMaxBufferedSpans);
                 completed_spans_.erase(completed_spans_.begin(),
                                        completed_spans_.begin() + excess);
             }
@@ -285,7 +287,8 @@ private:
                 if (stop_ && completed_spans_.empty()) {
                     break;
                 }
-                const size_t n = std::min(core::kOtlpBatchSize, completed_spans_.size());
+                const auto n = static_cast<std::ptrdiff_t>(
+                    std::min(core::kOtlpBatchSize, completed_spans_.size()));
                 to_export.assign(completed_spans_.begin(),
                                  completed_spans_.begin() + n);
                 completed_spans_.erase(completed_spans_.begin(),
@@ -325,7 +328,7 @@ private:
         });
 
         json scope_spans;
-        scope_spans["scope"]["name"] = "cppload-pro";
+        scope_spans["scope"]["name"] = "volley";
         scope_spans["scope"]["version"] = std::string(core::kVersion);
 
         for (const auto& span : spans_to_export) {
@@ -375,7 +378,7 @@ private:
     TraceConfig config_;
     std::string span_name_;
     std::unordered_map<std::string, std::string> attributes_;
-    bool span_active_;
+    bool span_active_{false};
     std::string trace_id_;
     std::string current_span_id_;
     std::string parent_span_id_;
@@ -387,7 +390,7 @@ private:
     std::mutex spans_mutex_;
     std::condition_variable spans_cv_;
     std::thread worker_;
-    bool stop_;
+    bool stop_{false};
 
     std::string endpoint_host_;
     std::string endpoint_port_;

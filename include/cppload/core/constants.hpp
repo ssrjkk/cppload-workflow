@@ -1,4 +1,4 @@
-// @author ssrjkk | cppload
+// @author ssrjkk | volley
 #pragma once
 
 #include <chrono>
@@ -12,7 +12,7 @@ constexpr int kHttpVersion = 11;
 
 constexpr auto kDefaultTimeout = std::chrono::milliseconds{5000};
 
-constexpr std::string_view kUserAgent = "cppload-pro/1.1.0";
+constexpr std::string_view kUserAgent = "volley/1.1.0";
 constexpr std::string_view kVersion = "1.1.0";
 
 constexpr size_t kOtlpBatchSize = 64;

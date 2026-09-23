@@ -1,8 +1,8 @@
-# @author ssrjkk | cppload
+# @author ssrjkk | volley
 """Tests for HttpClient class."""
 
 from unittest.mock import Mock, patch
-from cppload import HttpClient, HttpRequest
+from volley import HttpClient, HttpRequest
 
 
 class TestHttpClient:

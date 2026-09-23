@@ -1,4 +1,4 @@
-# @author ssrjkk | cppload
+# @author ssrjkk | volley
 # Smoke e2e scenario for the demo services (services/orders, services/products).
 # SMOKE_PATH selects the service-specific endpoint verified with an assertion:
 #   orders:   SMOKE_PATH=/orders

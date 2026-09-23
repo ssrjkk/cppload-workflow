@@ -1,16 +1,16 @@
-# @author ssrjkk | cppload
+# @author ssrjkk | volley
 {{ if .Values.autoscaling.enabled -}}
 apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
-  name: {{ include "cppload-pro.fullname" . }}
+  name: {{ include "volley.fullname" . }}
   labels:
-    {{- include "cppload-pro.labels" . | nindent 4 }}
+    {{- include "volley.labels" . | nindent 4 }}
 spec:
   scaleTargetRef:
     apiVersion: apps/v1
     kind: Deployment
-    name: {{ include "cppload-pro.fullname" . }}
+    name: {{ include "volley.fullname" . }}
   minReplicas: {{ .Values.autoscaling.minReplicas }}
   maxReplicas: {{ .Values.autoscaling.maxReplicas }}
   metrics:
@@ -33,7 +33,7 @@ spec:
     - type: Pods
       pods:
         metric:
-          name: cppload_requests_per_second
+          name: volley_requests_per_second
         target:
           type: AverageValue
           averageValue: {{ .Values.autoscaling.targetRPSPerPod | default 5000 }}

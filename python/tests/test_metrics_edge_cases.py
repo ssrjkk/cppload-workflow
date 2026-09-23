@@ -1,7 +1,7 @@
-# @author ssrjkk | cppload
+# @author ssrjkk | volley
 """Additional edge case tests for MetricsCollector."""
 
-from cppload import MetricsCollector
+from volley import MetricsCollector
 
 
 class TestMetricsCollectorEdgeCases:

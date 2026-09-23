@@ -1,16 +1,16 @@
-# @author ssrjkk | cppload
+# @author ssrjkk | volley
 """Tests for LoadTest run and worker methods."""
 
 import tempfile
 import os
 from unittest.mock import patch
-from cppload import LoadTest
+from volley import LoadTest
 
 
 class TestLoadTestRun:
     """Test LoadTest run and worker methods."""
 
-    @patch("cppload.HttpClient.request")
+    @patch("volley.HttpClient.request")
     def test_loadtest_run(self, mock_request):
         """Test LoadTest run method."""
         mock_request.return_value = {
@@ -50,7 +50,7 @@ scenarios:
         finally:
             os.unlink(config_path)
 
-    @patch("cppload.HttpClient.request")
+    @patch("volley.HttpClient.request")
     def test_loadtest_worker(self, mock_request):
         """Test LoadTest _worker method."""
         mock_request.return_value = {
@@ -89,7 +89,7 @@ scenarios:
         finally:
             os.unlink(config_path)
 
-    @patch("cppload.HttpClient.request")
+    @patch("volley.HttpClient.request")
     def test_loadtest_worker_with_rate_limit(self, mock_request):
         """Test LoadTest _worker with rate limiting."""
         mock_request.return_value = {
@@ -184,7 +184,7 @@ class TestTokenBucketRefill:
 
     def test_token_bucket_refill_cap(self):
         """Test token bucket refill caps at burst."""
-        from cppload import TokenBucket
+        from volley import TokenBucket
         import time
 
         bucket = TokenBucket(rate=10.0, burst=5.0)

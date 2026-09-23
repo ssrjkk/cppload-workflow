@@ -1,7 +1,7 @@
-# @author ssrjkk | cppload
+# @author ssrjkk | volley
 """Tests for Tracer."""
 
-from cppload import Tracer, TraceConfig
+from volley import Tracer, TraceConfig
 
 
 class TestTracer:
@@ -12,7 +12,7 @@ class TestTracer:
         tracer = Tracer()
         assert tracer.config.endpoint == "http://localhost:4317"
         assert tracer.config.sample_rate == 1.0
-        assert tracer.config.service_name == "cppload-pro"
+        assert tracer.config.service_name == "volley"
 
     def test_tracer_custom_config(self):
         """Test Tracer custom configuration."""

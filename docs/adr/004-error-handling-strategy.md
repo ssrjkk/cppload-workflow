@@ -1,4 +1,4 @@
-<!-- @author ssrjkk | cppload -->
+<!-- @author ssrjkk | volley -->
 # ADR-004: Error Handling Strategy
 
 **Date:** 2026-07-02
@@ -6,7 +6,7 @@
 
 ## Context
 
-cppload-pro operates in a distributed, network-intensive environment where failures are expected: DNS resolution failures, connection timeouts, TLS handshake errors, Vault unavailability, OAuth2 token expiry, and YAML parsing errors. We need a consistent strategy for error handling across all components.
+volley operates in a distributed, network-intensive environment where failures are expected: DNS resolution failures, connection timeouts, TLS handshake errors, Vault unavailability, OAuth2 token expiry, and YAML parsing errors. We need a consistent strategy for error handling across all components.
 
 ## Decision
 

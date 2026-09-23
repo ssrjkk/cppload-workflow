@@ -7,11 +7,11 @@ find_dependency(OpenSSL 3.0)
 find_dependency(Threads)
 find_dependency(yaml-cpp)
 
-set(cppload_HAVE_PROMETHEUS @CPLOAD_HAVE_PROMETHEUS@)
-if(cppload_HAVE_PROMETHEUS)
+set(volley_HAVE_PROMETHEUS @VOLLEY_HAVE_PROMETHEUS@)
+if(volley_HAVE_PROMETHEUS)
     find_dependency(prometheus-cpp)
 endif()
 
-include("${CMAKE_CURRENT_LIST_DIR}/cppload-targets.cmake")
+include("${CMAKE_CURRENT_LIST_DIR}/volley-targets.cmake")
 
-check_required_components(cppload)
+check_required_components(volley)

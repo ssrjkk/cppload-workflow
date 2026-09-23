@@ -1,4 +1,4 @@
-# @author ssrjkk | cppload
+# @author ssrjkk | volley
 """Integration tests for CLI with real subprocess execution"""
 
 import pytest
@@ -7,7 +7,7 @@ import os
 import yaml
 import subprocess
 from pathlib import Path
-from cppload import ScenarioEngine
+from volley import ScenarioEngine
 
 
 @pytest.fixture
@@ -166,7 +166,7 @@ def test_cli_version_command(mock_cli_path):
     )
 
     assert result.returncode == 0
-    assert "cppload-pro" in result.stdout
+    assert "volley" in result.stdout
     assert "1.1.0" in result.stdout
 
 

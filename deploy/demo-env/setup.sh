@@ -1,9 +1,9 @@
 #!/bin/bash
-# Setup script for cppload-pro demo environment
+# Setup script for volley demo environment
 
 set -e
 
-echo "Setting up cppload-pro demo environment..."
+echo "Setting up volley demo environment..."
 
 # Check Docker
 if ! command -v docker &> /dev/null; then
@@ -45,7 +45,7 @@ echo "  Prometheus:  http://localhost:9090"
 echo "  Jaeger:     http://localhost:16686"
 echo ""
 echo "To run a load test:"
-echo "  cppload-cli --target http://localhost:8080 --rps 1000 --duration 60"
+echo "  volley --target http://localhost:8080 --rps 1000 --duration 60"
 echo ""
 echo "To stop the environment:"
 echo "  docker-compose down -v"

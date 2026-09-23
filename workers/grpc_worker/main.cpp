@@ -1,4 +1,4 @@
-// @author ssrjkk | cppload
+// @author ssrjkk | volley
 #include <iostream>
 #include <string>
 #include <memory>
@@ -215,7 +215,7 @@ int main(int argc, char** argv) {
         }
     }
 
-    std::cout << "cppload-pro gRPC Worker starting...\n"
+    std::cout << "volley gRPC Worker starting...\n"
               << "Controller: " << controller_addr << "\n"
               << "Worker ID: " << worker_id << "\n"
               << "Max RPS: " << max_rps << "\n\n";
