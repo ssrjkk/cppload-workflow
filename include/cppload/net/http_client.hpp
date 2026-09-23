@@ -34,7 +34,7 @@ public:
     void set_max_body_bytes(size_t bytes) override;
     void set_keep_alive(bool keep_alive);
 
-    std::string_view name() const override { return "http1.1"; }
+    [[nodiscard]] std::string_view name() const override { return "http1.1"; }
 
 private:
     class Impl;

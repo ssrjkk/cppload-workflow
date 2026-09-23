@@ -14,8 +14,8 @@ std::atomic<size_t> ShardedMetricsCollector::s_next_shard{0};
 
 ShardedMetricsCollector::ShardedMetricsCollector()
     : num_shards_(std::min(kMaxShards,
-        std::max<size_t>(core::kMinShards, std::thread::hardware_concurrency() * 2)))
-    , shards_(std::make_unique<Shard[]>(num_shards_))
+        std::max<size_t>(core::kMinShards, static_cast<size_t>(std::thread::hardware_concurrency()) * 2)))
+    , shards_(num_shards_)
     , latency_samples_(kMaxLatencySamples)
     , rps_window_start_(std::chrono::steady_clock::now())
 {
@@ -91,7 +91,7 @@ ShardedMetrics ShardedMetricsCollector::snapshot() const {
 
     int64_t global_min = INT64_MAX;
     int64_t global_max = INT64_MIN;
-    int64_t total_latency_sum = 0;
+    uint64_t total_latency_sum = 0;
 
     for (size_t i = 0; i < ns; ++i) {
         auto& shard = shards_[i];
@@ -109,7 +109,7 @@ ShardedMetrics ShardedMetricsCollector::snapshot() const {
     }
 
     if (m.total_requests > 0) {
-        m.mean_latency_us = static_cast<double>(total_latency_sum) / m.total_requests;
+        m.mean_latency_us = static_cast<double>(total_latency_sum) / static_cast<double>(m.total_requests);
     }
     m.min_latency_us = (global_min == INT64_MAX) ? 0 : static_cast<uint64_t>(global_min);
     m.max_latency_us = (global_max == INT64_MIN) ? 0 : static_cast<uint64_t>(global_max);
@@ -121,15 +121,14 @@ ShardedMetrics ShardedMetricsCollector::snapshot() const {
             sorted.reserve(samples_count_);
             if (samples_count_ == kMaxLatencySamples) {
                 // Ring is full: oldest samples live after the head.
-                sorted.insert(sorted.end(),
-                    latency_samples_.begin() + samples_head_,
-                    latency_samples_.end());
+                auto head_it = latency_samples_.begin() + static_cast<std::ptrdiff_t>(samples_head_);
+                sorted.insert(sorted.end(), head_it, latency_samples_.end());
                 sorted.insert(sorted.end(),
                     latency_samples_.begin(),
-                    latency_samples_.begin() + samples_head_);
+                    head_it);
             } else {
                 sorted.assign(latency_samples_.begin(),
-                    latency_samples_.begin() + samples_count_);
+                    latency_samples_.begin() + static_cast<std::ptrdiff_t>(samples_count_));
             }
         }
         std::sort(sorted.begin(), sorted.end());
@@ -174,7 +173,7 @@ double ShardedMetricsCollector::error_rate() const {
         failed += shards_[i].failed.load(std::memory_order_relaxed);
     }
     if (total == 0) return 0.0;
-    return static_cast<double>(failed) / total * 100.0;
+    return static_cast<double>(failed) / static_cast<double>(total) * 100.0;
 }
 
 void ShardedMetricsCollector::reset() {

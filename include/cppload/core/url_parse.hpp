@@ -24,7 +24,7 @@ inline UrlParts parse_url(const std::string& url) {
     }
     auto default_port = p.tls ? "443" : "80";
 
-    auto path_start = url.find("/", start);
+    auto path_start = url.find('/', start);
     p.path = (path_start != std::string::npos) ? url.substr(path_start) : "/";
     auto host_port = (path_start != std::string::npos)
         ? url.substr(start, path_start - start)
@@ -47,7 +47,7 @@ inline UrlParts parse_url(const std::string& url) {
             p.port = default_port;
         }
     } else {
-        auto colon = host_port.find(":");
+        auto colon = host_port.find(':');
         if (colon != std::string::npos) {
             p.host = host_port.substr(0, colon);
             p.port = host_port.substr(colon + 1);

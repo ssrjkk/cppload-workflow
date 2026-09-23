@@ -1,6 +1,7 @@
 // @author ssrjkk | cppload
 #include <gtest/gtest.h>
 
+#include <array>
 #include <cstdio>
 #include <string>
 
@@ -29,11 +30,11 @@ int run_cli(const std::string& args, std::string& output) {
     std::string cmd = kCliPath + std::string(" ") + args + " 2>&1";
     FILE* pipe = popen(cmd.c_str(), "r"); // NOLINT(cert-env33-c)
     if (!pipe) return -999;
-    char buf[4096];
+    std::array<char, 4096> buf{};
     output.clear();
     size_t n = 0;
-    while ((n = fread(buf, 1, sizeof(buf), pipe)) > 0) { // NOLINT
-        output.append(buf, n);
+    while ((n = fread(buf.data(), 1, buf.size(), pipe)) > 0) { // NOLINT
+        output.append(buf.data(), n);
     }
     int st = pclose(pipe);
 #if defined(_WIN32)

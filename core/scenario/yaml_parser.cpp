@@ -2,6 +2,7 @@
 #include "cppload/scenario/engine.hpp"
 #include "cppload/core/constants.hpp"
 #include <yaml-cpp/yaml.h>
+#include <array>
 #include <fstream>
 #include <iostream>
 #include <sstream>
@@ -55,14 +56,14 @@ std::chrono::milliseconds parse_duration(const std::string& str) {
         case 'h': return scale_to_ms(value, 3600000.0);
         default:
             std::cerr << "Warning: unrecognized duration unit '" << unit
-                      << "' in \"" << str << "\", treating as 0s" << std::endl;
+                      << "' in \"" << str << "\", treating as 0s\n";
             return std::chrono::milliseconds{0};
     }
 }
 
 double parse_error_rate(const std::string& str) {
     auto start = str.find_first_of("0123456789");
-    auto end = str.find("%");
+    auto end = str.find('%');
     if (start != std::string::npos && end != std::string::npos) {
         try {
             return std::stod(str.substr(start, end - start));
@@ -114,7 +115,7 @@ std::chrono::milliseconds parse_latency(const std::string& str) {
         return core::kDefaultLatencyMs;
     }
     if (str.find("ms") != std::string::npos) return scale_to_ms(value, 1.0);
-    if (str.find("s") != std::string::npos) return scale_to_ms(value, 1000.0);
+    if (str.find('s') != std::string::npos) return scale_to_ms(value, 1000.0);
     return scale_to_ms(value, 1.0);
 }
 
@@ -365,7 +366,7 @@ bool check_assertion_format(const std::string& expr, std::string& err) {
     for (size_t k = i; k < j; ++k) {
         if (!std::isspace(static_cast<unsigned char>(expr[k]))) op_token.push_back(expr[k]);
     }
-    static constexpr const char* kValid[] = {"==","!=",">=","<=",">","<"};
+    static constexpr std::array<std::string_view, 6> kValid{"==","!=",">=","<=",">","<"};
     bool op_ok = false;
     for (auto v : kValid) if (op_token == v) { op_ok = true; break; }
     if (!op_ok) {

@@ -31,7 +31,7 @@ constexpr auto kDefaultLatencyMs = std::chrono::milliseconds{500};
 
 constexpr size_t kMinShards = 4;
 
-enum class ExitCode : int {
+enum class ExitCode : std::uint8_t {
     OK = 0,
     ConfigOrUsageError = 1,
     SlaFailed = 2,

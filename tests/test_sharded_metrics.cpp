@@ -128,6 +128,7 @@ TEST(ShardedMetricsCollectorTest, ConcurrentRecord) {
     constexpr int kPerThread = 10000;
 
     std::vector<std::thread> threads;
+    threads.reserve(kThreads);
     for (int t = 0; t < kThreads; ++t) {
         threads.emplace_back([&collector]() {
             for (int i = 0; i < kPerThread; ++i) {
@@ -157,6 +158,7 @@ TEST(ShardedMetricsCollectorTest, ConcurrentRecordAndSnapshot) {
     std::atomic<bool> stop{false};
 
     std::vector<std::thread> writers;
+    writers.reserve(kWriters);
     for (int t = 0; t < kWriters; ++t) {
         writers.emplace_back([&collector]() {
             for (int i = 0; i < kPerWriter; ++i) {
@@ -186,6 +188,7 @@ TEST(ShardedMetricsCollectorTest, ConcurrentRecordAndReset) {
     constexpr int kPerThread = 20000;
 
     std::vector<std::thread> writers;
+    writers.reserve(kThreads);
     for (int t = 0; t < kThreads; ++t) {
         writers.emplace_back([&collector]() {
             for (int i = 0; i < kPerThread; ++i) {

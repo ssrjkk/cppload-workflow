@@ -72,7 +72,7 @@ private:
     size_t num_shards() const { return num_shards_; }
 
     const size_t num_shards_;
-    std::unique_ptr<Shard[]> shards_;
+    std::vector<Shard> shards_;
 
     // Bounded ring buffer of raw latency samples used for exact percentile
     // estimation at snapshot() time.
