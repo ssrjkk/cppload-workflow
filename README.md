@@ -99,25 +99,25 @@ sla:
 │  CLI Tool / HTTP Worker / Python SDK                     │
 ├──────────────────────────────────────────────────────────┤
 │  Scenario Engine                                         │
-│  • YAML parser with env vars & load profiles            │
-│  • TokenBucket rate limiter (thread-safe)               │
-│  • SLA validation & step callbacks                      │
+│  • YAML parser with env vars & load profiles             │
+│  • TokenBucket rate limiter (thread-safe)                │
+│  • SLA validation & step callbacks                       │
 └────────────────────┬─────────────────────────────────────┘
                      │
 ┌────────────────────▼─────────────────────────────────────┐
-│  HTTP Client (Boost.Beast + ASIO)                       │
-│  • Async request/resolve/connect                        │
-│  • Connection pool (acquire/release, idle cleanup)      │
-│  • mTLS / TLS Context                                   │
-│  • URL encoding + CR/LF sanitization                    │
-│  • Raw TCP / WebSocket / Protocol Factory               │
+│  HTTP Client (Boost.Beast + ASIO)                        │
+│  • Async request/resolve/connect                         │
+│  • Connection pool (acquire/release, idle cleanup)       │
+│  • mTLS / TLS Context                                    │
+│  • URL encoding + CR/LF sanitization                     │
+│  • Raw TCP / WebSocket / Protocol Factory                │
 └────────────────────┬─────────────────────────────────────┘
                      │
 ┌────────────────────▼─────────────────────────────────────┐
-│  Metrics & Observability                                │
-│  • Lock-free MetricsCollector (p50/p95/p99)             │
-│  • OTLP/HTTP+JSON Exporter (thread-safe)                │
-│  • Prometheus /metrics endpoint                         │
+│  Metrics & Observability                                 │
+│  • Lock-free MetricsCollector (p50/p95/p99)              │
+│  • OTLP/HTTP+JSON Exporter (thread-safe)                 │
+│  • Prometheus /metrics endpoint                          │
 └──────────────────────────────────────────────────────────┘
 ```
 
