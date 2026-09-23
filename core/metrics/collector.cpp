@@ -15,7 +15,7 @@ namespace {
 }
 
 MetricsCollector::MetricsCollector()
-    : ring_(std::make_unique<Cell[]>(kRingCapacity))
+    : ring_(std::make_unique<Cell[]>(kRingCapacity))  // NOLINT(cppcoreguidelines-avoid-c-arrays, modernize-avoid-c-arrays)
 {
     for (size_t i = 0; i < kRingCapacity; i++) {
         ring_[i].seq.store(i, std::memory_order_relaxed);
@@ -100,7 +100,7 @@ RequestMetrics MetricsCollector::snapshot() const {
 
     auto cum_lat = cumulative_latency_us_.load(std::memory_order_relaxed);
     if (m.total_requests > 0) {
-        m.mean_latency_us = static_cast<double>(cum_lat) / m.total_requests;
+        m.mean_latency_us = static_cast<double>(cum_lat) / static_cast<double>(m.total_requests);
     }
 
     m.min_latency = std::chrono::microseconds(
@@ -115,18 +115,18 @@ RequestMetrics MetricsCollector::snapshot() const {
         // Nth_element partitions instead of fully sorting: for latency
         // histograms we only need two order statistics, and the first pass
         // also bounds the second (p95 index lies inside [0, p99_idx)).
-        auto p95_idx = static_cast<size_t>(sorted.size() * kP95);
-        auto p99_idx = static_cast<size_t>(sorted.size() * kP99);
-        p95_idx = std::min(p95_idx, sorted.size() - 1);
-        p99_idx = std::min(p99_idx, sorted.size() - 1);
+        auto p95_idx = static_cast<std::ptrdiff_t>(sorted.size() * kP95);
+        auto p99_idx = static_cast<std::ptrdiff_t>(sorted.size() * kP99);
+        p95_idx = std::min(p95_idx, static_cast<std::ptrdiff_t>(sorted.size()) - 1);
+        p99_idx = std::min(p99_idx, static_cast<std::ptrdiff_t>(sorted.size()) - 1);
         if (p99_idx > p95_idx) {
             std::nth_element(sorted.begin(), sorted.begin() + p99_idx, sorted.end());
             std::nth_element(sorted.begin(), sorted.begin() + p95_idx,
                              sorted.begin() + p99_idx);
-            m.p99_latency_us = static_cast<uint64_t>(sorted[p99_idx]);
+            m.p99_latency_us = static_cast<uint64_t>(sorted[static_cast<size_t>(p99_idx)]);
         } else {
             std::nth_element(sorted.begin(), sorted.begin() + p95_idx, sorted.end());
-            m.p99_latency_us = static_cast<uint64_t>(sorted[p95_idx]);
+            m.p99_latency_us = static_cast<uint64_t>(sorted[static_cast<size_t>(p95_idx)]);
         }
         m.p95_latency_us = static_cast<uint64_t>(sorted[p95_idx]);
     }
@@ -169,13 +169,13 @@ double MetricsCollector::requests_per_second() const {
     auto elapsed = std::chrono::duration<double>(now - start).count();
 
     if (elapsed < kMinElapsedSeconds) return 0.0;
-    return total_requests_.load(std::memory_order_relaxed) / elapsed;
+    return static_cast<double>(total_requests_.load(std::memory_order_relaxed)) / elapsed;
 }
 
 double MetricsCollector::error_rate() const {
     auto total = total_requests_.load(std::memory_order_relaxed);
     if (total == 0) return 0.0;
-    return static_cast<double>(failed_requests_.load(std::memory_order_relaxed)) / total * 100.0;
+    return static_cast<double>(failed_requests_.load(std::memory_order_relaxed)) / static_cast<double>(total) * 100.0;
 }
 
 uint64_t MetricsCollector::percentile(double p) const {
@@ -183,10 +183,10 @@ uint64_t MetricsCollector::percentile(double p) const {
 
     auto samples = collect_ring_samples();
     if (samples.empty()) return 0;
-    auto idx = static_cast<size_t>(samples.size() * p);
-    idx = std::min(idx, samples.size() - 1);
+    auto idx = static_cast<std::ptrdiff_t>(samples.size() * p);
+    idx = std::min(idx, static_cast<std::ptrdiff_t>(samples.size()) - 1);
     std::nth_element(samples.begin(), samples.begin() + idx, samples.end());
-    return static_cast<uint64_t>(samples[idx]);
+    return static_cast<uint64_t>(samples[static_cast<size_t>(idx)]);
 }
 
 void MetricsCollector::reset() {

@@ -159,7 +159,7 @@ TEST(ResultVoidTest, OrElseVoidFunctorErr) {
 
 TEST(ResultTest, MoveAndThen) {
     Result<int, Err> r = Result<int, Err>::ok(5);
-    auto result = std::move(r).and_then([](int v) -> Result<std::string, Err> {
+    auto result = r.and_then([](int v) -> Result<std::string, Err> {
         return Result<std::string, Err>::ok(std::to_string(v));
     });
     EXPECT_TRUE(result.has_value());
@@ -184,7 +184,7 @@ TEST(ResultTest, BoolConversion) {
 
 TEST(ResultTest, MoveOrElseNonVoidErr) {
     Result<int, Err> r = Result<int, Err>::err(Err::timeout);
-    auto result = std::move(r).or_else([](Err&& /*e*/) -> Result<int, Err> {
+    auto result = r.or_else([](Err&& /*e*/) -> Result<int, Err> {
         return Result<int, Err>::ok(77);
     });
     EXPECT_TRUE(result.has_value());
