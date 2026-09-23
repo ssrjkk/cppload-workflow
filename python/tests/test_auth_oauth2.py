@@ -117,9 +117,7 @@ class TestAuthProviderOAuth2:
             token_endpoint="http://auth.example.com/token",
         )
 
-        with patch(
-            "volley.core.AuthProvider._fetch_token", side_effect=Exception("Network error")
-        ):
+        with patch("volley.core.AuthProvider._fetch_token", side_effect=Exception("Network error")):
             provider = AuthProvider.__new__(AuthProvider)
             provider.config = config
             provider._current_token = ""
