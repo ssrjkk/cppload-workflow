@@ -29,19 +29,19 @@ public:
     [[nodiscard]] constexpr bool has_value() const noexcept { return storage_.index() == 0; }
     constexpr explicit operator bool() const noexcept { return has_value(); }
 
-    T& value() & { assert(has_value()); return std::get<0>(storage_); }
-    const T& value() const& { assert(has_value()); return std::get<0>(storage_); }
-    T&& value() && { assert(has_value()); return std::get<0>(std::move(storage_)); }
+    [[nodiscard]] T& value() & { assert(has_value()); return std::get<0>(storage_); }
+    [[nodiscard]] const T& value() const& { assert(has_value()); return std::get<0>(storage_); }
+    [[nodiscard]] T&& value() && { assert(has_value()); return std::get<0>(std::move(storage_)); }
 
-    E& error() & { assert(!has_value()); return std::get<1>(storage_); }
-    const E& error() const& { assert(!has_value()); return std::get<1>(storage_); }
-    E&& error() && { assert(!has_value()); return std::get<1>(std::move(storage_)); }
+    [[nodiscard]] E& error() & { assert(!has_value()); return std::get<1>(storage_); }
+    [[nodiscard]] const E& error() const& { assert(!has_value()); return std::get<1>(storage_); }
+    [[nodiscard]] E&& error() && { assert(!has_value()); return std::get<1>(std::move(storage_)); }
 
-    T value_or(const T& default_value) const& {
+    [[nodiscard]] T value_or(const T& default_value) const& {
         return has_value() ? std::get<0>(storage_) : default_value;
     }
 
-    T value_or(T&& default_value) && {
+    [[nodiscard]] T value_or(T&& default_value) && {
         return has_value() ? std::get<0>(std::move(storage_)) : std::move(default_value);
     }
 
@@ -71,29 +71,25 @@ public:
         return R::err(std::get<1>(std::move(storage_)));
     }
 
-    template <typename F,
-              typename = std::enable_if_t<!std::is_void_v<std::invoke_result_t<F, const E&>>>>
-    auto or_else(F&& f) const& -> Result {
+    template <typename F>
+    auto or_else(F&& f) const& -> Result requires (!std::is_void_v<std::invoke_result_t<F, const E&>>) {
         if (has_value()) return Result::ok(std::get<0>(storage_));
         return std::forward<F>(f)(std::get<1>(storage_));
     }
 
-    template <typename F,
-              typename = std::enable_if_t<std::is_void_v<std::invoke_result_t<F, const E&>>>>
-    void or_else(F&& f) const& {
+    template <typename F>
+    void or_else(F&& f) const& requires std::is_void_v<std::invoke_result_t<F, const E&>> {
         if (!has_value()) std::forward<F>(f)(std::get<1>(storage_));
     }
 
-    template <typename F,
-              typename = std::enable_if_t<!std::is_void_v<std::invoke_result_t<F, E&&>>>>
-    auto or_else(F&& f) && -> Result {
+    template <typename F>
+    auto or_else(F&& f) && -> Result requires (!std::is_void_v<std::invoke_result_t<F, E&&>>) {
         if (has_value()) return Result::ok(std::get<0>(std::move(storage_)));
         return std::forward<F>(f)(std::get<1>(std::move(storage_)));
     }
 
-    template <typename F,
-              typename = std::enable_if_t<std::is_void_v<std::invoke_result_t<F, E&&>>>>
-    void or_else(F&& f) && {
+    template <typename F>
+    void or_else(F&& f) && requires std::is_void_v<std::invoke_result_t<F, E&&>> {
         if (!has_value()) std::forward<F>(f)(std::get<1>(std::move(storage_)));
     }
 
@@ -142,19 +138,17 @@ public:
     [[nodiscard]] constexpr bool has_value() const noexcept { return storage_.index() == 0; }
     constexpr explicit operator bool() const noexcept { return has_value(); }
 
-    E& error() & { assert(!has_value()); return std::get<1>(storage_); }
-    const E& error() const& { assert(!has_value()); return std::get<1>(storage_); }
-    E&& error() && { assert(!has_value()); return std::get<1>(std::move(storage_)); }
+    [[nodiscard]] E& error() & { assert(!has_value()); return std::get<1>(storage_); }
+    [[nodiscard]] const E& error() const& { assert(!has_value()); return std::get<1>(storage_); }
+    [[nodiscard]] E&& error() && { assert(!has_value()); return std::get<1>(std::move(storage_)); }
 
-    template <typename F,
-              typename = std::enable_if_t<std::is_void_v<std::invoke_result_t<F, const E&>>>>
-    void or_else(F&& f) const& {
+    template <typename F>
+    void or_else(F&& f) const& requires std::is_void_v<std::invoke_result_t<F, const E&>> {
         if (!has_value()) std::forward<F>(f)(std::get<1>(storage_));
     }
 
-    template <typename F,
-              typename = std::enable_if_t<std::is_void_v<std::invoke_result_t<F, E&&>>>>
-    void or_else(F&& f) && {
+    template <typename F>
+    void or_else(F&& f) && requires std::is_void_v<std::invoke_result_t<F, E&&>> {
         if (!has_value()) std::forward<F>(f)(std::get<1>(std::move(storage_)));
     }
 
