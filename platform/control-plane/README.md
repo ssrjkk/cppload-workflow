@@ -1,21 +1,47 @@
 # volley control-plane scaffold
 
-This directory contains the first product implementation layer for `volley`: a minimal control plane that models the productized business logic needed before full distributed worker orchestration.
+This directory contains the first product implementation layer of a real product platform for `volley`.
 
-## Purpose
+## What is implemented here
 
-The goal of this scaffold is to capture the product model explicitly:
+This service models the product layer of an engineering platform rather than just a C++ execution binary.
 
-- projects
-- environments
-- scenarios
-- runs
+It currently includes:
+
+- project records
+- environment records
+- scenario definitions
+- run records
+- status updates
 - result summaries
-- baseline comparison
+- baseline comparison reports
+- Postgres-backed data persistence via `database/sql`
 
-This creates the foundation for a real platform without forcing the C++ engine to carry product responsibilities.
+The implementation is intentionally simple first, but it creates a real platform foundation without forcing the C++ engine to carry product responsibilities.
 
-## Endpoints
+## Runtime
+
+```bash
+cd platform/control-plane
+export VOLLEY_DB_DSN="postgres://postgres:postgres@localhost:5432/volley?sslmode=disable"
+go run .
+```
+
+Then:
+
+```bash
+curl http://localhost:8080/health
+curl http://localhost:8080/projects
+```
+
+### Local Postgres via Docker Compose
+
+```bash
+cd platform/control-plane
+docker compose up -d
+```
+
+## API surface
 
 ### Health
 
@@ -26,43 +52,13 @@ This creates the foundation for a real platform without forcing the C++ engine t
 - `GET /projects`
 - `POST /projects`
 
-Example payload:
-
-```json
-{
-  "name": "checkout-service",
-  "description": "API performance validation for checkout"
-}
-```
-
 ### Environments
 
 - `POST /environments`
 
-Example payload:
-
-```json
-{
-  "project_id": "proj_123",
-  "name": "staging",
-  "type": "staging"
-}
-```
-
 ### Scenarios
 
 - `POST /scenarios`
-
-Example payload:
-
-```json
-{
-  "project_id": "proj_123",
-  "name": "checkout-smoke",
-  "version": "1.0",
-  "yaml": "version: \"1.0\"\n"
-}
-```
 
 ### Runs
 
@@ -70,9 +66,30 @@ Example payload:
 - `POST /runs`
 - `GET /runs/{id}`
 - `POST /runs/status`
-- `GET /runs/compare?baseline_id={id}&current_id={id}`
+- `GET /runs/compare?baseline_id=...&current_id=...`
 
-Example run-status update:
+## Example payloads
+
+### Create project
+
+```json
+{
+  "name": "checkout-service",
+  "description": "Checkout performance validation"
+}
+```
+
+### Create run
+
+```json
+{
+  "project_id": "proj_123",
+  "environment_id": "env_456",
+  "scenario_id": "scn_789"
+}
+```
+
+### Update status with result
 
 ```json
 {
@@ -90,35 +107,20 @@ Example run-status update:
 }
 ```
 
-## Execution
+## Next implementation layer
 
-Run the scaffold locally:
-
-```bash
-cd platform/control-plane
-go run .
-```
-
-Then test it:
-
-```bash
-curl http://localhost:8080/health
-curl http://localhost:8080/projects
-```
-
-## Product significance
-
-This is the first concrete step away from “C++ tool + scripts” and toward "platform with state, comparison, and run history".
-
-The next implementation layers will be:
+The next step is to layer in:
 
 - authenticated API
-- PostgreSQL persistence
-- worker orchestration
-- dashboard and trend rendering
-- CI regression gates
+- project-level RBAC
+- worker registration and queueing
+- long-lived baseline storage
+- dashboard API and trend rendering
+- CI regression gate integration
 
-## Related docs
+This is the first real move away from a C++ tool and toward a real platform.
+
+## Related documents
 
 - [../../docs/product-roadmap.md](../../docs/product-roadmap.md)
 - [../../docs/platform-architecture.md](../../docs/platform-architecture.md)
