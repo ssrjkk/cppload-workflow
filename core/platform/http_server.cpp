@@ -16,7 +16,6 @@ namespace asio = boost::asio;
 using tcp = asio::ip::tcp;
 
 namespace cppload::platform {
-namespace {
 
 using json = nlohmann::json;
 
@@ -93,6 +92,8 @@ void to_json(json& j, const PolicyEvaluation& e) {
         {"passed", e.passed}, {"violations", e.violations}
     };
 }
+
+namespace {
 
 auto from_json_policy_rule(const json& j) -> PolicyRule {
     return PolicyRule{
