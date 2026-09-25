@@ -172,7 +172,7 @@ public:
         }
         it->second.status = status;
         it->second.finished_at = std::chrono::system_clock::now();
-        it->second.result = std::move(result);
+        it->second.result = result;
         return Result<bool, PlatformError>::ok(true);
     }
 

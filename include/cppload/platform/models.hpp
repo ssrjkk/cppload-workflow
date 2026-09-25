@@ -9,9 +9,9 @@
 
 namespace cppload::platform {
 
-enum class RunStatus { pending, running, completed, failed };
+enum class RunStatus : std::uint8_t { pending, running, completed, failed };
 
-enum class PolicySeverity { warning, error };
+enum class PolicySeverity : std::uint8_t { warning, error };
 
 struct Project {
     std::string id;

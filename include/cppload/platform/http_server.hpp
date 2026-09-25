@@ -23,6 +23,8 @@ public:
 
     HttpServer(const HttpServer&) = delete;
     HttpServer& operator=(const HttpServer&) = delete;
+    HttpServer(HttpServer&&) = delete;
+    HttpServer& operator=(HttpServer&&) = delete;
 
     void start();
     void stop();

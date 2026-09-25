@@ -195,7 +195,7 @@ void HttpServer::start() {
 void HttpServer::stop() {
     running_ = false;
     boost::system::error_code ec;
-    acceptor_.close(ec);
+    (void)acceptor_.close(ec);
     if (accept_thread_.joinable()) {
         accept_thread_.join();
     }
@@ -238,7 +238,7 @@ void HttpServer::handle_session(boost::asio::ip::tcp::socket socket) {
     res.set(http::field::server, "volley-control-plane");
     http::write(socket, res, ec);
 
-    socket.shutdown(asio::socket_base::shutdown_both, ec);
+    (void)socket.shutdown(asio::socket_base::shutdown_both, ec);
 }
 
 auto HttpServer::route(http::verb method, const std::string& path,
@@ -246,7 +246,7 @@ auto HttpServer::route(http::verb method, const std::string& path,
     if (path == "/api/v1/projects") {
         return handle_projects(method, body);
     }
-    if (path.rfind("/api/v1/projects/", 0) == 0) {
+    if (path.starts_with("/api/v1/projects/")) {
         auto rest = path.substr(17);
         auto slash = rest.find('/');
         if (slash == std::string::npos) {
