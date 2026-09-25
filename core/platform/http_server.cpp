@@ -221,11 +221,11 @@ void HttpServer::handle_session(boost::asio::ip::tcp::socket socket) {
     auto path = extract_path(std::string(req.target()));
     auto res = route(req.method(), path, std::string(req.body()));
 
-    res.keep_alive(req.keep_alive());
+    res.set(http::field::connection, "close");
     res.set(http::field::server, "volley-control-plane");
     http::write(socket, res, ec);
 
-    socket.shutdown(asio::socket_base::shutdown_send, ec);
+    socket.shutdown(asio::socket_base::shutdown_both, ec);
 }
 
 auto HttpServer::route(http::verb method, const std::string& path,
