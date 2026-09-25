@@ -172,8 +172,13 @@ HttpServer::HttpServer(std::shared_ptr<Repository> repo,
     , evaluator_(std::move(evaluator))
     , address_(std::move(address))
     , port_(port)
-    , acceptor_{ioc_, tcp::endpoint{asio::ip::make_address(address_), port_}}
+    , acceptor_{ioc_}
 {
+    auto endpoint = tcp::endpoint{asio::ip::make_address(address_), port_};
+    acceptor_.open(endpoint.protocol());
+    acceptor_.set_option(asio::socket_base::reuse_address(true));
+    acceptor_.bind(endpoint);
+    acceptor_.listen(asio::socket_base::max_listen_connections);
 }
 
 HttpServer::~HttpServer() {

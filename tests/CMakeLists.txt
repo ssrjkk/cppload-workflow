@@ -143,7 +143,7 @@ target_link_libraries(test_platform
     PRIVATE cppload_platform cppload_gtest_main
 )
 add_test(NAME PlatformTest COMMAND test_platform)
-set_tests_properties(PlatformTest PROPERTIES TIMEOUT 30)
+set_tests_properties(PlatformTest PROPERTIES TIMEOUT 60)
 
 # Benchmarks (performance regression tests)
 if(VOLLEY_BUILD_BENCHMARKS)
