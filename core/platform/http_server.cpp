@@ -195,7 +195,7 @@ void HttpServer::start() {
 void HttpServer::stop() {
     running_ = false;
     boost::system::error_code ec;
-    (void)acceptor_.close(ec);
+    [[maybe_unused]] auto close_result = acceptor_.close(ec);
     if (accept_thread_.joinable()) {
         accept_thread_.join();
     }
@@ -238,7 +238,7 @@ void HttpServer::handle_session(boost::asio::ip::tcp::socket socket) {
     res.set(http::field::server, "volley-control-plane");
     http::write(socket, res, ec);
 
-    (void)socket.shutdown(asio::socket_base::shutdown_both, ec);
+    [[maybe_unused]] auto shutdown_result = socket.shutdown(asio::socket_base::shutdown_both, ec);
 }
 
 auto HttpServer::route(http::verb method, const std::string& path,
