@@ -7,7 +7,9 @@
 #include <boost/beast/http.hpp>
 #include <boost/beast/version.hpp>
 
+#include <chrono>
 #include <iostream>
+#include <thread>
 #include <utility>
 
 namespace beast = boost::beast;
@@ -201,14 +203,20 @@ void HttpServer::stop() {
 
 void HttpServer::accept_loop() {
     while (running_) {
+        acceptor_.non_blocking(true);
         auto ec = beast::error_code{};
         auto socket = acceptor_.accept(ec);
+        if (ec == boost::asio::error::would_block) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(10));
+            continue;
+        }
         if (ec) {
             if (running_) {
                 std::cerr << "accept error: " << ec.message() << "\n";
             }
             continue;
         }
+        acceptor_.non_blocking(false);
         handle_session(std::move(socket));
     }
 }

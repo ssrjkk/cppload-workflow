@@ -198,10 +198,8 @@ TEST(PlatformPolicy, EvaluateRunWithoutResult) {
 }
 
 // --- HTTP server tests ---
-// Temporarily disabled - synchronous server implementation has timing issues in CI
-// TODO: Refactor to use async I/O or add proper connection handling
 
-TEST(PlatformHttpServer, DISABLED_HealthEndpoint) {
+TEST(PlatformHttpServer, HealthEndpoint) {
     auto repo = cppload::platform::make_in_memory_repository();
     auto evaluator = std::make_shared<cppload::platform::PolicyEvaluator>(repo);
     auto server = cppload::platform::HttpServer(repo, evaluator, "127.0.0.1", 19876);
@@ -216,7 +214,7 @@ TEST(PlatformHttpServer, DISABLED_HealthEndpoint) {
     server.stop();
 }
 
-TEST(PlatformHttpServer, DISABLED_CreateAndListProjects) {
+TEST(PlatformHttpServer, CreateAndListProjects) {
     auto repo = cppload::platform::make_in_memory_repository();
     auto evaluator = std::make_shared<cppload::platform::PolicyEvaluator>(repo);
     auto server = cppload::platform::HttpServer(repo, evaluator, "127.0.0.1", 19877);
@@ -237,7 +235,7 @@ TEST(PlatformHttpServer, DISABLED_CreateAndListProjects) {
     server.stop();
 }
 
-TEST(PlatformHttpServer, DISABLED_DeleteProject) {
+TEST(PlatformHttpServer, DeleteProject) {
     auto repo = cppload::platform::make_in_memory_repository();
     auto evaluator = std::make_shared<cppload::platform::PolicyEvaluator>(repo);
     auto server = cppload::platform::HttpServer(repo, evaluator, "127.0.0.1", 19878);
@@ -259,7 +257,7 @@ TEST(PlatformHttpServer, DISABLED_DeleteProject) {
     server.stop();
 }
 
-TEST(PlatformHttpServer, DISABLED_NotFoundRoute) {
+TEST(PlatformHttpServer, NotFoundRoute) {
     auto repo = cppload::platform::make_in_memory_repository();
     auto evaluator = std::make_shared<cppload::platform::PolicyEvaluator>(repo);
     auto server = cppload::platform::HttpServer(repo, evaluator, "127.0.0.1", 19879);
