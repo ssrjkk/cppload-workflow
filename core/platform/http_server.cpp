@@ -113,7 +113,7 @@ auto extract_path(const std::string& target) -> std::string {
 
 auto error_response(http::status status, const std::string& message) -> http::response<http::string_body> {
     auto body = json{{"error", message}}.dump();
-    auto res = http::response<http::string_body>{status, http::version()};
+    auto res = http::response<http::string_body>{status, 11};
     res.set(http::field::content_type, "application/json");
     res.body() = std::move(body);
     res.prepare_payload();
@@ -121,7 +121,7 @@ auto error_response(http::status status, const std::string& message) -> http::re
 }
 
 auto ok_response(const json& body) -> http::response<http::string_body> {
-    auto res = http::response<http::string_body>{http::status::ok, http::version()};
+    auto res = http::response<http::string_body>{http::status::ok, 11};
     res.set(http::field::content_type, "application/json");
     res.body() = body.dump();
     res.prepare_payload();
@@ -129,7 +129,7 @@ auto ok_response(const json& body) -> http::response<http::string_body> {
 }
 
 auto created_response(const json& body) -> http::response<http::string_body> {
-    auto res = http::response<http::string_body>{http::status::created, http::version()};
+    auto res = http::response<http::string_body>{http::status::created, 11};
     res.set(http::field::content_type, "application/json");
     res.body() = body.dump();
     res.prepare_payload();

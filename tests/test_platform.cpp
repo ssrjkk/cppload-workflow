@@ -27,7 +27,7 @@ auto make_request(http::verb method, const std::string& target,
     -> http::response<http::string_body> {
     auto ioc = boost::asio::io_context{};
     auto stream = tcp::iostream{asio::ip::make_address("127.0.0.1"), port};
-    auto req = http::request<http::string_body>{method, target, http::version()};
+    auto req = http::request<http::string_body>{method, target, 11};
     req.set(http::field::host, "localhost");
     if (!body.empty()) {
         req.body() = body;
