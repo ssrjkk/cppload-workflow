@@ -96,7 +96,7 @@ sla:
 
 ```text
 ┌──────────────────────────────────────────────────────────┐
-│  CLI Tool / HTTP Worker / Python SDK                     │
+│  CLI Tool / Control Plane REST API / Python SDK          │
 ├──────────────────────────────────────────────────────────┤
 │  Scenario Engine                                         │
 │  • YAML parser with env vars & load profiles             │
@@ -121,6 +121,21 @@ sla:
 └──────────────────────────────────────────────────────────┘
 ```
 
+### Control Plane
+
+A C++20 REST API server (`volley-control-plane`) for managing load test projects, scenarios, runs, and SLA policies. Built with Boost.Beast, clean architecture (Repository pattern), and in-memory storage.
+
+```text
+Endpoints:
+  GET/POST   /api/v1/projects
+  GET/DELETE /api/v1/projects/:id
+  GET/POST   /api/v1/projects/:id/scenarios
+  GET/POST   /api/v1/projects/:id/runs
+  GET/POST   /api/v1/projects/:id/policies
+  POST       /api/v1/evaluate
+  GET        /health
+```
+
 ## Features
 
 | Category | Capabilities |
@@ -130,6 +145,7 @@ sla:
 | **Observability** | OpenTelemetry OTLP/HTTP+JSON, Prometheus counters/histograms, SLA validation |
 | **Performance** | Lock-free metrics, connection pooling, TokenBucket rate limiting, async I/O |
 | **Deployment** | Docker multi-stage, Kubernetes Helm charts, Prometheus + Grafana dashboards |
+| **Control Plane** | C++20 REST API (Boost.Beast), project/scenario/run management, SLA policy evaluation |
 
 ## Tech stack
 
@@ -151,14 +167,6 @@ Every commit runs through 8 CI jobs:
 - **Integration** — Mock server, connection pool, OAuth2, Vault
 - **E2E Smoke** — Demo services + CLI, SLA validation
 - **Lint** — clang-tidy, black, flake8, mypy, YAML validation
-
-## Productization roadmap
-
-This project is already strong as a technical engine. To evolve into a production-grade platform, the next step is structured productization.
-
-See:
-- [docs/product-roadmap.md](docs/product-roadmap.md)
-- [docs/platform-architecture.md](docs/platform-architecture.md)
 
 ## Documentation
 

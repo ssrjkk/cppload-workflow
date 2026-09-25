@@ -96,7 +96,7 @@ sla:
 
 ```
 ┌──────────────────────────────────────────────────────────┐
-│  CLI Tool / HTTP Worker / Python SDK                     │
+│  CLI Tool / Control Plane REST API / Python SDK          │
 ├──────────────────────────────────────────────────────────┤
 │  Scenario Engine                                         │
 │  • YAML парсер с env vars и load profiles               │
@@ -121,6 +121,10 @@ sla:
 └──────────────────────────────────────────────────────────┘
 ```
 
+### Control Plane
+
+C++20 REST API сервер (`volley-control-plane`) для управления проектами, сценариями, запусками и SLA-политиками. Построен на Boost.Beast, чистая архитектура (Repository pattern), in-memory хранилище.
+
 ## Возможности
 
 | Категория | Функционал |
@@ -130,11 +134,12 @@ sla:
 | **Наблюдаемость** | OpenTelemetry OTLP/HTTP+JSON, Prometheus counters/histograms, SLA валидация |
 | **Производительность** | Lock-free метрики, пул соединений, TokenBucket rate limiting, async I/O |
 | **Деплой** | Docker multi-stage, Kubernetes Helm charts, Prometheus + Grafana дашборды |
+| **Control Plane** | C++20 REST API (Boost.Beast), управление проектами/сценариями/запусками, оценка SLA-политик |
 
 ## Технологический стек
 
 **Ядро:** C++20, Boost.Beast/ASIO, OpenSSL, yaml-cpp, nlohmann_json  
-**Тестирование:** GoogleTest (189 тестов, 21 suite), 100% покрытие Python SDK  
+**Тестирование:** GoogleTest (201 тест, 19 suite), 100% покрытие Python SDK  
 **CI/CD:** GitHub Actions (8 jobs), ASan/TSan, clang-tidy, codecov  
 **Инфра:** Docker, Kubernetes/Helm, Prometheus, Grafana, Jaeger  
 **SDK:** Python (pure Python, urllib-based, 143 теста)
@@ -143,7 +148,7 @@ sla:
 
 Каждый коммит проходит через 8 CI jobs:
 
-- **Build & Test** — Release сборка + 189 GTest тестов
+- **Build & Test** — Release сборка + 201 GTest тестов
 - **Coverage** — Debug + --coverage + codecov upload
 - **AddressSanitizer** — ASan + UBSan проверка памяти
 - **ThreadSanitizer** — TSan обнаружение data races

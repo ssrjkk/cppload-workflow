@@ -98,6 +98,9 @@ find_package(prometheus-cpp QUIET)
 # Core library
 add_subdirectory(core)
 
+# Platform (control plane)
+add_subdirectory(platform)
+
 # Workers (executables)
 if(VOLLEY_BUILD_WORKERS)
     add_subdirectory(workers)

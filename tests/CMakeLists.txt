@@ -138,6 +138,12 @@ target_link_libraries(test_term
 )
 add_test(NAME TermColorTest COMMAND test_term)
 
+add_executable(test_platform test_platform.cpp)
+target_link_libraries(test_platform
+    PRIVATE cppload_platform cppload_gtest_main
+)
+add_test(NAME PlatformTest COMMAND test_platform)
+
 # Benchmarks (performance regression tests)
 if(VOLLEY_BUILD_BENCHMARKS)
     add_subdirectory(benchmarks)
