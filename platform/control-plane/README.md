@@ -18,6 +18,7 @@ It currently includes:
 - Postgres-backed data persistence via `database/sql`
 - API auth using `X-API-Key`
 - worker registration and queueing
+- dashboard summary endpoint
 
 The implementation is intentionally simple first, but it creates a real platform foundation without forcing the C++ engine to carry product responsibilities.
 
@@ -35,6 +36,7 @@ Then:
 
 ```bash
 curl -H "X-API-Key: dev-local-key" http://localhost:8080/health
+curl -H "X-API-Key: dev-local-key" http://localhost:8080/dashboard
 curl -H "X-API-Key: dev-local-key" http://localhost:8080/projects
 ```
 
@@ -49,6 +51,10 @@ docker compose up -d
 ### Health
 
 - `GET /health`
+
+### Dashboard
+
+- `GET /dashboard`
 
 ### Projects
 
@@ -67,6 +73,7 @@ docker compose up -d
 
 - `GET /workers`
 - `POST /workers`
+- `POST /workers/heartbeat`
 
 ### Runs
 
@@ -80,6 +87,15 @@ docker compose up -d
 ## Example payloads
 
 ### Register a worker
+
+```json
+{
+  "id": "worker-01",
+  "name": "staging-us-east"
+}
+```
+
+### Heartbeat a worker
 
 ```json
 {

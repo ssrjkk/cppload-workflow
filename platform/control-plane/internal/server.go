@@ -7,8 +7,8 @@ import (
 
 // Server exposes the product API surface for the control plane.
 type Server struct {
-	repo          Repository
-	authConfig    AuthConfig
+	repo           Repository
+	authConfig     AuthConfig
 	workerRegistry *WorkerRegistry
 }
 
@@ -29,6 +29,63 @@ func (s *Server) Handler() http.Handler {
 			return
 		}
 		WriteJSON(w, http.StatusOK, map[string]string{"status": "ok"})
+	})
+
+	mux.HandleFunc("/dashboard", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			WriteJSON(w, http.StatusMethodNotAllowed, map[string]string{"error": "method not allowed"})
+			return
+		}
+		projects, err := s.repo.ListProjects()
+		if err != nil {
+			WriteJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+			return
+		}
+		runs, err := s.repo.ListRuns()
+		if err != nil {
+			WriteJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+			return
+		}
+		if len(runs) == 0 {
+			WriteJSON(w, http.StatusOK, map[string]any{
+				"projects": len(projects),
+				"runs":     0,
+				"workers":  len(s.workerRegistry.List()),
+				"queue":    s.workerRegistry.Queue(),
+			})
+			return
+		}
+		var failedCount int
+		var totalRPS float64
+		var totalP99 float64
+		for _, run := range runs {
+			if run.Result != nil {
+				if run.Status == "failed" || run.Result.ErrorRatePct > 0 {
+					failedCount++
+				}
+				totalRPS += run.Result.ThroughputRPS
+				totalP99 += run.Result.P99LatencyMs
+			}
+		}
+		WriteJSON(w, http.StatusOK, map[string]any{
+			"projects": len(projects),
+			"runs":     len(runs),
+			"workers":  len(s.workerRegistry.List()),
+			"queue":    s.workerRegistry.Queue(),
+			"failed_runs": failedCount,
+			"avg_rps": func() float64 {
+				if len(runs) == 0 {
+					return 0
+				}
+				return totalRPS / float64(len(runs))
+			}(),
+			"avg_p99_ms": func() float64 {
+				if len(runs) == 0 {
+					return 0
+				}
+				return totalP99 / float64(len(runs))
+			}(),
+		})
 	})
 
 	mux.HandleFunc("/projects", func(w http.ResponseWriter, r *http.Request) {
@@ -138,6 +195,32 @@ func (s *Server) Handler() http.Handler {
 		default:
 			WriteJSON(w, http.StatusMethodNotAllowed, map[string]string{"error": "method not allowed"})
 		}
+	})
+
+	mux.HandleFunc("/workers/heartbeat", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			WriteJSON(w, http.StatusMethodNotAllowed, map[string]string{"error": "method not allowed"})
+			return
+		}
+		var req struct {
+			ID   string `json:"id"`
+			Name string `json:"name"`
+		}
+		if err := ParseJSONBody(r, &req); err != nil {
+			WriteJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
+			return
+		}
+		if req.ID == "" {
+			WriteJSON(w, http.StatusBadRequest, map[string]string{"error": "worker id is required"})
+			return
+		}
+		worker := s.workerRegistry.Register(req.ID, req.Name)
+		assignedRunID, hasAssignment := s.workerRegistry.Heartbeat(req.ID)
+		WriteJSON(w, http.StatusOK, map[string]any{
+			"worker":          worker,
+			"assigned_run_id": assignedRunID,
+			"has_assignment":  hasAssignment,
+		})
 	})
 
 	mux.HandleFunc("/runs", func(w http.ResponseWriter, r *http.Request) {

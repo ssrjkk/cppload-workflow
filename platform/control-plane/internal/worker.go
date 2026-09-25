@@ -16,13 +16,18 @@ type Worker struct {
 
 // WorkerRegistry tracks known workers and queued work.
 type WorkerRegistry struct {
-	mu     sync.RWMutex
-	workers map[string]*Worker
-	queue  []string
+	mu       sync.RWMutex
+	workers  map[string]*Worker
+	queue    []string
+	assigned map[string]string
 }
 
 func NewWorkerRegistry() *WorkerRegistry {
-	return &WorkerRegistry{workers: make(map[string]*Worker), queue: make([]string, 0)}
+	return &WorkerRegistry{
+		workers:  make(map[string]*Worker),
+		queue:    make([]string, 0),
+		assigned: make(map[string]string),
+	}
 }
 
 func (r *WorkerRegistry) Register(id, name string) *Worker {
@@ -38,6 +43,27 @@ func (r *WorkerRegistry) Register(id, name string) *Worker {
 	w.Status = "online"
 	w.LastSeen = time.Now().UTC()
 	return w
+}
+
+func (r *WorkerRegistry) Heartbeat(id string) (string, bool) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	w, ok := r.workers[id]
+	if !ok {
+		return "", false
+	}
+	w.LastSeen = time.Now().UTC()
+	w.Status = "online"
+	if runID, exists := r.assigned[id]; exists {
+		return runID, true
+	}
+	if len(r.queue) == 0 {
+		return "", false
+	}
+	runID := r.queue[0]
+	r.queue = r.queue[1:]
+	r.assigned[id] = runID
+	return runID, true
 }
 
 func (r *WorkerRegistry) List() []*Worker {
@@ -84,6 +110,11 @@ func (r *WorkerRegistry) ClearQueued(runID string) {
 		}
 	}
 	r.queue = filtered
+	for workerID, assigned := range r.assigned {
+		if assigned == runID {
+			delete(r.assigned, workerID)
+		}
+	}
 }
 
 func (r *WorkerRegistry) DumpStatus() map[string]any {
