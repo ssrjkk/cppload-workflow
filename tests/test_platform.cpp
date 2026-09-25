@@ -26,7 +26,9 @@ auto make_request(http::verb method, const std::string& target,
                   const std::string& body = "", uint16_t port = 19876)
     -> http::response<http::string_body> {
     auto ioc = boost::asio::io_context{};
-    auto stream = tcp::iostream{asio::ip::make_address("127.0.0.1"), port};
+    auto socket = tcp::socket{ioc};
+    auto endpoint = tcp::endpoint{asio::ip::make_address("127.0.0.1"), port};
+    socket.connect(endpoint);
     auto req = http::request<http::string_body>{method, target, 11};
     req.set(http::field::host, "localhost");
     if (!body.empty()) {
@@ -34,10 +36,10 @@ auto make_request(http::verb method, const std::string& target,
         req.set(http::field::content_type, "application/json");
         req.prepare_payload();
     }
-    http::write(stream, req);
+    http::write(socket, req);
     auto buffer = beast::flat_buffer{};
     auto res = http::response<http::string_body>{};
-    http::read(stream, buffer, res);
+    http::read(socket, buffer, res);
     return res;
 }
 
@@ -59,8 +61,10 @@ TEST(PlatformRepository, CreateAndGetProject) {
 
 TEST(PlatformRepository, ListProjects) {
     auto repo = cppload::platform::make_in_memory_repository();
-    repo->create_project("proj-a", "");
-    repo->create_project("proj-b", "");
+    auto p1 = repo->create_project("proj-a", "");
+    ASSERT_TRUE(p1.has_value());
+    auto p2 = repo->create_project("proj-b", "");
+    ASSERT_TRUE(p2.has_value());
     auto list = repo->list_projects();
     EXPECT_EQ(list.size(), 2U);
 }
@@ -142,7 +146,8 @@ TEST(PlatformPolicy, EvaluatePassingPolicy) {
     auto run = repo->create_run(proj.value().id, "sc", "env");
     auto result = cppload::platform::RunResult{
         1000, 990, 10, 1.0, 500.0, 5.0, 15.0, 50.0};
-    repo->finish_run(run.value().id, cppload::platform::RunStatus::completed, result);
+    auto finish1 = repo->finish_run(run.value().id, cppload::platform::RunStatus::completed, result);
+    ASSERT_TRUE(finish1.has_value());
 
     auto rules = std::vector<cppload::platform::PolicyRule>{
         {"error_rate_pct", "<", 5.0},
@@ -162,7 +167,8 @@ TEST(PlatformPolicy, EvaluateFailingPolicy) {
     auto run = repo->create_run(proj.value().id, "sc", "env");
     auto result = cppload::platform::RunResult{
         1000, 800, 200, 20.0, 500.0, 5.0, 15.0, 200.0};
-    repo->finish_run(run.value().id, cppload::platform::RunStatus::completed, result);
+    auto finish2 = repo->finish_run(run.value().id, cppload::platform::RunStatus::completed, result);
+    ASSERT_TRUE(finish2.has_value());
 
     auto rules = std::vector<cppload::platform::PolicyRule>{
         {"error_rate_pct", "<", 5.0},
