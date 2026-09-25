@@ -111,7 +111,7 @@ TEST(PlatformRepository, CreateRunLifecycle) {
     ASSERT_TRUE(updated.has_value());
     EXPECT_EQ(updated.value().status, cppload::platform::RunStatus::completed);
     ASSERT_TRUE(updated.value().result.has_value());
-    EXPECT_EQ(updated.value().result->total_requests, 1000);
+    EXPECT_EQ(updated.value().result.value().total_requests, 1000);
 }
 
 TEST(PlatformRepository, FinishRunNotFound) {
