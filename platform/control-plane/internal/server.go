@@ -7,11 +7,17 @@ import (
 
 // Server exposes the product API surface for the control plane.
 type Server struct {
-	repo Repository
+	repo          Repository
+	authConfig    AuthConfig
+	workerRegistry *WorkerRegistry
 }
 
 func NewServer(repo Repository) *Server {
-	return &Server{repo: repo}
+	return &Server{
+		repo:           repo,
+		authConfig:     NewAuthConfigFromEnv(),
+		workerRegistry: NewWorkerRegistry(),
+	}
 }
 
 func (s *Server) Handler() http.Handler {
@@ -111,6 +117,29 @@ func (s *Server) Handler() http.Handler {
 		WriteJSON(w, http.StatusCreated, scenario)
 	})
 
+	mux.HandleFunc("/workers", func(w http.ResponseWriter, r *http.Request) {
+		switch r.Method {
+		case http.MethodGet:
+			WriteJSON(w, http.StatusOK, s.workerRegistry.List())
+		case http.MethodPost:
+			var req struct {
+				ID   string `json:"id"`
+				Name string `json:"name"`
+			}
+			if err := ParseJSONBody(r, &req); err != nil {
+				WriteJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
+				return
+			}
+			if req.ID == "" {
+				WriteJSON(w, http.StatusBadRequest, map[string]string{"error": "worker id is required"})
+				return
+			}
+			WriteJSON(w, http.StatusCreated, s.workerRegistry.Register(req.ID, req.Name))
+		default:
+			WriteJSON(w, http.StatusMethodNotAllowed, map[string]string{"error": "method not allowed"})
+		}
+	})
+
 	mux.HandleFunc("/runs", func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {
 		case http.MethodGet:
@@ -139,10 +168,38 @@ func (s *Server) Handler() http.Handler {
 				WriteJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
 				return
 			}
+			s.workerRegistry.Enqueue(run.ID)
 			WriteJSON(w, http.StatusCreated, run)
 		default:
 			WriteJSON(w, http.StatusMethodNotAllowed, map[string]string{"error": "method not allowed"})
 		}
+	})
+
+	mux.HandleFunc("/runs/queue", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			WriteJSON(w, http.StatusMethodNotAllowed, map[string]string{"error": "method not allowed"})
+			return
+		}
+		var req struct {
+			ProjectID     string `json:"project_id"`
+			EnvironmentID string `json:"environment_id"`
+			ScenarioID    string `json:"scenario_id"`
+		}
+		if err := ParseJSONBody(r, &req); err != nil {
+			WriteJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
+			return
+		}
+		if req.ProjectID == "" || req.EnvironmentID == "" || req.ScenarioID == "" {
+			WriteJSON(w, http.StatusBadRequest, map[string]string{"error": "project_id, environment_id and scenario_id are required"})
+			return
+		}
+		run, err := s.repo.CreateRun(req.ProjectID, req.EnvironmentID, req.ScenarioID)
+		if err != nil {
+			WriteJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+			return
+		}
+		s.workerRegistry.Enqueue(run.ID)
+		WriteJSON(w, http.StatusAccepted, map[string]string{"run_id": run.ID, "status": "queued"})
 	})
 
 	mux.HandleFunc("/runs/", func(w http.ResponseWriter, r *http.Request) {
@@ -208,7 +265,11 @@ func (s *Server) Handler() http.Handler {
 			WriteJSON(w, http.StatusNotFound, map[string]string{"error": err.Error()})
 			return
 		}
+		if req.Result != nil {
+			s.workerRegistry.ClearQueued(req.RunID)
+		}
 		WriteJSON(w, http.StatusOK, map[string]string{"status": "updated"})
 	})
-	return mux
+
+	return s.authConfig.Middleware(mux)
 }

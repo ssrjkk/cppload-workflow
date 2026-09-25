@@ -16,6 +16,8 @@ It currently includes:
 - result summaries
 - baseline comparison reports
 - Postgres-backed data persistence via `database/sql`
+- API auth using `X-API-Key`
+- worker registration and queueing
 
 The implementation is intentionally simple first, but it creates a real platform foundation without forcing the C++ engine to carry product responsibilities.
 
@@ -24,20 +26,21 @@ The implementation is intentionally simple first, but it creates a real platform
 ```bash
 cd platform/control-plane
 export VOLLEY_DB_DSN="postgres://postgres:postgres@localhost:5432/volley?sslmode=disable"
+export VOLLEY_API_KEY="dev-local-key"
+docker compose up -d
 go run .
 ```
 
 Then:
 
 ```bash
-curl http://localhost:8080/health
-curl http://localhost:8080/projects
+curl -H "X-API-Key: dev-local-key" http://localhost:8080/health
+curl -H "X-API-Key: dev-local-key" http://localhost:8080/projects
 ```
 
 ### Local Postgres via Docker Compose
 
 ```bash
-cd platform/control-plane
 docker compose up -d
 ```
 
@@ -60,26 +63,32 @@ docker compose up -d
 
 - `POST /scenarios`
 
+### Workers
+
+- `GET /workers`
+- `POST /workers`
+
 ### Runs
 
 - `GET /runs`
 - `POST /runs`
+- `POST /runs/queue`
 - `GET /runs/{id}`
 - `POST /runs/status`
 - `GET /runs/compare?baseline_id=...&current_id=...`
 
 ## Example payloads
 
-### Create project
+### Register a worker
 
 ```json
 {
-  "name": "checkout-service",
-  "description": "Checkout performance validation"
+  "id": "worker-01",
+  "name": "staging-us-east"
 }
 ```
 
-### Create run
+### Queue a run
 
 ```json
 {
@@ -111,10 +120,9 @@ docker compose up -d
 
 The next step is to layer in:
 
-- authenticated API
 - project-level RBAC
-- worker registration and queueing
-- long-lived baseline storage
+- persistent worker heartbeat and lease handling
+- run scheduler and lifecycle orchestration
 - dashboard API and trend rendering
 - CI regression gate integration
 
