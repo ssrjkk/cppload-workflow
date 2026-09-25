@@ -94,7 +94,7 @@ sla:
 
 ## Architecture
 
-```
+```text
 ┌──────────────────────────────────────────────────────────┐
 │  CLI Tool / HTTP Worker / Python SDK                     │
 ├──────────────────────────────────────────────────────────┤
@@ -103,7 +103,7 @@ sla:
 │  • TokenBucket rate limiter (thread-safe)                │
 │  • SLA validation & step callbacks                       │
 └────────────────────┬─────────────────────────────────────┘
-                     │
+                      │
 ┌────────────────────▼─────────────────────────────────────┐
 │  HTTP Client (Boost.Beast + ASIO)                        │
 │  • Async request/resolve/connect                         │
@@ -112,7 +112,7 @@ sla:
 │  • URL encoding + CR/LF sanitization                     │
 │  • Raw TCP / WebSocket / Protocol Factory                │
 └────────────────────┬─────────────────────────────────────┘
-                     │
+                      │
 ┌────────────────────▼─────────────────────────────────────┐
 │  Metrics & Observability                                 │
 │  • Lock-free MetricsCollector (p50/p95/p99)              │
@@ -134,16 +134,16 @@ sla:
 ## Tech stack
 
 **Core:** C++20, Boost.Beast/ASIO, OpenSSL, yaml-cpp, nlohmann_json  
-**Testing:** GoogleTest (189 tests, 21 suites), 100% Python SDK coverage  
-**CI/CD:** GitHub Actions (8 jobs), ASan/TSan, clang-tidy, codecov  
-**Infra:** Docker, Kubernetes/Helm, Prometheus, Grafana, Jaeger  
-**SDK:** Python (pure Python, urllib-based, 143 tests)
+**Testing:** GoogleTest, ASan/TSan, coverage, benchmark suite  
+**CI/CD:** GitHub Actions, 8 jobs  
+**Infra:** Docker, Kubernetes/Helm, Prometheus, Grafana  
+**SDK:** Python package and SDK 
 
 ## CI Pipeline
 
 Every commit runs through 8 CI jobs:
 
-- **Build & Test** — Release build + 189 GTest tests
+- **Build & Test** — Release build + unit tests
 - **Coverage** — Debug + --coverage + codecov upload
 - **AddressSanitizer** — ASan + UBSan memory safety
 - **ThreadSanitizer** — TSan data race detection
@@ -151,6 +151,14 @@ Every commit runs through 8 CI jobs:
 - **Integration** — Mock server, connection pool, OAuth2, Vault
 - **E2E Smoke** — Demo services + CLI, SLA validation
 - **Lint** — clang-tidy, black, flake8, mypy, YAML validation
+
+## Productization roadmap
+
+This project is already strong as a technical engine. To evolve into a production-grade platform, the next step is structured productization.
+
+See:
+- [docs/product-roadmap.md](docs/product-roadmap.md)
+- [docs/platform-architecture.md](docs/platform-architecture.md)
 
 ## Documentation
 
