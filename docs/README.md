@@ -7,7 +7,8 @@ Load-testing tool for HTTP services. C++20 core (Boost.Beast/ASIO).
 
 ### Components
 
-- **Core Engine** (`core/`) — Async HTTP/gRPC with Boost.Beast/ASIO
+- **Core Engine** (`core/`) — Async HTTP with Boost.Beast/ASIO
+- **Platform** (`core/platform/`) — REST API control plane (projects, scenarios, runs, policies)
 - **Metrics** (`core/metrics/`) — Lock-free metrics collection
 - **OTEL** (`core/otel/`) — OpenTelemetry distributed tracing
 - **Security** (`core/security/`) — Auth providers (OAuth2, mTLS)

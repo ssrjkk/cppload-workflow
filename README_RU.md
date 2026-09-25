@@ -125,6 +125,17 @@ sla:
 
 C++20 REST API сервер (`volley-control-plane`) для управления проектами, сценариями, запусками и SLA-политиками. Построен на Boost.Beast, чистая архитектура (Repository pattern), in-memory хранилище.
 
+```text
+Endpoints:
+  GET/POST   /api/v1/projects
+  GET/DELETE /api/v1/projects/:id
+  GET/POST   /api/v1/projects/:id/scenarios
+  GET/POST   /api/v1/projects/:id/runs
+  GET/POST   /api/v1/projects/:id/policies
+  POST       /api/v1/evaluate
+  GET        /health
+```
+
 ## Возможности
 
 | Категория | Функционал |
