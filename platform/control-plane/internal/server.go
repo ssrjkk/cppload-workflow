@@ -1,15 +1,18 @@
 package internal
 
 import (
+	"fmt"
 	"net/http"
 	"strings"
 )
 
 // Server exposes the product API surface for the control plane.
 type Server struct {
-	repo           Repository
-	authConfig     AuthConfig
-	workerRegistry *WorkerRegistry
+	repo            Repository
+	authConfig      AuthConfig
+	workerRegistry  *WorkerRegistry
+	projectMembers  map[string][]ProjectMember
+	policies        map[string]*RunPolicy
 }
 
 func NewServer(repo Repository) *Server {
@@ -17,7 +20,83 @@ func NewServer(repo Repository) *Server {
 		repo:           repo,
 		authConfig:     NewAuthConfigFromEnv(),
 		workerRegistry: NewWorkerRegistry(),
+		projectMembers: make(map[string][]ProjectMember),
+		policies:       make(map[string]*RunPolicy),
 	}
+}
+
+func (s *Server) addMember(projectID, userID, role string) ProjectMember {
+	member := ProjectMember{
+		ProjectID: projectID,
+		UserID:    userID,
+		Role:      role,
+		CreatedAt: time.Now().UTC(),
+	}
+	if s.projectMembers == nil {
+		s.projectMembers = make(map[string][]ProjectMember)
+	}
+	s.projectMembers[projectID] = append(s.projectMembers[projectID], member)
+	return member
+}
+
+func (s *Server) listMembers(projectID string) []ProjectMember {
+	if s.projectMembers == nil {
+		return nil
+	}
+	return s.projectMembers[projectID]
+}
+
+func (s *Server) addPolicy(projectID, name string, maxErrorRate float64, maxP99 float64) *RunPolicy {
+	p := &RunPolicy{
+		ID:              newPolicyID(),
+		ProjectID:       projectID,
+		Name:            name,
+		MaxErrorRatePct: maxErrorRate,
+		MaxP99LatencyMs: maxP99,
+		Enabled:         true,
+		CreatedAt:       time.Now().UTC(),
+	}
+	if s.policies == nil {
+		s.policies = make(map[string]*RunPolicy)
+	}
+	s.policies[p.ID] = p
+	return p
+}
+
+func (s *Server) listPolicies(projectID string) []*RunPolicy {
+	if s.policies == nil {
+		return nil
+	}
+	out := make([]*RunPolicy, 0)
+	for _, p := range s.policies {
+		if p.ProjectID == projectID {
+			copy := *p
+			out = append(out, &copy)
+		}
+	}
+	return out
+}
+
+func (s *Server) evaluatePolicy(projectID string, result *ResultSummary) (bool, string) {
+	if result == nil {
+		return false, "missing result payload"
+	}
+	policies := s.listPolicies(projectID)
+	if len(policies) == 0 {
+		return true, "no policy defined"
+	}
+	for _, policy := range policies {
+		if !policy.Enabled {
+			continue
+		}
+		if result.ErrorRatePct > policy.MaxErrorRatePct {
+			return false, fmt.Sprintf("error rate %.2f%% exceeds policy %.2f%%", result.ErrorRatePct, policy.MaxErrorRatePct)
+		}
+		if result.P99LatencyMs > policy.MaxP99LatencyMs {
+			return false, fmt.Sprintf("p99 latency %.2fms exceeds policy %.2fms", result.P99LatencyMs, policy.MaxP99LatencyMs)
+		}
+	}
+	return true, "policy satisfied"
 }
 
 func (s *Server) Handler() http.Handler {
@@ -116,6 +195,63 @@ func (s *Server) Handler() http.Handler {
 				return
 			}
 			WriteJSON(w, http.StatusCreated, project)
+		default:
+			WriteJSON(w, http.StatusMethodNotAllowed, map[string]string{"error": "method not allowed"})
+		}
+	})
+
+	mux.HandleFunc("/projects/", func(w http.ResponseWriter, r *http.Request) {
+		if !strings.HasSuffix(r.URL.Path, "/members") {
+			WriteJSON(w, http.StatusNotFound, map[string]string{"error": "not found"})
+			return
+		}
+		if r.Method != http.MethodPost {
+			WriteJSON(w, http.StatusMethodNotAllowed, map[string]string{"error": "method not allowed"})
+			return
+		}
+		projectID := strings.TrimSuffix(strings.TrimPrefix(r.URL.Path, "/projects/"), "/members")
+		if projectID == "" {
+			WriteJSON(w, http.StatusBadRequest, map[string]string{"error": "project_id is required"})
+			return
+		}
+		var req struct {
+			UserID string `json:"user_id"`
+			Role   string `json:"role"`
+		}
+		if err := ParseJSONBody(r, &req); err != nil {
+			WriteJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
+			return
+		}
+		if !ValidateName(req.UserID) || !ValidateName(req.Role) {
+			WriteJSON(w, http.StatusBadRequest, map[string]string{"error": "user_id and role are required"})
+			return
+		}
+		member := s.addMember(projectID, req.UserID, req.Role)
+		WriteJSON(w, http.StatusCreated, member)
+	})
+
+	mux.HandleFunc("/policies", func(w http.ResponseWriter, r *http.Request) {
+		switch r.Method {
+		case http.MethodGet:
+			projectID := r.URL.Query().Get("project_id")
+			WriteJSON(w, http.StatusOK, s.listPolicies(projectID))
+		case http.MethodPost:
+			var req struct {
+				ProjectID       string  `json:"project_id"`
+				Name            string  `json:"name"`
+				MaxErrorRatePct float64 `json:"max_error_rate_pct"`
+				MaxP99LatencyMs float64 `json:"max_p99_latency_ms"`
+			}
+			if err := ParseJSONBody(r, &req); err != nil {
+				WriteJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
+				return
+			}
+			if !ValidateName(req.ProjectID) || !ValidateName(req.Name) {
+				WriteJSON(w, http.StatusBadRequest, map[string]string{"error": "project_id and name are required"})
+				return
+			}
+			policy := s.addPolicy(req.ProjectID, req.Name, req.MaxErrorRatePct, req.MaxP99LatencyMs)
+			WriteJSON(w, http.StatusCreated, policy)
 		default:
 			WriteJSON(w, http.StatusMethodNotAllowed, map[string]string{"error": "method not allowed"})
 		}
@@ -285,6 +421,32 @@ func (s *Server) Handler() http.Handler {
 		WriteJSON(w, http.StatusAccepted, map[string]string{"run_id": run.ID, "status": "queued"})
 	})
 
+	mux.HandleFunc("/runs/evaluate", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			WriteJSON(w, http.StatusMethodNotAllowed, map[string]string{"error": "method not allowed"})
+			return
+		}
+		var req struct {
+			ProjectID string         `json:"project_id"`
+			RunID     string         `json:"run_id"`
+			Result    *ResultSummary `json:"result"`
+		}
+		if err := ParseJSONBody(r, &req); err != nil {
+			WriteJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
+			return
+		}
+		if req.ProjectID == "" || req.RunID == "" || req.Result == nil {
+			WriteJSON(w, http.StatusBadRequest, map[string]string{"error": "project_id, run_id and result are required"})
+			return
+		}
+		passed, reason := s.evaluatePolicy(req.ProjectID, req.Result)
+		WriteJSON(w, http.StatusOK, map[string]any{
+			"run_id": req.RunID,
+			"passed": passed,
+			"reason": reason,
+		})
+	})
+
 	mux.HandleFunc("/runs/", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodGet {
 			WriteJSON(w, http.StatusMethodNotAllowed, map[string]string{"error": "method not allowed"})
@@ -356,3 +518,5 @@ func (s *Server) Handler() http.Handler {
 
 	return s.authConfig.Middleware(mux)
 }
+
+// compile guard: keep this file package internal only.

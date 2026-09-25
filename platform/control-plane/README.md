@@ -17,7 +17,9 @@ It currently includes:
 - baseline comparison reports
 - Postgres-backed data persistence via `database/sql`
 - API auth using `X-API-Key`
-- worker registration and queueing
+- worker registration, heartbeats, and queueing
+- project membership mapping
+- CI-style run policy evaluation
 - dashboard summary endpoint
 
 The implementation is intentionally simple first, but it creates a real platform foundation without forcing the C++ engine to carry product responsibilities.
@@ -60,6 +62,7 @@ docker compose up -d
 
 - `GET /projects`
 - `POST /projects`
+- `POST /projects/{project_id}/members`
 
 ### Environments
 
@@ -75,27 +78,62 @@ docker compose up -d
 - `POST /workers`
 - `POST /workers/heartbeat`
 
+### Policies
+
+- `GET /policies?project_id=...`
+- `POST /policies`
+
 ### Runs
 
 - `GET /runs`
 - `POST /runs`
 - `POST /runs/queue`
+- `POST /runs/evaluate`
 - `GET /runs/{id}`
 - `POST /runs/status`
 - `GET /runs/compare?baseline_id=...&current_id=...`
 
 ## Example payloads
 
-### Register a worker
+### Add project member
 
 ```json
 {
-  "id": "worker-01",
-  "name": "staging-us-east"
+  "user_id": "alice",
+  "role": "owner"
 }
 ```
 
-### Heartbeat a worker
+### Create a gate policy
+
+```json
+{
+  "project_id": "proj_123",
+  "name": "release-gate",
+  "max_error_rate_pct": 0.5,
+  "max_p99_latency_ms": 300
+}
+```
+
+### Evaluate a run against policy
+
+```json
+{
+  "project_id": "proj_123",
+  "run_id": "run_901",
+  "result": {
+    "total_requests": 125000,
+    "successful_requests": 124680,
+    "failed_requests": 320,
+    "error_rate_pct": 0.26,
+    "throughput_rps": 4500,
+    "p95_latency_ms": 210,
+    "p99_latency_ms": 280
+  }
+}
+```
+
+### Register a worker
 
 ```json
 {
@@ -114,33 +152,15 @@ docker compose up -d
 }
 ```
 
-### Update status with result
-
-```json
-{
-  "run_id": "run_123",
-  "status": "succeeded",
-  "result": {
-    "total_requests": 120000,
-    "successful_requests": 119920,
-    "failed_requests": 80,
-    "error_rate_pct": 0.07,
-    "throughput_rps": 4200,
-    "p95_latency_ms": 180,
-    "p99_latency_ms": 260
-  }
-}
-```
-
 ## Next implementation layer
 
 The next step is to layer in:
 
-- project-level RBAC
-- persistent worker heartbeat and lease handling
-- run scheduler and lifecycle orchestration
-- dashboard API and trend rendering
-- CI regression gate integration
+- persistent project memberships in DB
+- durable policy storage in DB
+- worker lease assignment with run scheduling
+- dashboard trend rendering and historical thresholds
+- CI regression gate integration based on `runs/evaluate`
 
 This is the first real move away from a C++ tool and toward a real platform.
 
